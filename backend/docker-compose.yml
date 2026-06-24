@@ -1,0 +1,64 @@
+# PeakBridge EV 피크쉐이빙 — 로컬 개발용 Docker Compose
+# PostgreSQL(TimescaleDB) + MQTT 브로커 + API 서버
+
+services:
+  # TimescaleDB — 시계열 전력 데이터 저장
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: peakbridge-db
+    environment:
+      POSTGRES_USER: peakbridge
+      POSTGRES_PASSWORD: peakbridge
+      POSTGRES_DB: peakbridge
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U peakbridge -d peakbridge"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MQTT 브로커 — EV 충전기 / 센서 메시지
+  mqtt:
+    image: eclipse-mosquitto:2
+    container_name: peakbridge-mqtt
+    ports:
+      - "1883:1883"
+      - "9001:9001"
+    volumes:
+      - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/broker/uptime' -C 1 -W 3 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # FastAPI 백엔드
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: peakbridge-api
+    env_file:
+      - .env
+    environment:
+      DB_URL: postgresql+asyncpg://peakbridge:peakbridge@db:5432/peakbridge
+      MQTT_HOST: mqtt
+      ENVIRONMENT: development
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./app:/app/app:ro
+    command: >
+      uvicorn app.main:app
+      --host 0.0.0.0
+      --port 8000
+      --reload
+
+volumes:
+  postgres_data:
