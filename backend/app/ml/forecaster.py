@@ -32,10 +32,14 @@ class PowerForecaster:
     def __init__(self, building_id: str, model_dir: str | None = None) -> None:
         self.building_id = building_id
         self.model_dir = Path(model_dir or settings.ML_MODEL_DIR)
-        self.model_dir.mkdir(parents=True, exist_ok=True)
         self.model_path = self.model_dir / f"forecaster_{building_id}.joblib"
         self._model: Any = None
         self.threshold = settings.PEAK_THRESHOLD_A
+        # 폴더 생성 시 오류 무시
+        try:
+            self.model_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
 
     def train(self, readings: list[dict]) -> None:
         """과거 측정값으로 모델 학습."""
@@ -55,14 +59,20 @@ class PowerForecaster:
                 model.add_country_holidays(country_name="KR")
                 model.fit(df)
                 self._model = {"type": "prophet", "model": model}
-                joblib.dump(self._model, self.model_path)
+                try:
+                    joblib.dump(self._model, self.model_path)
+                except Exception:
+                    logger.warning("model_save_failed_using_memory_only", building=self.building_id)
                 logger.info("forecaster_trained_prophet", building=self.building_id)
                 return
             except Exception as exc:
                 logger.warning("prophet_train_failed", error=str(exc))
 
         self._train_fallback(df)
-        joblib.dump(self._model, self.model_path)
+        try:
+            joblib.dump(self._model, self.model_path)
+        except Exception:
+            logger.warning("model_save_failed_using_memory_only", building=self.building_id)
         logger.info("forecaster_trained_fallback", building=self.building_id)
 
     def _train_fallback(self, df: pd.DataFrame) -> None:
@@ -81,10 +91,14 @@ class PowerForecaster:
 
     def load(self) -> bool:
         """저장된 모델 로드."""
-        if not self.model_path.exists():
+        try:
+            if not self.model_path.exists():
+                return False
+            self._model = joblib.load(self.model_path)
+            return True
+        except Exception:
+            logger.warning("model_load_failed", building=self.building_id)
             return False
-        self._model = joblib.load(self.model_path)
-        return True
 
     def predict_next_hour(self) -> list[dict]:
         """향후 60분, 5분 간격 예측."""
