@@ -10,10 +10,10 @@ const navItems = [
 
 export default function Sidebar() {
   return (
-    <aside className="hidden w-56 shrink-0 border-r border-panel-border bg-panel md:flex md:flex-col">
-      <div className="border-b border-panel-border px-4 py-5">
-        <h1 className="text-lg font-bold text-white">PeakBridge</h1>
-        <p className="text-xs text-muted">EV Peak Shaving</p>
+    <aside className="hidden w-56 shrink-0 border-r border-[#334155] bg-[#1E293B] md:flex md:flex-col">
+      <div className="border-b border-[#334155] px-4 py-5">
+        <h1 className="text-lg font-bold text-[#F1F5F9]">PeakBridge</h1>
+        <p className="text-xs text-[#94A3B8]">EV Peak Shaving</p>
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {navItems.map((item) => (
@@ -24,8 +24,8 @@ export default function Sidebar() {
             className={({ isActive }) =>
               `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 isActive
-                  ? 'bg-blue-600/20 text-blue-400'
-                  : 'text-muted hover:bg-panel-border/30 hover:text-white'
+                  ? 'bg-[#3B82F6]/20 text-[#3B82F6]'
+                  : 'text-[#94A3B8] hover:bg-[#334155]/30 hover:text-[#F1F5F9]'
               }`
             }
           >

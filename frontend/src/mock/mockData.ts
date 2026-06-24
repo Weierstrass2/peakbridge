@@ -29,7 +29,7 @@ export function totalChargerCurrent(list: Charger[] = chargers): number {
   return list.reduce((sum, c) => sum + c.current, 0);
 }
 
-export const mockDashboard: DashboardData = {
+export const mockDashboardData: DashboardData = {
   grid_current,
   ess_soc,
   ess_discharge: 5.2,

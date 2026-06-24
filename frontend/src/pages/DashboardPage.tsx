@@ -13,19 +13,21 @@ export default function DashboardPage() {
 
   if (isError) {
     return (
-      <Card title="Connection Error" subtitle="Could not load dashboard data">
-        <p className="text-sm text-muted">
-          The app is still running. Check your backend connection or enable mock mode.
+      <Card title="연결 오류" subtitle="대시보드 데이터를 불러올 수 없습니다">
+        <p className="text-sm text-[#94A3B8]">
+          앱은 계속 실행 중입니다. 백엔드 연결을 확인하거나 모드 모드를 활성화하세요.
         </p>
       </Card>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* Top Metrics */}
       <TopMetrics data={dashboard} loading={isLoading} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* Energy Flow + Chart */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <RealtimeChart
             data={chartData}
@@ -36,23 +38,27 @@ export default function DashboardPage() {
         <EnergyFlowDiagram data={dashboard} loading={isLoading} />
       </div>
 
+      {/* Chargers */}
       {dashboard && <ChargerGrid chargers={dashboard.chargers} />}
 
+      {/* Forecast (if available) */}
       {dashboard?.forecast && (
-        <Card title="Peak Forecast" subtitle="Next 20 minutes">
-          <div className="flex flex-wrap gap-2">
+        <Card title="피크 예측" subtitle="다음 20분">
+          <div className="flex flex-wrap gap-3">
             {dashboard.forecast.map((point) => (
               <div
                 key={point.time}
-                className={`rounded-lg border px-3 py-2 text-center ${
+                className={`rounded-xl border px-4 py-3 text-center ${
                   point.will_exceed
-                    ? 'border-peak/30 bg-peak/10'
-                    : 'border-panel-border bg-surface'
+                    ? 'border-[#F97316]/30 bg-[#F97316]/10'
+                    : 'border-[#334155] bg-[#0F172A]'
                 }`}
               >
-                <p className="text-xs text-muted">{point.time}</p>
-                <p className={`text-sm font-bold tabular-nums ${point.will_exceed ? 'text-peak-glow' : 'text-emerald-400'}`}>
-                  {point.predicted.toFixed(1)} A
+                <p className="text-xs text-[#94A3B8]">{point.time}</p>
+                <p className={`text-lg font-bold tabular-nums mt-1 ${
+                  point.will_exceed ? 'text-[#F97316]' : 'text-[#10B981]'
+                }`}>
+                  {point.predicted.toFixed(1)}A
                 </p>
               </div>
             ))}
@@ -60,7 +66,8 @@ export default function DashboardPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* Savings + Events */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           {dashboard && (
             <SavingsCard

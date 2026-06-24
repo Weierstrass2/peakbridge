@@ -1,7 +1,7 @@
 import type { ChartPoint, DashboardData, EventLogEntry } from '../types';
 import { isMockMode } from '../config/env';
 import { apiPaths, SENSOR_DEVICE_IDS } from '../config/apiPaths';
-import { mockChartHistory, mockDashboard, mockEvents, mockFetch } from '../mock/mockData';
+import { mockChartHistory, mockDashboardData, mockEvents, mockFetch } from '../mock/mockData';
 import { api } from './api';
 import type { DashboardResponse } from './mappers';
 import { alertToEvent, mergeChartSeries } from './mappers';
@@ -9,7 +9,7 @@ import { fetchAlerts } from './reportApi';
 
 export async function fetchDashboard(): Promise<DashboardData> {
   if (isMockMode()) {
-    return mockFetch({ ...mockDashboard });
+    return mockFetch({ ...mockDashboardData });
   }
   const { data } = await api.get<DashboardResponse>(apiPaths.dashboard());
   const { chart_history: _c, events: _e, ...dashboard } = data;
@@ -19,7 +19,7 @@ export async function fetchDashboard(): Promise<DashboardData> {
 export async function fetchDashboardFull(): Promise<DashboardResponse> {
   if (isMockMode()) {
     return mockFetch({
-      ...mockDashboard,
+      ...mockDashboardData,
       chart_history: mockChartHistory,
       events: mockEvents,
     });
