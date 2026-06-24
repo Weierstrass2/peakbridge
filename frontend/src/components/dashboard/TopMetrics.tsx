@@ -7,28 +7,30 @@ interface TopMetricsProps {
   loading?: boolean;
 }
 
-function MetricCard({
+function KPICard({
   label,
   value,
   sub,
   accent = 'text-white',
   highlight,
+  isHighlight = false,
 }: {
   label: string;
   value: string;
   sub?: string;
   accent?: string;
   highlight?: boolean;
+  isHighlight?: boolean;
 }) {
   return (
     <div
-      className={`rounded-xl border bg-panel p-4 ${
-        highlight ? 'border-peak/40 shadow-[0_0_20px_rgba(249,115,22,0.08)]' : 'border-panel-border'
+      className={`rounded-xl border bg-[#1E293B] p-5 ${
+        isHighlight ? 'border-[#FBBF24]/40 shadow-[0_0_20px_rgba(251,191,36,0.15)]' : 'border-[#334155]'
       }`}
     >
-      <p className="text-xs font-medium uppercase tracking-wider text-muted">{label}</p>
-      <p className={`mt-1 text-2xl font-bold tabular-nums ${accent}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-muted">{sub}</p>}
+      <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8]">{label}</p>
+      <p className={`mt-2 text-3xl font-bold tabular-nums ${accent}`}>{value}</p>
+      {sub && <p className="mt-1 text-sm text-[#94A3B8]">{sub}</p>}
     </div>
   );
 }
@@ -36,7 +38,7 @@ function MetricCard({
 export default function TopMetrics({ data, loading }: TopMetricsProps) {
   if (loading || !data) {
     return (
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
           <MetricSkeleton key={i} />
         ))}
@@ -47,31 +49,36 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
   const activeCount = activeChargerCount(data.chargers);
 
   return (
-    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-      <MetricCard
-        label="Grid Current"
-        value={`${data.grid_current.toFixed(1)} A`}
-        sub={`Threshold ${data.peak_threshold.toFixed(1)} A`}
-        accent={data.peak_active ? 'text-peak-glow' : 'text-grid'}
-        highlight={data.peak_active}
+    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <KPICard
+        label="오늘 절감액"
+        value={`${data.today_saved_won.toLocaleString()}원`}
+        accent="text-[#FBBF24]"
+        isHighlight={true}
       />
-      <MetricCard
-        label="ESS SOC"
+      <KPICard
+        label="이번달 절감액"
+        value={`${data.month_saved_won.toLocaleString()}원`}
+        accent="text-[#F1F5F9]"
+      />
+      <KPICard
+        label="ESS 잔량"
         value={`${data.ess_soc}%`}
-        sub="Battery state of charge"
-        accent="text-ess"
-      />
-      <MetricCard
-        label="Active Chargers"
-        value={`${activeCount} / ${data.chargers.length}`}
-        sub="Currently drawing power"
-        accent="text-charger"
-      />
-      <MetricCard
-        label="Peak Reduction"
-        value={`${data.peak_reduction_pct.toFixed(1)}%`}
-        sub="Load shaved this cycle"
-        accent="text-emerald-400"
+        accent={data.ess_soc < 20 ? 'text-[#EF4444]' : 'text-[#34D399]'}
+      >
+        <div className="mt-2 w-full bg-[#334155] rounded-full h-2">
+          <div
+            className={`h-2 rounded-full transition-all duration-500 ${
+              data.ess_soc < 20 ? 'bg-[#EF4444]' : 'bg-[#34D399]'
+            }`}
+            style={{ width: `${data.ess_soc}%` }}
+          />
+        </div>
+      </KPICard>
+      <KPICard
+        label="CO2 절감"
+        value={`${data.co2_reduced_kg}kg`}
+        accent="text-[#34D399]"
       />
     </div>
   );

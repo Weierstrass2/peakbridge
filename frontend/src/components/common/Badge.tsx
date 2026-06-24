@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-type BadgeVariant = 'default' | 'peak' | 'success' | 'warning' | 'info';
+type BadgeVariant = 'default' | 'peak' | 'success' | 'warning' | 'info' | 'danger';
 
 interface BadgeProps {
   variant?: BadgeVariant;
@@ -9,19 +9,20 @@ interface BadgeProps {
 }
 
 const styles: Record<BadgeVariant, string> = {
-  default: 'border-panel-border bg-panel text-muted',
-  peak: 'border-peak/40 bg-peak/10 text-peak-glow shadow-[0_0_12px_rgba(249,115,22,0.25)]',
-  success: 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
-  warning: 'border-amber-500/30 bg-amber-500/10 text-amber-400',
-  info: 'border-blue-500/30 bg-blue-500/10 text-blue-400',
+  default: 'border-[#334155] bg-[#1E293B] text-[#94A3B8]',
+  peak: 'border-[#F97316]/40 bg-[#F97316]/10 text-[#F97316]',
+  success: 'border-[#10B981]/40 bg-[#10B981]/10 text-[#10B981]',
+  warning: 'border-[#FBBF24]/40 bg-[#FBBF24]/10 text-[#FBBF24]',
+  info: 'border-[#3B82F6]/40 bg-[#3B82F6]/10 text-[#3B82F6]',
+  danger: 'border-[#EF4444]/40 bg-[#EF4444]/10 text-[#EF4444]',
 };
 
 export default function Badge({ variant = 'default', pulse, children }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${styles[variant]}`}
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${styles[variant]}`}
     >
-      {pulse && <span className="animate-pulse-dot h-2 w-2 rounded-full bg-peak" />}
+      {pulse && <span className="animate-pulse-dot h-2 w-2 rounded-full bg-[#F97316]" />}
       {children}
     </span>
   );
