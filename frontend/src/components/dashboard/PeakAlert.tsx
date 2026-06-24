@@ -125,7 +125,7 @@ export function PeakAlertBanner({ currentPower, peakThreshold, status }: PeakAle
                       <div className="mt-1 h-2 w-2 rounded-full bg-[#EF4444]" />
                       <div>
                         <p className="text-xs text-[#94A3B8]">19:02:34</p>
-                        <p className="text-sm text-[#F1F5F9]">피크 감지 ({currentPower.toFixed(1)}A)</p>
+                        <p className="text-sm text-[#F1F5F9]">피크 감지 ({(currentPower ?? 0).toFixed(1)}A)</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-3">

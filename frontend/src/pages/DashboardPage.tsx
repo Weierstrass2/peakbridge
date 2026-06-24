@@ -58,7 +58,7 @@ export default function DashboardPage() {
                 <p className={`text-lg font-bold tabular-nums mt-1 ${
                   point.will_exceed ? 'text-[#F97316]' : 'text-[#10B981]'
                 }`}>
-                  {point.predicted.toFixed(1)}A
+                  {(point.predicted ?? 0).toFixed(1)}A
                 </p>
               </div>
             ))}

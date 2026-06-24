@@ -38,7 +38,7 @@ export default function ReportPage() {
         <Card padding={false}>
           <div className="p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8] mb-2">이번 달 절감</p>
-            <p className="text-3xl font-bold text-[#FBBF24]">{reports?.[0]?.total_saved_won.toLocaleString() || '128,400'}원</p>
+            <p className="text-3xl font-bold text-[#FBBF24]">{(reports?.[0]?.total_saved_won ?? 128400).toLocaleString()}원</p>
           </div>
         </Card>
         <Card padding={false}>

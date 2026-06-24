@@ -14,8 +14,13 @@ export const getWsUrl = (): string => {
   const path = `/api/v1/ws/${BUILDING_ID}`;
 
   if (import.meta.env.VITE_WS_URL) {
-    const base = import.meta.env.VITE_WS_URL.replace(/\/$/, '').replace(/^http/, 'ws');
-    return `${base}${path}`;
+    const base = import.meta.env.VITE_WS_URL.replace(/\/$/, '');
+    // If base already starts with ws:// or wss://, use it directly
+    if (base.startsWith('ws://') || base.startsWith('wss://')) {
+      return `${base}${path}`;
+    }
+    // Otherwise, convert http to ws
+    return `${base.replace(/^http/, 'ws')}${path}`;
   }
 
   const httpBase = getApiBaseUrl().replace(/\/$/, '');

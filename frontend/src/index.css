@@ -2,10 +2,14 @@
 
 @theme {
   --color-bg-primary: #0F172A;
+  --color-surface: #0F172A;
   --color-card-bg: #1E293B;
+  --color-panel: #1E293B;
   --color-border: #334155;
+  --color-panel-border: #334155;
   --color-text-primary: #F1F5F9;
   --color-text-secondary: #94A3B8;
+  --color-muted: #94A3B8;
   --color-accent-green: #10B981;
   --color-accent-orange: #F97316;
   --color-accent-red: #EF4444;
