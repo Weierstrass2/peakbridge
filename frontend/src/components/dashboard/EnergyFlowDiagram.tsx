@@ -93,15 +93,15 @@ export default function EnergyFlowDiagram({ data, loading }: EnergyFlowDiagramPr
           <g className="cursor-pointer">
             <rect x="430" y="80" width="120" height="90" rx="16" fill="#1E293B" stroke="#A78BFA" strokeWidth="2" />
             <text x="490" y="125" textAnchor="middle" fill="#F1F5F9" fontSize="14" fontWeight="600">충전기</text>
-            <text x="490" y="150" textAnchor="middle" fill="#A78BFA" fontSize="20" fontWeight="700">{chargerTotal.toFixed(1)}A</text>
-            <text x="490" y="170" textAnchor="middle" fill="#94A3B8" fontSize="12">{activeCount}/{data.chargers.length} 활성</text>
+            <text x="490" y="150" textAnchor="middle" fill="#A78BFA" fontSize="20" fontWeight="700">{(chargerTotal ?? 0).toFixed(1)}A</text>
+            <text x="490" y="170" textAnchor="middle" fill="#94A3B8" fontSize="12">{activeCount}/{(data.chargers ?? []).length} 활성</text>
           </g>
 
           {/* ESS Node */}
           <g className="cursor-pointer" filter={isPeakActive ? "url(#glow-orange)" : ""}>
             <rect x="300" y="220" width="100" height="90" rx="16" fill="#1E293B" stroke={isPeakActive ? "#F97316" : "#34D399"} strokeWidth="2" />
             <text x="350" y="260" textAnchor="middle" fill="#F1F5F9" fontSize="14" fontWeight="600">ESS 배터리</text>
-            <text x="350" y="285" textAnchor="middle" fill={isPeakActive ? "#F97316" : "#34D399"} fontSize="20" fontWeight="700">{data.ess_soc}%</text>
+            <text x="350" y="285" textAnchor="middle" fill={isPeakActive ? "#F97316" : "#34D399"} fontSize="20" fontWeight="700">{(data.ess_soc ?? 0)}%</text>
             {isPeakActive && <text x="350" y="305" textAnchor="middle" fill="#F97316" fontSize="12">방전 중 {(data.ess_discharge ?? 0).toFixed(1)}A</text>}
           </g>
 

@@ -14,16 +14,18 @@ const statusConfig: Record<Charger['status'], { variant: 'success' | 'default' |
 };
 
 export default function ChargerGrid({ chargers }: ChargerGridProps) {
+  const safeChargers = chargers ?? [];
+  
   return (
     <Card title="충전기 상태" subtitle="개별 충전기 현황">
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        {chargers.map((charger) => {
-          const config = statusConfig[charger.status];
+        {safeChargers.map((charger) => {
+          const config = statusConfig[charger.status] ?? statusConfig.idle;
           return (
             <div
               key={charger.device_id}
               className={`rounded-xl border p-5 transition-all hover:scale-105 cursor-pointer ${
-                charger.current > 0
+                (charger.current ?? 0) > 0
                   ? 'border-[#A78BFA]/40 bg-[#A78BFA]/5'
                   : 'border-[#334155] bg-[#0F172A]'
               }`}
@@ -35,7 +37,7 @@ export default function ChargerGrid({ chargers }: ChargerGridProps) {
               <div className="mt-2">
                 <p
                   className={`text-2xl font-bold tabular-nums ${
-                    charger.current > 0 ? 'text-[#A78BFA]' : 'text-[#94A3B8]'
+                    (charger.current ?? 0) > 0 ? 'text-[#A78BFA]' : 'text-[#94A3B8]'
                   }`}
                 >
                   {(charger.current ?? 0).toFixed(1)}A

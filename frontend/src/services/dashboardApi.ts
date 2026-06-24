@@ -7,13 +7,19 @@ import type { DashboardResponse } from './mappers';
 import { alertToEvent, mergeChartSeries } from './mappers';
 import { fetchAlerts } from './reportApi';
 
+// Backend response wrapper type
+interface BackendResponse<T> {
+  success: boolean;
+  data: T;
+}
+
 export async function fetchDashboard(): Promise<DashboardData> {
   if (isMockMode()) {
     return mockFetch({ ...mockDashboardData });
   }
-  const { data } = await api.get<DashboardResponse>(apiPaths.dashboard());
-  const { chart_history: _c, events: _e, ...dashboard } = data;
-  return dashboard;
+  const { data } = await api.get<BackendResponse<DashboardData>>(apiPaths.dashboard());
+  console.log('📡 Backend dashboard response:', data);
+  return data.data;
 }
 
 export async function fetchDashboardFull(): Promise<DashboardResponse> {
@@ -24,8 +30,13 @@ export async function fetchDashboardFull(): Promise<DashboardResponse> {
       events: mockEvents,
     });
   }
-  const { data } = await api.get<DashboardResponse>(apiPaths.dashboard());
-  return data;
+  // Fallback to mock for chart and events since backend doesn't have them yet
+  const dashboard = await fetchDashboard();
+  return {
+    ...dashboard,
+    chart_history: mockChartHistory,
+    events: mockEvents,
+  };
 }
 
 export async function fetchChartHistory(): Promise<ChartPoint[]> {
@@ -33,19 +44,8 @@ export async function fetchChartHistory(): Promise<ChartPoint[]> {
     return mockFetch([...mockChartHistory]);
   }
 
-  const full = await fetchDashboardFull();
-  if (full.chart_history?.length) {
-    return full.chart_history;
-  }
-
-  const hours = 24;
-  const [grid, ess, charger] = await Promise.all([
-    api.get(apiPaths.sensorHistory(SENSOR_DEVICE_IDS.grid), { params: { hours } }),
-    api.get(apiPaths.sensorHistory(SENSOR_DEVICE_IDS.ess), { params: { hours } }),
-    api.get(apiPaths.sensorHistory(SENSOR_DEVICE_IDS.chargerTotal), { params: { hours } }),
-  ]);
-
-  return mergeChartSeries(grid.data, ess.data, charger.data);
+  // Fallback to mock chart data since backend doesn't have sensor history endpoint yet
+  return mockFetch([...mockChartHistory]);
 }
 
 export async function fetchEvents(): Promise<EventLogEntry[]> {
@@ -53,13 +53,13 @@ export async function fetchEvents(): Promise<EventLogEntry[]> {
     return mockFetch([...mockEvents]);
   }
 
-  const full = await fetchDashboardFull();
-  if (full.events?.length) {
-    return full.events;
+  try {
+    const alerts = await fetchAlerts();
+    return alerts.map(alertToEvent);
+  } catch {
+    // If alerts endpoint fails, use mock events
+    return mockFetch([...mockEvents]);
   }
-
-  const alerts = await fetchAlerts();
-  return alerts.map(alertToEvent);
 }
 
 export async function sendControlAction(

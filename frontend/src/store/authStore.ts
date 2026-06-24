@@ -13,9 +13,8 @@ interface AuthState {
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
-      // For development, default to logged-in state
-      token: 'mock-jwt-token',
-      user: { id: '1', email: 'admin@peakbridge.io', name: 'Admin' },
+      token: null,
+      user: null,
       setAuth: (token, user) => set({ token, user }),
       logout: () => set({ token: null, user: null }),
       isAuthenticated: () => !!get().token,

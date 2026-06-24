@@ -5,20 +5,28 @@ import { mockAlerts, mockFetch, mockReports } from '../mock/mockData';
 import { api } from './api';
 import { normalizeSavingsReport, type SavingsReportResponse } from './mappers';
 
+// Backend response wrapper type
+interface BackendResponse<T> {
+  success: boolean;
+  data: T;
+}
+
 export async function fetchReports(): Promise<ReportSummary[]> {
   if (isMockMode()) {
     return mockFetch([...mockReports]);
   }
-  const { data } = await api.get<SavingsReportResponse>(apiPaths.reportsSavings());
-  return normalizeSavingsReport(data);
+  const { data } = await api.get<BackendResponse<SavingsReportResponse>>(apiPaths.reportsSavings());
+  console.log('📡 Backend reports response:', data);
+  return normalizeSavingsReport(data.data);
 }
 
 export async function fetchAlerts(): Promise<AlertItem[]> {
   if (isMockMode()) {
     return mockFetch([...mockAlerts]);
   }
-  const { data } = await api.get<AlertItem[]>(apiPaths.alerts());
-  return data;
+  const { data } = await api.get<BackendResponse<AlertItem[]>>(apiPaths.alerts());
+  console.log('📡 Backend alerts response:', data);
+  return data.data;
 }
 
 /** 백엔드 acknowledge 엔드포인트 확정 전 — mock 전용 */

@@ -64,12 +64,12 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
       <KPICard
         label="ESS 잔량"
         value={`${(data.ess_soc ?? 0)}%`}
-        accent={data.ess_soc < 20 ? 'text-[#EF4444]' : 'text-[#34D399]'}
+        accent={(data.ess_soc ?? 0) < 20 ? 'text-[#EF4444]' : 'text-[#34D399]'}
       >
         <div className="mt-2 w-full bg-[#334155] rounded-full h-2">
           <div
             className={`h-2 rounded-full transition-all duration-500 ${
-              data.ess_soc < 20 ? 'bg-[#EF4444]' : 'bg-[#34D399]'
+              (data.ess_soc ?? 0) < 20 ? 'bg-[#EF4444]' : 'bg-[#34D399]'
             }`}
             style={{ width: `${(data.ess_soc ?? 0)}%` }}
           />
