@@ -7,9 +7,9 @@ Pydantic BaseSettings로 .env / 시스템 환경변수를 읽고,
 
 from enum import Enum
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     DB_URL: str = Field(
         default="postgresql+asyncpg://peakbridge:peakbridge@localhost:5432/peakbridge"
     )
+    DATABASE_URL: str | None = None
     DB_ECHO: bool = False
     DB_POOL_SIZE: int = 10
     DB_MAX_OVERFLOW: int = 20
@@ -82,6 +83,19 @@ class Settings(BaseSettings):
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
+
+    @model_validator(mode="after")
+    def use_database_url_if_available(self) -> "Settings":
+        """Railway에서 제공하는 DATABASE_URL 환경변수를 DB_URL로 사용 (postgres:// → postgresql+asyncpg://로 변환)"""
+        if self.DATABASE_URL:
+            db_url = self.DATABASE_URL
+            # Railway에서 제공하는 postgres:// 를 postgresql+asyncpg:// 로 변환
+            if db_url.startswith("postgres://"):
+                db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif db_url.startswith("postgresql://"):
+                db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            self.DB_URL = db_url
+        return self
 
     @property
     def is_development(self) -> bool:
