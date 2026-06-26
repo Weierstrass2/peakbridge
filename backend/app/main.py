@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.v1 import api_v1_router
-from app.api.v1.energy import router as energy_router
+
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.logging import CorrelationIdMiddleware, get_logger, setup_logging
@@ -144,7 +144,6 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(api_v1_router)
-    app.include_router(energy_router, prefix="/api/v1/energy", tags=["energy"])
     return app
 
 
