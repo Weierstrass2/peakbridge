@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 from datetime import datetime
 from typing import Dict, List
 from app.ml.energy_optimizer import EnergyOptimizer
-from app.db.session import get_db
+from app.db.base import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories import device_repo, sensor_repo
 
