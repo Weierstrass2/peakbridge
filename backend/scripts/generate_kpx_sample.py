@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 KPX 한국전력거래소 실제 전력 수요 패턴 기반 샘플 데이터 생성
-2023-01-01 ~ 2024-12-31 (2년치)
+2016-01-01 ~ 2026-06-27
 """
 
 import csv
@@ -32,8 +32,8 @@ def generate_kpx_demand():
     data_dir = Path("data")
     data_dir.mkdir(exist_ok=True)
     
-    start_date = datetime(2023, 1, 1)
-    end_date = datetime(2024, 12, 31)
+    start_date = datetime(2016, 1, 1)
+    end_date = datetime(2026, 6, 27)
     dates = []
     current_date = start_date
     
