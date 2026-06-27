@@ -80,6 +80,11 @@ class Settings(BaseSettings):
     # --- 전력 요금 (피크쉐이빙 경제성 계산용, 원/kWh) ---
     KWH_PRICE: float = 150.0
     PEAK_KWH_PRICE: float = 250.0
+    
+    # --- 기상청 API ---
+    WEATHER_API_KEY: str = "QlrgTilFRBWa4E4pRXQVVQ"
+    WEATHER_NX: int = 98
+    WEATHER_NY: int = 76
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
