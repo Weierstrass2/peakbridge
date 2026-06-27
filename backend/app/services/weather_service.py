@@ -1,5 +1,5 @@
 """
-기상청 API 기반 날씨 서비스
+기상청 VilageFcstInfoService_2.0 API 기반 날씨 서비스
 """
 
 import httpx
@@ -20,143 +20,111 @@ class WeatherService:
         self.ny = settings.WEATHER_NY or 76
         self.client = httpx.AsyncClient(timeout=10.0)
     
-    async def _get_vsrt_forecast(self) -> str:
-        """초단기예보 API 호출 (현재 기온 T1H)"""
+    async def _get_ultra_srt_ncst(self) -> Dict:
+        """초단기실황 API 호출 (현재 기온)"""
         try:
             now = datetime.now()
-            # tmfc: 현재시간 (연월일시분, 10분 단위로 내림)
-            rounded_minute = (now.minute // 10) * 10
-            tmfc = now.strftime(f"%Y%m%d%H{rounded_minute:02d}")
-            # tmef: 현재시간 (연월일시)
-            tmef = now.strftime("%Y%m%d%H")
+            base_date = now.strftime("%Y%m%d")
             
-            url = "https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-dfs_vsrt_grd"
+            # base_time: 현재 분이 40분 미만이면 1시간 전 정시
+            if now.minute < 40:
+                base_time_hour = now.hour - 1 if now.hour > 0 else 23
+            else:
+                base_time_hour = now.hour
+            base_time = f"{base_time_hour:02d}00"
+            
+            url = "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getUltraSrtNcst"
             params = {
-                "tmfc": tmfc,
-                "tmef": tmef,
-                "vars": "T1H",
+                "pageNo": 1,
+                "numOfRows": 1000,
+                "dataType": "JSON",
+                "base_date": base_date,
+                "base_time": base_time,
+                "nx": self.nx,
+                "ny": self.ny,
                 "authKey": self.api_key
             }
             
             response = await self.client.get(url, params=params)
             response.raise_for_status()
-            return response.text
+            return response.json()
         except Exception as e:
-            logger.warning("vsrt_forecast_api_failed", error=str(e))
-            return ""
+            logger.warning("ultra_srt_ncst_api_failed", error=str(e))
+            return {}
     
-    async def _get_shrt_forecast(self, tmef_suffix: str) -> str:
+    async def _get_vilage_fcst(self) -> Dict:
         """단기예보 API 호출 (내일 최고/최저기온)"""
         try:
             now = datetime.now()
-            # 가장 최근 발표시간 찾기 (02,05,08,11,14,17,20,23시)
-            base_hours = [2,5,8,11,14,17,20,23]
-            current_hour = now.hour
-            base_hour = max([h for h in base_hours if h <= current_hour], default=2)
-            if base_hour == 2 and current_hour < 2:
-                now -= timedelta(days=1)
-                base_hour = 23
+            base_date = now.strftime("%Y%m%d")
             
-            tmfc = now.strftime(f"%Y%m%d{base_hour:02d}00")
-            # tmef: 내일 날짜 + tmef_suffix
-            tomorrow = now + timedelta(days=1)
-            tmef = tomorrow.strftime(f"%Y%m%d{tmef_suffix}")
+            # base_time: 항상 0500 사용 (안정적)
+            base_time = "0500"
             
-            url = "https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-dfs_shrt_grd"
+            url = "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst"
             params = {
-                "tmfc": tmfc,
-                "tmef": tmef,
-                "vars": "TMX",
+                "pageNo": 1,
+                "numOfRows": 1000,
+                "dataType": "JSON",
+                "base_date": base_date,
+                "base_time": base_time,
+                "nx": self.nx,
+                "ny": self.ny,
                 "authKey": self.api_key
             }
             
             response = await self.client.get(url, params=params)
             response.raise_for_status()
-            return response.text
+            return response.json()
         except Exception as e:
-            logger.warning("shrt_forecast_api_failed", error=str(e))
-            return ""
-    
-    async def _extract_grid_value(self, text_data: str) -> float:
-        """격자 데이터에서 부산 위치 (NX, NY) 값 추출"""
-        try:
-            lines = text_data.strip().split("\n")
-            for line in lines:
-                parts = line.strip().split(",")
-                if len(parts) >= 4:
-                    try:
-                        nx = int(parts[0])
-                        ny = int(parts[1])
-                        if nx == self.nx and ny == self.ny:
-                            value = float(parts[3])
-                            return value
-                    except:
-                        continue
-            logger.warning("grid_value_not_found", nx=self.nx, ny=self.ny)
-            return 0.0
-        except Exception as e:
-            logger.warning("grid_value_extract_failed", error=str(e))
-            return 0.0
+            logger.warning("vilage_fcst_api_failed", error=str(e))
+            return {}
     
     async def get_current_temperature(self) -> float:
-        """현재 부산 기온 반환 (단기예보에서 T1H 추출)"""
+        """현재 기온 반환"""
         try:
-            data = await self._get_vsrt_forecast()
-            temp = await self._extract_grid_value(data)
-            if temp == 0.0 and "T1H" in data:
-                # fallback: 평균값 계산
-                return 25.0
-            return temp
+            data = await self._get_ultra_srt_ncst()
+            items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+            
+            for item in items:
+                if item.get("category") == "T1H":
+                    return float(item.get("obsrValue", 0.0))
+            return 25.0
         except Exception as e:
             logger.warning("get_current_temperature_failed", error=str(e))
             return 25.0
     
     async def get_tomorrow_max_temp(self) -> float:
-        """내일 최고기온 반환 (TMX, 보통 15시)"""
+        """내일 최고기온 반환"""
         try:
-            data = await self._get_shrt_forecast("1500")
-            temp = await self._extract_grid_value(data)
-            if temp == 0.0 and "TMX" in data:
-                return 25.0
-            return temp
+            data = await self._get_vilage_fcst()
+            items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+            
+            tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y%m%d")
+            
+            for item in items:
+                if item.get("category") == "TMX" and item.get("fcstDate") == tomorrow:
+                    return float(item.get("fcstValue", 0.0))
+            return 30.0
         except Exception as e:
             logger.warning("get_tomorrow_max_temp_failed", error=str(e))
-            return 25.0
+            return 30.0
     
     async def get_tomorrow_min_temp(self) -> float:
-        """내일 최저기온 반환 (TMN, 보통 05시)"""
+        """내일 최저기온 반환"""
         try:
-            # TMN은 별도로 API 호출
-            now = datetime.now()
-            base_hours = [2,5,8,11,14,17,20,23]
-            current_hour = now.hour
-            base_hour = max([h for h in base_hours if h <= current_hour], default=2)
-            if base_hour == 2 and current_hour < 2:
-                now -= timedelta(days=1)
-                base_hour = 23
+            data = await self._get_vilage_fcst()
+            items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
             
-            tmfc = now.strftime(f"%Y%m%d{base_hour:02d}00")
-            tomorrow = now + timedelta(days=1)
-            tmef = tomorrow.strftime("%Y%m%d0500")
+            tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y%m%d")
             
-            url = "https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-dfs_shrt_grd"
-            params = {
-                "tmfc": tmfc,
-                "tmef": tmef,
-                "vars": "TMN",
-                "authKey": self.api_key
-            }
-            
-            response = await self.client.get(url, params=params, timeout=10.0)
-            response.raise_for_status()
-            data = response.text
-            temp = await self._extract_grid_value(data)
-            if temp == 0.0 and "TMN" in data:
-                return 15.0
-            return temp
+            for item in items:
+                if item.get("category") == "TMN" and item.get("fcstDate") == tomorrow:
+                    return float(item.get("fcstValue", 0.0))
+            return 20.0
         except Exception as e:
             logger.warning("get_tomorrow_min_temp_failed", error=str(e))
-            return 15.0
+            return 20.0
     
     async def is_heatwave(self) -> bool:
         """내일 최고기온 >= 33도이면 True"""
@@ -169,7 +137,7 @@ class WeatherService:
         return min_temp <= -10.0
     
     async def get_load_factor(self) -> float:
-        """현재 기온 기반 부하 가중치"""
+        """기온 기반 부하 가중치"""
         current_temp = await self.get_current_temperature()
         if current_temp >= 33.0:
             return 1.3
@@ -207,23 +175,23 @@ class WeatherService:
         
         # 추천 로직
         recommend = False
-        reason = "특이 기상 없음, 일반 스케줄 운영"
+        reason = "특이 기상 없음"
         target_soc = 80
         scenario = "normal"
         
         if heatwave:
             recommend = True
-            reason = f"내일 폭염 예보 ({tomorrow_max}°C), 오늘 심야 ESS 100% 충전 권장"
+            reason = f"내일 폭염 예보 ({tomorrow_max}도), ESS 완충 권장"
             target_soc = 100
             scenario = "heatwave"
         elif coldwave:
             recommend = True
-            reason = f"내일 한파 예보 ({tomorrow_min}°C), 오늘 심야 ESS 95% 충전 권장"
+            reason = f"내일 한파 예보 ({tomorrow_min}도), ESS 95% 충전 권장"
             target_soc = 95
             scenario = "coldwave"
         elif load_factor > 1.0:
             recommend = True
-            reason = f"현재 기온 ({current_temp}°C)으로 인해 전력 부하 증가 예상, ESS 90% 충전 권장"
+            reason = f"현재 기온 ({current_temp}도)으로 전력 부하 증가 예상"
             target_soc = 90
             scenario = "high_load"
         
@@ -240,5 +208,5 @@ class WeatherService:
                 "target_soc": target_soc,
                 "scenario": scenario
             },
-            "source": "기상청 apihub 실시간"
+            "source": "기상청 VilageFcstInfoService_2.0 실시간"
         }
