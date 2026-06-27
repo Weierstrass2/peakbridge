@@ -85,6 +85,9 @@ class Settings(BaseSettings):
     WEATHER_API_KEY: str = "QlrgTilFRBWa4E4pRXQVVQ"
     WEATHER_NX: int = 98
     WEATHER_NY: int = 76
+    
+    # --- 한전 API ---
+    KEPCO_API_KEY: str = "bfd9f8210ee4ea52b156c2b570822168f22977469c8765f7c346e217edc97533"
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod
