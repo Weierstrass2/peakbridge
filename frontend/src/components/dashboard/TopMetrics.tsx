@@ -63,7 +63,7 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
       />
       <KPICard
         label="ESS 잔량"
-        value={`${(data.ess_soc ?? 0)}%`}
+        value={`${data.ess_soc ?? 0}%`}
         accent={(data.ess_soc ?? 0) < 20 ? 'text-[#EF4444]' : 'text-[#34D399]'}
       >
         <div className="mt-2 w-full bg-[#334155] rounded-full h-2">
@@ -71,13 +71,13 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
             className={`h-2 rounded-full transition-all duration-500 ${
               (data.ess_soc ?? 0) < 20 ? 'bg-[#EF4444]' : 'bg-[#34D399]'
             }`}
-            style={{ width: `${(data.ess_soc ?? 0)}%` }}
+            style={{ width: `${data.ess_soc ?? 0}%` }}
           />
         </div>
       </KPICard>
       <KPICard
         label="CO2 절감"
-        value={`${(data.co2_reduced_kg ?? 0).toFixed(1)}kg`}
+        value={`${data.co2_reduced_kg ?? 0}kg`}
         accent="text-[#34D399]"
       />
     </div>
