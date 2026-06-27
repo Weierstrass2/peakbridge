@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from app.api.v1 import api_v1_router
+
 from app.core.config import settings
 from app.core.exceptions import AppException
 from app.core.logging import CorrelationIdMiddleware, get_logger, setup_logging
