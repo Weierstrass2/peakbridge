@@ -11,6 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.device_repository import DeviceRepository
 from app.repositories.sensor_repository import SensorRepository
 
+try:
+    from app.ml.xgboost_forecaster import XGBoostForecaster
+except ImportError:
+    XGBoostForecaster = None
+
 router = APIRouter()
 optimizer = EnergyOptimizer()
 
@@ -112,4 +117,26 @@ async def get_realtime_recommendation(
         "building_id": building_id,
         "timestamp": datetime.now().isoformat(),
         **recommendation
+    }
+
+
+@router.get("/model-info", response_model=Dict)
+async def get_model_info():
+    """현재 사용 중인 모델 정보 반환"""
+    # XGBoost 모델 먼저 시도
+    if XGBoostForecaster is not None:
+        try:
+            forecaster = XGBoostForecaster("building-A")
+            if forecaster.load():
+                return forecaster.get_model_info()
+        except Exception:
+            pass
+
+    # 기본 모델 정보 반환
+    return {
+        "model_type": "Prophet/LinearRegression",
+        "training_data": "자체 수집 데이터",
+        "features": ["hour", "weekday", "is_weekend"],
+        "mae": None,
+        "trained_at": None
     }

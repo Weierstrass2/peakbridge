@@ -1,14 +1,17 @@
 """
-Facebook Prophet 기반 전력 수요 예측.
+전력 수요 예측 모델 관리자
 
-Prophet 사용 불가 시 sklearn 폴백 모델로 대체합니다.
+우선순위:
+1. XGBoost (KPX 실제 데이터 기반)
+2. Prophet
+3. LinearRegression (폴백)
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, List, Dict
 
 import joblib
 import numpy as np
@@ -25,9 +28,14 @@ try:
 except ImportError:  # pragma: no cover
     Prophet = None  # type: ignore[misc, assignment]
 
+try:
+    from app.ml.xgboost_forecaster import XGBoostForecaster
+except ImportError:
+    XGBoostForecaster = None
+
 
 class PowerForecaster:
-    """Prophet(또는 폴백) 기반 그리드 전류 예측기."""
+    """전력 수요 예측기 (XGBoost → Prophet → LinearRegression 우선순위)"""
 
     def __init__(self, building_id: str, model_dir: str | None = None) -> None:
         self.building_id = building_id
@@ -35,6 +43,17 @@ class PowerForecaster:
         self.model_path = self.model_dir / f"forecaster_{building_id}.joblib"
         self._model: Any = None
         self.threshold = settings.PEAK_THRESHOLD_A
+
+        # XGBoost 초기화
+        self.xgb_forecaster = None
+        if XGBoostForecaster is not None:
+            try:
+                self.xgb_forecaster = XGBoostForecaster(building_id)
+                if self.xgb_forecaster.load():
+                    logger.info("XGBoost 모델 로드 성공", building=building_id)
+            except Exception as e:
+                logger.warning("XGBoost 모델 로드 실패", error=str(e), building=building_id)
+
         # 폴더 생성 시 오류 무시
         try:
             self.model_dir.mkdir(parents=True, exist_ok=True)
@@ -100,8 +119,19 @@ class PowerForecaster:
             logger.warning("model_load_failed", building=self.building_id)
             return False
 
-    def predict_next_hour(self) -> list[dict]:
-        """향후 60분, 5분 간격 예측."""
+    def predict_next_hour(self) -> List[Dict]:
+        """향후 60분, 5분 간격 예측 (XGBoost 최우선)"""
+        # 1. XGBoost 모델 시도
+        if self.xgb_forecaster and self.xgb_forecaster.model is not None:
+            try:
+                predictions = self.xgb_forecaster.predict_next_hour()
+                if predictions:
+                    logger.info("XGBoost 모델로 예측 성공", building=self.building_id)
+                    return predictions
+            except Exception as e:
+                logger.warning("XGBoost 예측 실패", error=str(e), building=self.building_id)
+
+        # 2. Prophet/LinearRegression 모델 시도
         if self._model is None and not self.load():
             df = self.generate_synthetic_data()
             self.train(
