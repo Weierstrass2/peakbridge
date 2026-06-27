@@ -52,14 +52,26 @@ class WeatherService:
             logger.warning("ultra_srt_ncst_api_failed", error=str(e))
             return {}
     
+    def _get_base_time(self):
+        """단기예보 base_date, base_time 계산"""
+        now = datetime.now()
+        base_times = [2, 5, 8, 11, 14, 17, 20, 23]
+        
+        current_hour = now.hour
+        valid_times = [h for h in base_times if h <= current_hour]
+        
+        if not valid_times:
+            # 자정~02시 사이면 어제 23시 사용
+            yesterday = now - timedelta(days=1)
+            return yesterday.strftime("%Y%m%d"), "2300"
+        
+        base_hour = max(valid_times)
+        return now.strftime("%Y%m%d"), f"{base_hour:02d}00"
+    
     async def _get_vilage_fcst(self) -> Dict:
         """단기예보 API 호출 (내일 최고/최저기온)"""
         try:
-            now = datetime.now()
-            base_date = now.strftime("%Y%m%d")
-            
-            # base_time: 항상 0500 사용 (안정적)
-            base_time = "0500"
+            base_date, base_time = self._get_base_time()
             
             url = "https://apihub.kma.go.kr/api/typ02/openApi/VilageFcstInfoService_2.0/getVilageFcst"
             params = {
