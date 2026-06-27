@@ -41,7 +41,12 @@ class Settings(BaseSettings):
     # --- 서버 ---
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    ALLOWED_ORIGINS: List[str] = Field(default=["http://localhost:3000"])
+    ALLOWED_ORIGINS: List[str] = Field(default=[
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://peakbridge-production.up.railway.app",
+        "*"
+    ])
 
     # --- 데이터베이스 (PostgreSQL + TimescaleDB, asyncpg 드라이버) ---
     DB_URL: str = Field(

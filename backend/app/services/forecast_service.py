@@ -36,35 +36,44 @@ class ForecastService:
 
     async def train(self, building_id: str) -> bool:
         """과거 grid_current 데이터로 Prophet 모델 재학습."""
-        readings = await self.sensor_repo.get_readings_for_training(
-            building_id, SensorType.GRID_CURRENT.value
-        )
-        data = [
-            {"recorded_at": r.recorded_at, "value": r.value} for r in readings
-        ]
-        forecaster = self._get_forecaster(building_id)
-        forecaster.train(data)
-        logger.info("forecast_model_trained", building_id=building_id, rows=len(data))
-        return True
+        try:
+            readings = await self.sensor_repo.get_readings_for_training(
+                building_id, SensorType.GRID_CURRENT.value
+            )
+            data = [
+                {"recorded_at": r.recorded_at, "value": r.value} for r in readings
+            ]
+            forecaster = self._get_forecaster(building_id)
+            forecaster.train(data)
+            logger.info("forecast_model_trained", building_id=building_id, rows=len(data))
+            return True
+        except Exception as exc:
+            logger.error("forecast_train_failed", building_id=building_id, error=str(exc))
+            return False
 
     async def predict(self, building_id: str) -> list[dict]:
         """향후 60분 예측값 반환."""
-        forecaster = self._get_forecaster(building_id)
-        if not forecaster.load() and not forecaster._model:
-            await self.train(building_id)
-        predictions = forecaster.predict_next_hour()
-        return [
-            {
-                "time": p["time"].isoformat()
-                if isinstance(p["time"], datetime)
-                else p["time"],
-                "predicted_current": p["predicted"],
-                "lower": p["lower"],
-                "upper": p["upper"],
-                "will_exceed": p["will_exceed"],
-            }
-            for p in predictions
-        ]
+        try:
+            forecaster = self._get_forecaster(building_id)
+            if not forecaster.load() and not forecaster._model:
+                await self.train(building_id)
+            predictions = forecaster.predict_next_hour()
+            return [
+                {
+                    "time": p["time"].isoformat()
+                    if isinstance(p["time"], datetime)
+                    else p["time"],
+                    "predicted_current": p["predicted"],
+                    "lower": p["lower"],
+                    "upper": p["upper"],
+                    "will_exceed": p["will_exceed"],
+                }
+                for p in predictions
+            ]
+        except Exception as exc:
+            logger.error("forecast_predict_failed", building_id=building_id, error=str(exc))
+            # 오류 시 빈 배열 반환
+            return []
 
     async def will_exceed_threshold(self, building_id: str) -> datetime | None:
         """피크 예상 시각 — 임계치 초과 예측 시각 반환."""

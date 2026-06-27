@@ -55,7 +55,10 @@ async def get_dashboard(session: DbSession, building_id: str) -> dict:
 
     today = await energy_repo.get_by_date(building_id, datetime.now(timezone.utc).date())
     month_saved = await energy_repo.get_month_total(building_id)
-    forecast = await forecast_svc.get_next_hour_summary(building_id)
+    try:
+        forecast = await forecast_svc.get_next_hour_summary(building_id)
+    except Exception:
+        forecast = []
     peak_active = await alert_repo.has_active_peak(building_id)
 
     data = {
