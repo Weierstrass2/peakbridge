@@ -28,6 +28,33 @@ from app.schemas.common import HealthResponse, ReadyResponse
 logger = get_logger(__name__)
 
 
+# XGBoost 자동 학습 함수
+async def auto_train_xgboost():
+    """서버 시작 시 XGBoost 모델이 없으면 자동으로 학습"""
+    try:
+        from pathlib import Path
+        from app.ml.xgboost_forecaster import XGBoostForecaster
+        from app.ml.forecaster import PowerForecaster
+
+        model_path = Path("/tmp/models/xgb_building-A.joblib")
+        if not model_path.exists():
+            logger.info("xgboost_model_not_found, starting_auto_training")
+            try:
+                forecaster = XGBoostForecaster("building-A")
+                # 합성 데이터로 학습
+                pf = PowerForecaster("building-A")
+                df = pf.generate_synthetic_data()
+                # df를 XGBoost용 형식으로 변환
+                result = forecaster.train(df)
+                logger.info("xgboost_auto_trained", mae=result["mae"], rmse=result["rmse"])
+            except Exception as e:
+                logger.warning("xgboost_auto_train_failed", error=str(e))
+        else:
+            logger.info("xgboost_model_found, skipping_training")
+    except Exception as e:
+        logger.warning("xgboost_auto_train_init_failed", error=str(e))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """애플리케이션 시작/종료 시 리소스 초기화 및 정리."""
@@ -38,6 +65,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         environment=settings.ENVIRONMENT.value,
     )
     await init_db()
+    # XGBoost 자동 학습
+    await auto_train_xgboost()
     await mqtt_publisher.connect()
     await mqtt_subscriber.start()
     setup_scheduler()
