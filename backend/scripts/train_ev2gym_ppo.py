@@ -17,17 +17,11 @@ print(f"시작: {datetime.now()}")
 print("=" * 50)
 
 ev2gym_path = os.path.dirname(ev2gym.__file__)
-config_files: list[str] = []
-for root, _, files in os.walk(ev2gym_path):
-    for file_name in files:
-        if file_name.endswith(".yaml"):
-            config_files.append(os.path.join(root, file_name))
+config_file = os.path.join(ev2gym_path, "example_config_files", "PublicPST.yaml")
+os.chdir(ev2gym_path)  # EV2Gym 데이터 파일 찾을 수 있게 작업 디렉토리 변경
 
-if not config_files:
-    raise FileNotFoundError("EV2Gym yaml config 파일을 찾지 못했습니다.")
-
-config_file = config_files[0]
 print(f"Config: {config_file}")
+print(f"작업 디렉토리: {os.getcwd()}")
 
 Path("models").mkdir(exist_ok=True)
 Path("models/best").mkdir(parents=True, exist_ok=True)
