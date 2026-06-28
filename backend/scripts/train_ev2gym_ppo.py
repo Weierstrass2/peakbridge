@@ -18,7 +18,7 @@ print("=" * 50)
 
 ev2gym_path = os.path.dirname(ev2gym.__file__)
 config_file = os.path.join(ev2gym_path, "example_config_files", "PublicPST.yaml")
-os.chdir(ev2gym_path)  # EV2Gym 데이터 파일 찾을 수 있게 작업 디렉토리 변경
+os.chdir(os.path.dirname(ev2gym_path))  # EV2Gym 데이터 파일 찾을 수 있게 작업 디렉토리 변경
 
 print(f"Config: {config_file}")
 print(f"작업 디렉토리: {os.getcwd()}")
@@ -74,7 +74,7 @@ print("100,000 스텝마다 자동 저장\n")
 model.learn(
     total_timesteps=5000000,
     callback=[checkpoint_callback, eval_callback],
-    progress_bar=True,
+    progress_bar=False,
 )
 
 model.save("models/ppo_peakbridge_final")
