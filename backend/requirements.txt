@@ -41,6 +41,9 @@ apscheduler==3.10.4
 # HTTP Client (external APIs / tests)
 httpx==0.28.1
 
+# Grid simulation
+pandapower==3.4.0
+
 # Dev / Test
 pytest==8.3.4
 pytest-asyncio==0.25.0
