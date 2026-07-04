@@ -113,7 +113,7 @@ class KepcoService:
         smp = await self.get_current_smp()
         reserve = await self.get_power_reserve()
         is_emergency = await self.is_power_emergency()
-        period, tariff = self._get_current_tariff_info()
+        period, tariff = self.get_current_tariff_info()
         
         return {
             "smp_price": smp,
