@@ -4,9 +4,10 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Query
+from pydantic import BaseModel, Field
 
 from app.api.v1.realtime import ws_manager
-from app.core.constants import TriggerSource
+from app.core.constants import TriggerSource, AlertType, AlertSeverity
 from app.core.deps import AdminOrManager, DbSession, get_mqtt_publisher
 from app.core.exceptions import ConflictError, NotFoundError
 from app.models.alert import Alert
@@ -23,6 +24,18 @@ from app.services.scenario_service import (
     get_threshold,
     set_threshold,
 )
+
+
+class ThresholdRequest(BaseModel):
+    value: float = Field(..., ge=0.1, le=100.0)
+
+
+class AutoModeRequest(BaseModel):
+    enabled: bool
+
+
+class ChargerControlRequest(BaseModel):
+    action: str  # "pause" or "resume"
 
 router = APIRouter(prefix="/control", tags=["control"])
 
@@ -110,14 +123,12 @@ async def get_control_logs(
 @router.put("/{building_id}/threshold")
 async def update_threshold(
     building_id: str,
-    value: float,
+    request: ThresholdRequest,
     user: AdminOrManager,
 ) -> dict:
     """임계치 동적 변경 (0.1~100A)."""
-    if not (0.1 <= value <= 100.0):
-        raise ValueError("Threshold must be between 0.1 and 100.0")
-    set_threshold(building_id, value)
-    return success_response({"building_id": building_id, "threshold": value})
+    set_threshold(building_id, request.value)
+    return success_response({"building_id": building_id, "threshold": request.value})
 
 
 @router.get("/{building_id}/auto-mode")
@@ -132,12 +143,12 @@ async def get_auto_mode_endpoint(
 @router.post("/{building_id}/auto-mode")
 async def set_auto_mode_endpoint(
     building_id: str,
-    enabled: bool,
+    request: AutoModeRequest,
     user: AdminOrManager,
 ) -> dict:
     """자동 제어 모드 설정."""
-    set_auto_mode(building_id, enabled)
-    return success_response({"enabled": enabled})
+    set_auto_mode(building_id, request.enabled)
+    return success_response({"enabled": request.enabled})
 
 
 @router.post("/{building_id}/charger/{device_id}")
@@ -145,11 +156,11 @@ async def control_charger(
     session: DbSession,
     building_id: str,
     device_id: str,
-    action: str,
+    request: ChargerControlRequest,
     user: AdminOrManager,
 ) -> dict:
     """충전기 개별 제어 (pause/resume)."""
-    if action not in ["pause", "resume"]:
+    if request.action not in ["pause", "resume"]:
         raise ValueError("Action must be 'pause' or 'resume'")
     
     control_repo = ControlLogRepository(session)
@@ -158,7 +169,7 @@ async def control_charger(
     mqtt = get_mqtt_publisher()
 
     # MQTT 발행
-    await mqtt.publish_charger_control(building_id, device_id, action)
+    await mqtt.publish_charger_control(building_id, device_id, request.action)
 
     # ControlLog 기록
     ess_reading = await sensor_repo.get_latest_by_building(
@@ -170,7 +181,7 @@ async def control_charger(
         id=uuid.uuid4(),
         device_id=device_id,
         building_id=building_id,
-        action=action,
+        action=request.action,
         triggered_by=TriggerSource.MANUAL.value,
         ess_soc_before=ess_soc,
     )
@@ -180,18 +191,18 @@ async def control_charger(
     alert = Alert(
         id=uuid.uuid4(),
         building_id=building_id,
-        alert_type="charger_control",
-        severity="info",
+        alert_type=AlertType.CHARGER_CONTROL.value,
+        severity=AlertSeverity.INFO.value,
         grid_current=0.0,
         ess_soc=ess_soc,
     )
     await alert_repo.create(alert)
 
     # WebSocket 브로드캐스트
-    await ws_manager.send_control_executed(building_id, action, device_id)
+    await ws_manager.send_control_executed(building_id, request.action, device_id)
 
     return success_response({
         "building_id": building_id,
         "device_id": device_id,
-        "action": action,
+        "action": request.action,
     })

@@ -38,7 +38,7 @@ async def get_recommendation(
 
     # 외부 데이터 조회
     current_temp = await weather_service.get_current_temperature()
-    tariff_info = kepco_service._get_current_tariff_info()
+    tariff_info = kepco_service.get_current_tariff_info()
     tariff_rate = tariff_info[1]
 
     # 추천 받기

@@ -19,11 +19,13 @@ class AlertType(str, Enum):
     PEAK_DETECTED = "peak_detected"
     PEAK_SHAVING_ACTIVATED = "peak_shaving_activated"
     PEAK_RESOLVED = "peak_resolved"
+    CHARGER_CONTROL = "charger_control"
 
 
 class AlertSeverity(str, Enum):
     WARNING = "warning"
     CRITICAL = "critical"
+    INFO = "info"
 
 
 class ControlAction(str, Enum):

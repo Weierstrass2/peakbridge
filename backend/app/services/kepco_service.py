@@ -18,7 +18,7 @@ class KepcoService:
         self.api_key = settings.KEPCO_API_KEY
         self.client = httpx.AsyncClient(timeout=10.0)
     
-    def _get_current_tariff_info(self) -> tuple:
+    def get_current_tariff_info(self) -> tuple:
         """현재 시간대 요금 정보 반환"""
         now = datetime.now()
         hour = now.hour
@@ -47,7 +47,7 @@ class KepcoService:
     
     def estimate_smp_from_tariff(self) -> float:
         """요금 기반 SMP 추정 (폴백)"""
-        _, tariff = self._get_current_tariff_info()
+        _, tariff = self.get_current_tariff_info()
         return tariff * 1.0
     
     async def get_current_smp(self) -> float:
