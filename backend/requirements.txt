@@ -41,6 +41,9 @@ apscheduler==3.10.4
 # HTTP Client (external APIs / tests)
 httpx==0.28.1
 
+# OpenADR (DR 프로토콜 — 시맨틱 호환)
+openleadr==0.5.30
+
 # Grid simulation
 pandapower==3.4.0
 
