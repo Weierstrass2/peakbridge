@@ -80,5 +80,16 @@ class MQTTPublisher:
         }
         return await self.publish(topic, payload, qos=1)
 
+    async def publish_charger_control(
+        self, building_id: str, device_id: str, action: str
+    ) -> bool:
+        """충전기 제어 명령 발행."""
+        topic = f"{settings.MQTT_TOPIC_PREFIX}/{building_id}/charger/{device_id}/control"
+        payload = {
+            "action": action,
+            "device_id": device_id,
+        }
+        return await self.publish(topic, payload, qos=1)
+
 
 mqtt_publisher = MQTTPublisher()

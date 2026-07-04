@@ -15,9 +15,9 @@ class WeatherService:
     """기상청 API 연동 서비스"""
     
     def __init__(self):
-        self.api_key = settings.WEATHER_API_KEY or "QlrgTilFRBWa4E4pRXQVVQ"
-        self.nx = settings.WEATHER_NX or 98
-        self.ny = settings.WEATHER_NY or 76
+        self.api_key = settings.WEATHER_API_KEY
+        self.nx = settings.WEATHER_NX
+        self.ny = settings.WEATHER_NY
         self.client = httpx.AsyncClient(timeout=10.0)
     
     async def _get_ultra_srt_ncst(self) -> Dict:

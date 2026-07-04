@@ -15,7 +15,7 @@ class KepcoService:
     """한전 API 연동 서비스"""
     
     def __init__(self):
-        self.api_key = settings.KEPCO_API_KEY or "bfd9f8210ee4ea52b156c2b570822168f22977469c8765f7c346e217edc97533"
+        self.api_key = settings.KEPCO_API_KEY
         self.client = httpx.AsyncClient(timeout=10.0)
     
     def _get_current_tariff_info(self) -> tuple:

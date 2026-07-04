@@ -189,8 +189,8 @@ class PeakService:
     ) -> None:
         """피크쉐이빙 절감량 계산 및 저장."""
         excess_a = max(0.0, grid_current - self.threshold)
-        # 5분 간격 기준 kWh 추정 (220V 3상 근사)
-        saved_kwh = (excess_a * 220 * 3 / 1000) * (5 / 60) * (reduction_percent / 100)
+        # 5분 간격 기준 kWh 추정 (220V 단상)
+        saved_kwh = (excess_a * 220 / 1000) * (5 / 60) * (reduction_percent / 100)
         saved_won = saved_kwh * settings.PEAK_KWH_PRICE
         co2 = saved_kwh * CO2_FACTOR
 

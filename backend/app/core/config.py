@@ -71,7 +71,7 @@ class Settings(BaseSettings):
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # --- 피크쉐이빙 ---
-    PEAK_THRESHOLD_A: float = 15.0
+    PEAK_THRESHOLD_A: float = 0.5
     ESS_MIN_SOC: float = 20.0
 
     # --- ML ---
@@ -80,14 +80,18 @@ class Settings(BaseSettings):
     # --- 전력 요금 (피크쉐이빙 경제성 계산용, 원/kWh) ---
     KWH_PRICE: float = 150.0
     PEAK_KWH_PRICE: float = 250.0
+    SMP_DR_THRESHOLD: float = 150.0
+
+    # --- 시나리오 자동 제어 ---
+    SCENARIO_AUTO_CONTROL: bool = True
     
     # --- 기상청 API ---
-    WEATHER_API_KEY: str = "QlrgTilFRBWa4E4pRXQVVQ"
+    WEATHER_API_KEY: str
     WEATHER_NX: int = 98
     WEATHER_NY: int = 76
     
     # --- 한전 API ---
-    KEPCO_API_KEY: str = "bfd9f8210ee4ea52b156c2b570822168f22977469c8765f7c346e217edc97533"
+    KEPCO_API_KEY: str
 
     @field_validator("ALLOWED_ORIGINS", mode="before")
     @classmethod

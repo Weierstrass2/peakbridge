@@ -1,7 +1,7 @@
-"""
-APScheduler 기반 백그라운드 작업.
+"""APScheduler 기반 백그라운드 작업.
 
 - 5분마다: 피크 예측 → 30분 전 ESS 사전 충전
+- 5분마다: 시나리오 기반 자동 제어
 - 매일 02:00: Prophet 모델 재학습
 - 매일 00:00: energy_saving 일별 집계
 """
@@ -22,7 +22,7 @@ logger = structlog.get_logger(__name__)
 scheduler = AsyncIOScheduler()
 
 # 모니터링 대상 건물 (운영 시 DB에서 로드)
-DEFAULT_BUILDINGS = ["building-001"]
+DEFAULT_BUILDINGS = ["building-A"]
 
 
 async def _predict_and_precharge() -> None:
@@ -31,9 +31,14 @@ async def _predict_and_precharge() -> None:
 
     from app.core.constants import ControlAction
     from app.services.forecast_service import ForecastService
+    from app.services.scenario_service import get_auto_mode
 
     for building_id in DEFAULT_BUILDINGS:
         try:
+            # 자동 모드가 꺼져있으면 스킵
+            if not get_auto_mode(building_id):
+                continue
+                
             async with async_session_factory() as session:
                 forecast_svc = ForecastService(session)
                 exceed_time = await forecast_svc.will_exceed_threshold(building_id)
@@ -54,6 +59,27 @@ async def _predict_and_precharge() -> None:
                 await session.commit()
         except Exception as exc:
             logger.error("predict_precharge_failed", building_id=building_id, error=str(exc))
+
+
+async def _scenario_auto_control() -> None:
+    """5분마다: 시나리오 기반 자동 제어."""
+    from app.services.scenario_service import ScenarioService
+
+    for building_id in DEFAULT_BUILDINGS:
+        try:
+            async with async_session_factory() as session:
+                scenario_svc = ScenarioService(session, mqtt_publisher)
+                result = await scenario_svc.execute_auto_control(building_id)
+                if result.get("status") == "executed":
+                    logger.info(
+                        "scenario_control_executed",
+                        building_id=building_id,
+                        action=result.get("action"),
+                        triggered_by=result.get("triggered_by"),
+                    )
+                await session.commit()
+        except Exception as exc:
+            logger.error("scenario_control_failed", building_id=building_id, error=str(exc))
 
 
 async def _retrain_models() -> None:
@@ -99,6 +125,12 @@ def setup_scheduler() -> None:
         _predict_and_precharge,
         IntervalTrigger(minutes=5),
         id="predict_precharge",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _scenario_auto_control,
+        IntervalTrigger(minutes=5),
+        id="scenario_auto_control",
         replace_existing=True,
     )
     scheduler.add_job(
