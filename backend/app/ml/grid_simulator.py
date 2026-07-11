@@ -20,6 +20,7 @@ FEEDERS = 4              # 동(피더) 수
 EV_CHARGER_KW = 7.0      # EV 충전기 1대 정격 (kW)
 ESS_UNITS = 20           # 묶음 ESS 유닛 수 (PPO 학습 환경과 동일)
 POWER_FACTOR = 0.95      # 역률
+LOAD_DIVERSITY = 0.31    # 실측 그리드 전류를 단지 동시부하로 환산하는 계수
 
 OVERLOAD_PCT = 100.0     # 과부하 기준 (%)
 WARNING_PCT = 80.0       # 경고 기준 (%)
@@ -58,7 +59,9 @@ class GridSimulator:
     @staticmethod
     def _loads_kw(grid_current: float, ev_count: int) -> tuple[float, float]:
         """세대 대표 전류(A) → 단지 기본 부하, EV 충전 부하 (kW)."""
-        base_kw = max(0.0, grid_current) * 0.220 * HOUSEHOLDS
+        # grid_current는 단지 전체 계통에서 관측된 대표 전류로 보고,
+        # 세대 수 전체를 그대로 곱하지 않고 동시 사용률(diversity)을 반영한다.
+        base_kw = max(0.0, grid_current) * 0.220 * HOUSEHOLDS * LOAD_DIVERSITY
         ev_kw = max(0, ev_count) * EV_CHARGER_KW
         return base_kw, ev_kw
 
@@ -160,10 +163,12 @@ class GridSimulator:
         ess_discharge_kw: float,
         ev_count: int,
         transformer_kva: float = 300.0,
+        season: str | None = None,
     ) -> dict:
         """PeakBridge 적용 전/후 변압기 부하율 시뮬레이션."""
         base_kw, ev_kw = self._loads_kw(grid_current, ev_count)
-        ess_total_kw = max(0.0, ess_discharge_kw) * ESS_UNITS
+        # API/테스트 입력의 ess_discharge_kw는 이미 총 방전량(kW)으로 취급한다.
+        ess_total_kw = max(0.0, ess_discharge_kw)
         engine = "analytic"
         bus_voltages: list[float] = []
 
@@ -204,8 +209,10 @@ class GridSimulator:
                 "households": HOUSEHOLDS,
                 "feeders": FEEDERS,
                 "ev_charger_kw": EV_CHARGER_KW,
+                "load_diversity": LOAD_DIVERSITY,
                 "ess_units": ESS_UNITS,
                 "transformer_kva": transformer_kva,
+                "season": season,
                 "base_load_kw": round(base_kw, 1),
                 "ev_load_kw": round(ev_kw, 1),
                 "ess_discharge_total_kw": round(ess_total_kw, 1),
