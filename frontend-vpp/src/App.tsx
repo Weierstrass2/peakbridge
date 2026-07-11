@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import AssetsPanel from './components/AssetsPanel';
+import DrPanel from './components/DrPanel';
 import MarketPanel from './components/MarketPanel';
 import {
   consoleApi,
@@ -293,7 +294,7 @@ export default function App() {
             </Panel>
 
             <Panel title="DR 운영 콘솔" sub="OpenADR 2.0b" span="span 3">
-              <Pending stage="P4 — DR OPS" desc="이벤트 발령·정산 원장" />
+              <DrPanel onLog={pushLog} />
             </Panel>
 
             <Panel title="전국 현황" sub="3 SITES" span="span 3">

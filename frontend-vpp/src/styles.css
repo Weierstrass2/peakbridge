@@ -207,3 +207,54 @@ body {
 .oneline .nl-name { font-size: 2.6px; fill: var(--tx-3); }
 .flow { stroke-dasharray: 2 1.4; animation: flowdash 0.7s linear infinite; }
 @keyframes flowdash { to { stroke-dashoffset: -3.4; } }
+
+/* ── DR 운영 모듈 ───────────────────────────────────────── */
+.drops { display: flex; flex-direction: column; height: 100%; }
+.dr-cap {
+  font-size: 9px; letter-spacing: 0.1em; font-weight: 700; color: var(--tx-3);
+  font-family: var(--font-num); margin-bottom: 6px;
+  display: flex; justify-content: space-between; align-items: baseline;
+}
+.dr-cap span { font-size: 9.5px; letter-spacing: 0; color: var(--tx-2); }
+.dr-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+.dr-btns.two { grid-template-columns: repeat(2, 1fr); }
+.cbtn {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  padding: 7px 4px;
+  background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 3px;
+  color: var(--tx-1); cursor: pointer;
+  font-family: var(--font-num);
+}
+.cbtn b { font-size: 11px; font-weight: 600; }
+.cbtn span { font-size: 8.5px; color: var(--tx-3); }
+.cbtn:hover { border-color: var(--acc); }
+.cbtn:active { transform: translateY(1px); }
+.cbtn:disabled { opacity: 0.4; cursor: default; }
+.cbtn.crit { border-color: rgba(229,72,77,0.5); }
+.cbtn.crit b { color: var(--crit); }
+.cbtn.crit:hover { border-color: var(--crit); background: rgba(229,72,77,0.08); }
+
+.dr-active {
+  margin-top: 10px; padding: 6px 8px;
+  font-size: 10px; font-family: var(--font-num);
+  color: var(--tx-3); border: 1px dashed var(--line-1); border-radius: 3px;
+}
+.dr-active.on { color: var(--crit); border-color: rgba(229,72,77,0.5); border-style: solid; }
+
+.ledger-cap { margin-top: 10px; }
+.ledger { flex: 1; min-height: 0; overflow-y: auto; }
+.ledger::-webkit-scrollbar { width: 3px; }
+.ledger::-webkit-scrollbar-thumb { background: var(--line-2); }
+.ledger-empty { font-size: 10px; color: var(--tx-3); padding: 6px 0; }
+.ledger-row {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 4px 0; border-bottom: 1px solid var(--line-0);
+  font-family: var(--font-num); font-size: 10px; font-variant-numeric: tabular-nums;
+}
+.ledger-row .ts { color: var(--tx-3); }
+.ledger-row .ty { font-size: 8.5px; font-weight: 700; letter-spacing: 0.06em; }
+.ledger-row .ty.dr { color: var(--warn); }
+.ledger-row .ty.arb { color: var(--acc); }
+.ledger-row .kwh { color: var(--tx-2); margin-left: auto; }
+.ledger-row .rev.pos { color: var(--ok); }
+.ledger-row .rev.neg { color: var(--tx-3); }

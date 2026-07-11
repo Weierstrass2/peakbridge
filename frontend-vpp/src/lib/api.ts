@@ -46,8 +46,27 @@ export interface GridMap {
   edges: { from: string; to: string }[];
 }
 
+export interface LedgerEntry {
+  id: string; type: string; detail: string; kwh: number; revenue: number; ts: string;
+}
+
+export interface DrEventResult {
+  event_id: string; signal_type: string; value: number;
+  label: string; action: string; discharge_percent?: number;
+}
+
 export interface LedgerSummary {
   today_trades: number; today_kwh: number; today_revenue: number; total_revenue: number;
+}
+
+async function post<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(`${V1}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return unwrap<T>(await res.json());
 }
 
 async function get<T>(path: string, timeoutMs = 8000): Promise<{ data: T; latencyMs: number }> {
@@ -70,4 +89,14 @@ export const consoleApi = {
   portfolio: () => get<Portfolio>('/vpp/portfolio'),
   ledger: () => get<{ summary: LedgerSummary; entries: unknown[] }>('/vpp/ledger?limit=1'),
   gridMap: () => get<GridMap>('/grid/map/building-A'),
+  ledgerFull: (limit = 6) =>
+    get<{ summary: LedgerSummary; entries: LedgerEntry[] }>(`/vpp/ledger?limit=${limit}`),
+  drStatus: () =>
+    get<{ active_event: DrEventResult | null; ven: { state: string } }>('/dr/status'),
+  issueDr: (signalType: string, value: number) =>
+    post<DrEventResult>('/dr/event', {
+      signal_type: signalType,
+      value,
+      building_id: 'building-A',
+    }),
 };
