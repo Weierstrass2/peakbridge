@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import AssetsPanel from './components/AssetsPanel';
 import DrPanel from './components/DrPanel';
 import MapPanel from './components/MapPanel';
+import SettleTable from './components/SettleTable';
 import MarketPanel from './components/MarketPanel';
 import {
   consoleApi,
@@ -117,22 +118,27 @@ function MarketBar({
 /* ── 내비 레일 ─────────────────────────────────────────── */
 
 const NAV = [
-  { id: 'overview', label: '통합 개요', stage: null },
-  { id: 'market', label: '시장·가격', stage: 'P2' },
-  { id: 'assets', label: '자원 관제', stage: 'P3' },
-  { id: 'drops', label: 'DR 운영', stage: 'P4' },
-  { id: 'map', label: '전국 현황', stage: 'P5' },
-  { id: 'settle', label: '정산 원장', stage: 'P4' },
-];
+  { id: 'overview', label: '통합 개요' },
+  { id: 'market', label: '시장·가격' },
+  { id: 'assets', label: '자원 관제' },
+  { id: 'drops', label: 'DR 운영' },
+  { id: 'map', label: '전국 현황' },
+  { id: 'settle', label: '정산 원장' },
+] as const;
 
-function Rail() {
+type ViewId = (typeof NAV)[number]['id'];
+
+function Rail({ view, onSelect }: { view: ViewId; onSelect: (v: ViewId) => void }) {
   return (
     <nav className="rail">
       <div className="rail-cap">CONSOLE</div>
       {NAV.map((n) => (
-        <div key={n.id} className={`rail-item ${n.id === 'overview' ? 'active' : ''}`}>
+        <div
+          key={n.id}
+          className={`rail-item ${n.id === view ? 'active' : ''}`}
+          onClick={() => onSelect(n.id)}
+        >
           {n.label}
-          {n.stage && <span className="stage">{n.stage}</span>}
         </div>
       ))}
       <div className="rail-sep" />
@@ -145,12 +151,12 @@ function Rail() {
 /* ── 패널 ──────────────────────────────────────────────── */
 
 function Panel({
-  title, sub, span, children,
+  title, sub, span, tall, children,
 }: {
-  title: string; sub?: string; span: string; children: React.ReactNode;
+  title: string; sub?: string; span: string; tall?: boolean; children: React.ReactNode;
 }) {
   return (
-    <section className="panel" style={{ gridColumn: span }}>
+    <section className="panel" style={{ gridColumn: span, gridRow: tall ? 'span 2' : undefined }}>
       <header className="panel-h">
         <span className="t">{title}</span>
         {sub && <span className="s">{sub}</span>}
@@ -163,6 +169,7 @@ function Panel({
 /* ── 앱 ────────────────────────────────────────────────── */
 
 export default function App() {
+  const [view, setView] = useState<ViewId>('overview');
   const [snap, setSnap] = useState<StreamSnapshot | null>(null);
   const [prevSmp, setPrevSmp] = useState<number | null>(null);
   const [portfolio, setPortfolio] = useState<Portfolio | null>(null);
@@ -254,10 +261,42 @@ export default function App() {
       />
 
       <div className="app-body">
-        <Rail />
+        <Rail view={view} onSelect={setView} />
 
         <main className="main">
           <div className="grid">
+            {view === 'market' && (
+              <Panel title="시장 — SMP · 수요 실시간 (확대)" sub="3s FEED / KST" span="span 12" tall>
+                <MarketPanel snap={snap} />
+              </Panel>
+            )}
+            {view === 'assets' && (
+              <Panel title="자원 관제 — 사이트·유닛·계통 (확대)" sub="20 UNITS / 3 SITES" span="span 12" tall>
+                <AssetsPanel portfolio={portfolio} snap={snap} />
+              </Panel>
+            )}
+            {view === 'drops' && (
+              <>
+                <Panel title="DR 운영 콘솔" sub="OpenADR 2.0b" span="span 4" tall>
+                  <DrPanel onLog={pushLog} />
+                </Panel>
+                <Panel title="정산 원장 — 전체" sub="LEDGER" span="span 8" tall>
+                  <SettleTable />
+                </Panel>
+              </>
+            )}
+            {view === 'map' && (
+              <Panel title="전국 현황 (확대)" sub="3 SITES" span="span 12" tall>
+                <MapPanel portfolio={portfolio} snap={snap} />
+              </Panel>
+            )}
+            {view === 'settle' && (
+              <Panel title="정산 원장" sub="LEDGER" span="span 12" tall>
+                <SettleTable />
+              </Panel>
+            )}
+            {view === 'overview' && (
+            <>
             <Panel title="포트폴리오 요약" sub={`${portfolio?.building_count ?? '—'} SITES`} span="span 3">
               <div className="stat-rows">
                 <div className="stat-row">
@@ -312,6 +351,8 @@ export default function App() {
             <Panel title="전국 현황" sub="3 SITES" span="span 3">
               <MapPanel portfolio={portfolio} snap={snap} />
             </Panel>
+            </>
+            )}
           </div>
 
           <footer className="statusbar">
