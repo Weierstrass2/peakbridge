@@ -29,6 +29,7 @@ RUN useradd --create-home --shell /bin/bash appuser
 
 COPY --from=builder /install /usr/local
 COPY app/ ./app/
+COPY models/best/ ./models/best/
 COPY alembic/ ./alembic/
 COPY alembic.ini .
 

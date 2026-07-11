@@ -26,7 +26,7 @@ async def get_recommendation(
     kepco_service = KepcoService()
 
     grid_reading = await sensor_repo.get_latest_by_building(
-        building_id, "grid_current", "grid"
+        building_id, "grid_current", "grid_meter"
     )
     ess_reading = await sensor_repo.get_latest_by_building(
         building_id, "ess_soc", "ess"
@@ -35,9 +35,15 @@ async def get_recommendation(
     grid_current = grid_reading.value if grid_reading else 0.0
     ess_soc = ess_reading.value if ess_reading else 50.0
 
-    current_temp = await weather_service.get_current_temperature()
-    tariff_info = kepco_service.get_current_tariff_info()
-    tariff_rate = tariff_info[1]
+    try:
+        current_temp = await weather_service.get_current_temperature()
+    except Exception:
+        current_temp = 25.0
+    try:
+        tariff_info = kepco_service.get_current_tariff_info()
+        tariff_rate = tariff_info[1]
+    except Exception:
+        tariff_rate = 84.5
 
     recommendation = await _ppo_service.get_recommendation(
         building_id=building_id,
