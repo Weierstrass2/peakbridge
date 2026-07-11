@@ -53,6 +53,7 @@ class VPPSimulator:
                         "current_soc": soc,
                         "usable_kwh": round(usable_kwh, 1),
                         "available_kw": available_kw,
+                        "live": bool(b.get("live", False)),
                     }
                 )
                 total_capacity += capacity
