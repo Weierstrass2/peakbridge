@@ -22,7 +22,7 @@ class GridSimulateRequest(BaseModel):
     """수동 시뮬레이션 요청."""
 
     grid_current: float = Field(ge=0, le=1000, description="그리드 전류 (A)")
-    ess_discharge_kw: float = Field(default=5.0, ge=0, le=100, description="ESS 유닛당 방전 (kW)")
+    ess_discharge_kw: float = Field(default=100.0, ge=0, le=1000, description="ESS 총 방전량 (kW)")
     ev_count: int = Field(default=1, ge=0, le=100, description="EV 충전 대수")
     transformer_kva: float = Field(default=300.0, gt=0, le=10000, description="변압기 정격 (kVA)")
 
@@ -93,7 +93,7 @@ async def get_grid_simulation(session: DbSession, building_id: str) -> dict:
 
     from app.core.config import settings
 
-    ess_discharge_kw = 5.0 if (ess_available and ess_soc > settings.ESS_MIN_SOC) else 0.0
+    ess_discharge_kw = 100.0 if (ess_available and ess_soc > settings.ESS_MIN_SOC) else 0.0
 
     try:
         result = grid_simulator.simulate(
@@ -120,5 +120,119 @@ async def get_grid_simulation(session: DbSession, building_id: str) -> dict:
             },
             "simulation": result,
             "apartment_model": model,
+        }
+    )
+
+
+# ── 지도 시각화용 배전망 맵 ──────────────────────────────
+
+_MAP_LAYOUT = {
+    "grid-source": {"x": 50, "y": 4, "name": "한전 계통"},
+    "transformer": {"x": 50, "y": 28, "name": "단지 변압기"},
+    "feeder-1": {"x": 14, "y": 62, "name": "1동"},
+    "feeder-2": {"x": 38, "y": 62, "name": "2동"},
+    "feeder-3": {"x": 62, "y": 62, "name": "3동"},
+    "feeder-4": {"x": 86, "y": 62, "name": "4동"},
+    "ev-station": {"x": 20, "y": 90, "name": "EV 충전소"},
+    "ess": {"x": 80, "y": 90, "name": "묶음 ESS"},
+}
+
+_MAP_EDGES = [
+    {"from": "grid-source", "to": "transformer"},
+    {"from": "transformer", "to": "feeder-1"},
+    {"from": "transformer", "to": "feeder-2"},
+    {"from": "transformer", "to": "feeder-3"},
+    {"from": "transformer", "to": "feeder-4"},
+    {"from": "transformer", "to": "ev-station"},
+    {"from": "ess", "to": "transformer"},
+]
+
+
+@router.get("/map/{building_id}")
+async def get_grid_map(session: DbSession, building_id: str) -> dict:
+    """
+    GET /api/v1/grid/map/{building_id}
+
+    지도/다이어그램 시각화용 배전망 노드(좌표·부하율)와 연결선.
+    """
+    grid_current, ess_soc, ev_count = 0.0, 0.0, 0
+    ess_available = False
+    try:
+        sensor_repo = SensorRepository(session)
+        device_repo = DeviceRepository(session)
+        g = await sensor_repo.get_latest_by_building(
+            building_id, SensorType.GRID_CURRENT.value, DeviceType.GRID_METER.value
+        )
+        if g:
+            grid_current = g.value
+        e = await sensor_repo.get_latest_by_building(
+            building_id, SensorType.ESS_SOC.value, DeviceType.ESS.value
+        )
+        if e:
+            ess_soc = e.value
+            ess_available = True
+        ev_count = len(
+            await device_repo.list_by_building(building_id, DeviceType.CHARGER.value)
+        )
+    except Exception as exc:
+        logger.warning("grid_map_db_failed", building_id=building_id, error=str(exc))
+
+    try:
+        model = grid_simulator.get_apartment_model(
+            grid_current=grid_current, ev_count=ev_count
+        )
+    except Exception as exc:
+        logger.error("grid_map_model_failed", error=str(exc))
+        model = {"transformer": {}, "nodes": []}
+
+    node_loads = {n["id"]: n for n in model.get("nodes", [])}
+    trafo = model.get("transformer", {})
+
+    nodes = []
+    for node_id, pos in _MAP_LAYOUT.items():
+        item = {
+            "id": node_id,
+            "name": pos["name"],
+            "x": pos["x"],
+            "y": pos["y"],
+            "load_kw": 0.0,
+            "load_percent": 0.0,
+            "status": "정상",
+        }
+        if node_id == "transformer":
+            item.update(
+                {
+                    "load_kw": trafo.get("load_kw", 0.0),
+                    "load_percent": trafo.get("loading_percent", 0.0),
+                    "status": trafo.get("status", "정상"),
+                    "rating_kva": trafo.get("rating_kva", 300.0),
+                }
+            )
+        elif node_id == "ess":
+            item.update(
+                {
+                    "soc": ess_soc,
+                    "available": ess_available,
+                    "status": "대기" if ess_available else "미연결",
+                }
+            )
+        elif node_id in node_loads:
+            n = node_loads[node_id]
+            item.update(
+                {
+                    "load_kw": n.get("load_kw", 0.0),
+                    "load_percent": n.get("load_percent", 0.0),
+                    "status": "경고" if n.get("load_percent", 0) >= 80 else "정상",
+                }
+            )
+        nodes.append(item)
+
+    return success_response(
+        {
+            "building_id": building_id,
+            "grid_current": grid_current,
+            "nodes": nodes,
+            "edges": _MAP_EDGES,
+            "legend": {"정상": "<80%", "경고": "80~100%", "과부하": ">=100%"},
         }
     )
