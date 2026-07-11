@@ -276,3 +276,10 @@ body {
 .site-row .mode { margin-left: 2px; }
 .sval { margin-left: auto; font-family: var(--font-num); font-size: 9.5px; color: var(--tx-2); font-variant-numeric: tabular-nums; }
 .sval.out { margin-left: 10px; min-width: 52px; text-align: right; }
+
+.fsbtn {
+  background: none; border: 1px solid var(--line-1); border-radius: 3px;
+  color: var(--tx-3); font-family: var(--font-num); font-size: 8.5px;
+  letter-spacing: 0.12em; padding: 3px 7px; cursor: pointer;
+}
+.fsbtn:hover { color: var(--tx-1); border-color: var(--line-2); }

@@ -93,6 +93,14 @@ function MarketBar({
       </div>
 
       <div className="mb-right">
+        <button
+          className="fsbtn"
+          title="전체화면 (F)"
+          onClick={() => {
+            if (document.fullscreenElement) document.exitFullscreen();
+            else document.documentElement.requestFullscreen();
+          }}
+        >FULL</button>
         <div className="conn">
           <span className={`dot ${connected ? 'live' : 'err'}`} />
           {connected ? 'LIVE' : 'NO FEED'}
@@ -169,6 +177,18 @@ export default function App() {
 
   const pushLog = (lv: LogLine['lv'], msg: string) =>
     setLogs((prev) => [{ ts: nowTs(), lv, msg }, ...prev.slice(0, 60)]);
+
+  // F키 전체화면
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.key === 'f' || e.key === 'F') && !(e.target instanceof HTMLInputElement)) {
+        if (document.fullscreenElement) document.exitFullscreen();
+        else document.documentElement.requestFullscreen();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   // 3초 스트림
   useEffect(() => {
