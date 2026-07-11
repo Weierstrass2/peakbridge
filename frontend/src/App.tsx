@@ -9,6 +9,7 @@ import ControlPage from './pages/ControlPage';
 import AlertsPage from './pages/AlertsPage';
 import EnergyTradingPage from './pages/EnergyTradingPage';
 import VPPPage from './pages/VPPPage';
+import ControlRoomPage from './pages/ControlRoomPage';
 import { useAuthStore } from './store/authStore';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -24,6 +25,14 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/control-room"
+          element={
+            <ProtectedRoute>
+              <ControlRoomPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           element={
             <ProtectedRoute>

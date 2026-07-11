@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -109,7 +110,13 @@ export default function VPPPage() {
             가상발전소 포트폴리오 · OpenADR 수요반응 · 수익 현황
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <Link
+            to="/control-room"
+            className="rounded-lg bg-[#3B82F6] px-4 py-2 text-sm font-semibold text-white hover:bg-[#2563EB]"
+          >
+            🖥 관제센터 모드
+          </Link>
           <span className={`h-2.5 w-2.5 rounded-full ${venState === 'responding' ? 'bg-[#F97316] animate-pulse' : 'bg-[#34D399]'}`} />
           <span className="text-sm text-[#94A3B8]">
             VEN {venState === 'responding' ? '대응 중' : '대기'} · VTN 온라인
