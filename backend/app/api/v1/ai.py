@@ -1,6 +1,6 @@
 """AI 기반 추천 및 시나리오 API."""
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter
 
 from app.core.deps import DbSession, get_mqtt_publisher
 from app.repositories.sensor_repository import SensorRepository
@@ -10,7 +10,7 @@ from app.services.ppo_service import PPOService
 from app.services.scenario_service import ScenarioService
 from app.services.weather_service import WeatherService
 
-router = APIRouter(prefix="/ai", tags=["ai"])
+router = APIRouter()
 
 _ppo_service = PPOService()
 
@@ -25,7 +25,6 @@ async def get_recommendation(
     weather_service = WeatherService()
     kepco_service = KepcoService()
 
-    # 센서 데이터 조회
     grid_reading = await sensor_repo.get_latest_by_building(
         building_id, "grid_current", "grid"
     )
@@ -36,12 +35,10 @@ async def get_recommendation(
     grid_current = grid_reading.value if grid_reading else 0.0
     ess_soc = ess_reading.value if ess_reading else 50.0
 
-    # 외부 데이터 조회
     current_temp = await weather_service.get_current_temperature()
     tariff_info = kepco_service.get_current_tariff_info()
     tariff_rate = tariff_info[1]
 
-    # 추천 받기
     recommendation = await _ppo_service.get_recommendation(
         building_id=building_id,
         grid_current=grid_current,
