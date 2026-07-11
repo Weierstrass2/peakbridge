@@ -71,6 +71,23 @@ export interface MarketSession {
   } | null;
 }
 
+export interface DispatchHour {
+  hour: number; qty_kw: number; mcp: number; awarded: boolean;
+  delivered_kwh: number; status: string; settled: boolean;
+  compliance?: number; progress?: number;
+}
+
+export interface DispatchStatus {
+  rtu: { seq: number; last_beat: string | null; interval_s: number };
+  soc: Record<string, number>;
+  market_types: { id: string; name: string; state: string }[];
+  active: {
+    session_id: string; delivery_date: string; time_scale: number; sim_clock: string;
+    hours: DispatchHour[]; awarded_hours: number; settled_hours: number;
+    energy_revenue: number; cp_revenue: number; penalties: number; net: number;
+  } | null;
+}
+
 export interface LedgerEntry {
   id: string; type: string; detail: string; kwh: number; revenue: number; ts: string;
 }
@@ -119,6 +136,8 @@ export const consoleApi = {
   drStatus: () =>
     get<{ active_event: DrEventResult | null; ven: { state: string } }>('/dr/status'),
   marketSession: () => get<MarketSession>('/market/session'),
+  dispatchStatus: () => get<DispatchStatus>('/dispatch/status'),
+  dispatchActivate: () => post<DispatchStatus | { error: string }>('/dispatch/activate', {}),
   marketSaveBids: (bids: Bid[]) => post<MarketSession>('/market/bids', { bids }),
   marketSubmit: () => post<MarketSession>('/market/submit', {}),
   marketClear: () => post<MarketSession>('/market/clear', {}),

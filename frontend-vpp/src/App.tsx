@@ -4,6 +4,7 @@ import DrPanel from './components/DrPanel';
 import MapPanel from './components/MapPanel';
 import SettleTable from './components/SettleTable';
 import BiddingDesk from './components/BiddingDesk';
+import DispatchPanel from './components/DispatchPanel';
 import MarketPanel from './components/MarketPanel';
 import {
   consoleApi,
@@ -122,6 +123,7 @@ const NAV = [
   { id: 'overview', label: '통합 개요' },
   { id: 'market', label: '시장·가격' },
   { id: 'bidding', label: '입찰 데스크' },
+  { id: 'dispatch', label: '급전 이행' },
   { id: 'assets', label: '자원 관제' },
   { id: 'drops', label: 'DR 운영' },
   { id: 'map', label: '전국 현황' },
@@ -275,6 +277,11 @@ export default function App() {
             {view === 'bidding' && (
               <Panel title="입찰 데스크 — 하루 전 시장 (DAM)" sub="KPX 10:00 마감" span="span 12" tall>
                 <BiddingDesk onLog={pushLog} />
+              </Panel>
+            )}
+            {view === 'dispatch' && (
+              <Panel title="급전 이행 — 낙찰 스케줄 실행" sub="RTU 4s / 60× 가속" span="span 12" tall>
+                <DispatchPanel onLog={pushLog} />
               </Panel>
             )}
             {view === 'assets' && (
