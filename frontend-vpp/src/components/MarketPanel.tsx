@@ -44,6 +44,7 @@ export default function MarketPanel({ snap }: { snap: StreamSnapshot | null }) {
         textColor: '#5C6673',
         fontFamily: "'JetBrains Mono', ui-monospace, monospace",
         fontSize: 10,
+        attributionLogo: false,
       },
       grid: {
         vertLines: { color: '#161B22' },

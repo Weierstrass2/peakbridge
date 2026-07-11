@@ -33,6 +33,19 @@ export interface Portfolio {
   }[];
 }
 
+export interface GridMapNode {
+  id: string; name: string; x: number; y: number;
+  load_kw: number; load_percent: number; status: string;
+  soc?: number; available?: boolean; rating_kva?: number;
+}
+
+export interface GridMap {
+  building_id: string;
+  grid_current: number;
+  nodes: GridMapNode[];
+  edges: { from: string; to: string }[];
+}
+
 export interface LedgerSummary {
   today_trades: number; today_kwh: number; today_revenue: number; total_revenue: number;
 }
@@ -56,4 +69,5 @@ export const consoleApi = {
   stream: () => get<StreamSnapshot>('/vpp/stream'),
   portfolio: () => get<Portfolio>('/vpp/portfolio'),
   ledger: () => get<{ summary: LedgerSummary; entries: unknown[] }>('/vpp/ledger?limit=1'),
+  gridMap: () => get<GridMap>('/grid/map/building-A'),
 };

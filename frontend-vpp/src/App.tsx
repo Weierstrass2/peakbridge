@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import AssetsPanel from './components/AssetsPanel';
 import MarketPanel from './components/MarketPanel';
 import {
   consoleApi,
@@ -21,7 +22,7 @@ interface LogLine {
 }
 
 const nowTs = () =>
-  new Date().toLocaleTimeString('ko-KR', { hour12: false });
+  new Date().toLocaleTimeString('en-GB', { hour12: false });
 
 /* ── 마켓바 ────────────────────────────────────────────── */
 
@@ -95,7 +96,7 @@ function MarketBar({
           {connected ? 'LIVE' : 'NO FEED'}
         </div>
         <span className="clock">
-          {clock.toLocaleTimeString('ko-KR', { hour12: false })}
+          {clock.toLocaleTimeString('en-GB', { hour12: false })}
           <small style={{ fontSize: 9, color: 'var(--tx-3)', marginLeft: 4 }}>KST</small>
         </span>
       </div>
@@ -287,15 +288,15 @@ export default function App() {
               </div>
             </Panel>
 
-            <Panel title="자원 관제 — 사이트·유닛" sub="20 UNITS" span="span 4">
-              <Pending stage="P3 — ASSETS" desc="포트폴리오 그리드·원라인 계통도" />
+            <Panel title="자원 관제 — 사이트·유닛·계통" sub="20 UNITS / 3 SITES" span="span 6">
+              <AssetsPanel portfolio={portfolio} snap={snap} />
             </Panel>
 
-            <Panel title="DR 운영 콘솔" sub="OpenADR 2.0b" span="span 4">
+            <Panel title="DR 운영 콘솔" sub="OpenADR 2.0b" span="span 3">
               <Pending stage="P4 — DR OPS" desc="이벤트 발령·정산 원장" />
             </Panel>
 
-            <Panel title="전국 현황" sub="3 SITES" span="span 4">
+            <Panel title="전국 현황" sub="3 SITES" span="span 3">
               <Pending stage="P5 — MAP" desc="사이트 지도·상태 오버레이" />
             </Panel>
           </div>
