@@ -12,6 +12,7 @@ from app.api.v1 import (
     energy,
     grid,
     kepco,
+    market,
     reports,
     sensors,
     simulation,
@@ -39,4 +40,5 @@ api_v1_router.include_router(grid.router)
 api_v1_router.include_router(vpp.router)
 api_v1_router.include_router(dr.router)
 api_v1_router.include_router(state.router)
+api_v1_router.include_router(market.router)
 api_v1_router.include_router(simulation.router, prefix="/simulation", tags=["simulation"])
