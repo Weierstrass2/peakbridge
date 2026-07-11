@@ -8,6 +8,7 @@ import ReportPage from './pages/ReportPage';
 import ControlPage from './pages/ControlPage';
 import AlertsPage from './pages/AlertsPage';
 import EnergyTradingPage from './pages/EnergyTradingPage';
+import VPPPage from './pages/VPPPage';
 import { useAuthStore } from './store/authStore';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="reports" element={<ReportPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="energy" element={<EnergyTradingPage />} />
+          <Route path="vpp" element={<VPPPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
