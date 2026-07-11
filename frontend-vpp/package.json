@@ -11,13 +11,16 @@
   "dependencies": {
     "lightweight-charts": "^4.2.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.4.1",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "@types/topojson-client": "^3.1.5",
+    "@types/geojson": "^7946.0.16"
   }
 }

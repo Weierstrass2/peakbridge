@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import AssetsPanel from './components/AssetsPanel';
 import DrPanel from './components/DrPanel';
+import MapPanel from './components/MapPanel';
 import MarketPanel from './components/MarketPanel';
 import {
   consoleApi,
@@ -151,15 +152,6 @@ function Panel({
   );
 }
 
-function Pending({ stage, desc }: { stage: string; desc: string }) {
-  return (
-    <div className="pending">
-      <span className="stage-big">{stage}</span>
-      <span className="desc">{desc}</span>
-    </div>
-  );
-}
-
 /* ── 앱 ────────────────────────────────────────────────── */
 
 export default function App() {
@@ -298,7 +290,7 @@ export default function App() {
             </Panel>
 
             <Panel title="전국 현황" sub="3 SITES" span="span 3">
-              <Pending stage="P5 — MAP" desc="사이트 지도·상태 오버레이" />
+              <MapPanel portfolio={portfolio} snap={snap} />
             </Panel>
           </div>
 
