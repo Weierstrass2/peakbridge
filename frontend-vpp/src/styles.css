@@ -295,3 +295,33 @@ body {
 .settle-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 .settle-scroll::-webkit-scrollbar { width: 3px; }
 .settle-scroll::-webkit-scrollbar-thumb { background: var(--line-2); }
+
+/* ── 입찰 데스크 ────────────────────────────────────────── */
+.bidding { display: flex; flex-direction: column; height: 100%; gap: 8px; }
+.bid-head {
+  display: flex; justify-content: space-between; align-items: baseline; flex-shrink: 0;
+  padding-bottom: 8px; border-bottom: 1px solid var(--line-0);
+}
+.bid-meta { display: flex; gap: 20px; font-size: 10.5px; color: var(--tx-2); }
+.bid-meta b { font-family: var(--font-num); color: var(--tx-1); font-variant-numeric: tabular-nums; }
+.bid-deadline { font-size: 10px; color: var(--tx-3); letter-spacing: 0.06em; }
+.bid-deadline b {
+  font-family: var(--font-num); font-size: 15px; color: var(--warn);
+  font-variant-numeric: tabular-nums; margin-left: 6px;
+}
+.bid-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 160px)); gap: 6px; flex-shrink: 0; }
+.cbtn.wide { flex-direction: row; gap: 6px; padding: 6px 10px; justify-content: center; }
+.bid-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.bid-scroll::-webkit-scrollbar { width: 3px; }
+.bid-scroll::-webkit-scrollbar-thumb { background: var(--line-2); }
+.bid-table input.cell-in {
+  width: 64px; background: var(--bg-3); border: 1px solid var(--line-1); border-radius: 3px;
+  color: var(--tx-1); font-family: var(--font-num); font-size: 10.5px;
+  padding: 3px 6px; text-align: right; font-variant-numeric: tabular-nums;
+}
+.bid-table input.cell-in:focus { outline: none; border-color: var(--acc); }
+.bid-table input.cell-in:disabled { opacity: 0.5; }
+.row-award td { background: rgba(46,189,133,0.04); }
+.award { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; padding: 1.5px 6px; border-radius: 3px; border: 1px solid; }
+.award.ok { color: var(--ok); border-color: var(--ok); }
+.award.no { color: var(--tx-3); border-color: var(--line-1); }

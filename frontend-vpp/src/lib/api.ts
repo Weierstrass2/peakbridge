@@ -46,6 +46,31 @@ export interface GridMap {
   edges: { from: string; to: string }[];
 }
 
+export interface Bid { hour: number; qty_kw: number; price: number; }
+
+export interface BidResultHour {
+  hour: number; qty_kw: number; bid_price: number; mcp: number;
+  awarded: boolean; expected_revenue: number;
+}
+
+export interface MarketSession {
+  session_id: string;
+  delivery_date: string;
+  status: 'draft' | 'submitted' | 'cleared' | 'error';
+  bids: Bid[];
+  deadline: string;
+  seconds_to_deadline: number;
+  submitted_at: string | null;
+  cleared_at: string | null;
+  results: {
+    hours: BidResultHour[];
+    awarded_hours: number;
+    total_award_kwh: number;
+    total_expected_revenue: number;
+    avg_mcp: number;
+  } | null;
+}
+
 export interface LedgerEntry {
   id: string; type: string; detail: string; kwh: number; revenue: number; ts: string;
 }
@@ -93,6 +118,11 @@ export const consoleApi = {
     get<{ summary: LedgerSummary; entries: LedgerEntry[] }>(`/vpp/ledger?limit=${limit}`),
   drStatus: () =>
     get<{ active_event: DrEventResult | null; ven: { state: string } }>('/dr/status'),
+  marketSession: () => get<MarketSession>('/market/session'),
+  marketSaveBids: (bids: Bid[]) => post<MarketSession>('/market/bids', { bids }),
+  marketSubmit: () => post<MarketSession>('/market/submit', {}),
+  marketClear: () => post<MarketSession>('/market/clear', {}),
+  marketMcpForecast: () => get<{ curve: number[] }>('/market/mcp-forecast'),
   issueDr: (signalType: string, value: number) =>
     post<DrEventResult>('/dr/event', {
       signal_type: signalType,
