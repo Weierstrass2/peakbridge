@@ -46,15 +46,13 @@ export default function ChargersPage() {
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div>
-          <label className="text-xs text-[#94A3B8] mb-1 block">단지 선택</label>
+          <label className="text-xs text-[#94A3B8] mb-1 block">단지 선택 (다중 단지 확장 예정)</label>
           <select
             value={selectedBuilding}
             onChange={(e) => setSelectedBuilding(e.target.value)}
             className="rounded-lg border border-[#334155] bg-[#1E293B] px-4 py-2 text-sm text-[#F1F5F9] outline-none focus:border-[#3B82F6]"
           >
             <option value="A단지">A단지</option>
-            <option value="B단지">B단지</option>
-            <option value="C단지">C단지</option>
           </select>
         </div>
         <div>

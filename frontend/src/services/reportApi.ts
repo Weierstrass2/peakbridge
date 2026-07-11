@@ -16,7 +16,6 @@ export async function fetchReports(): Promise<ReportSummary[]> {
     return mockFetch([...mockReports]);
   }
   const { data } = await api.get<BackendResponse<SavingsReportResponse>>(apiPaths.reportsSavings());
-  console.log('📡 Backend reports response:', data);
   return normalizeSavingsReport(data.data);
 }
 
@@ -25,7 +24,6 @@ export async function fetchAlerts(): Promise<AlertItem[]> {
     return mockFetch([...mockAlerts]);
   }
   const { data } = await api.get<BackendResponse<AlertItem[]>>(apiPaths.alerts());
-  console.log('📡 Backend alerts response:', data);
   return data.data;
 }
 

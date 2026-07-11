@@ -4,14 +4,8 @@ import Card from '../components/common/Card';
 import { useDashboard } from '../hooks/useDashboard';
 import { sendControlAction } from '../services/dashboardApi';
 
-const controlLogs = [
-  { id: 1, time: '19:02:34', type: 'AI 자동', message: 'ESS 방전 시작' },
-  { id: 2, time: '18:55:12', type: '수동', message: 'ESS 충전 시작' },
-  { id: 3, time: '18:30:05', type: 'AI 자동', message: '피크 임계치 조정 (15A → 14A)' },
-];
-
 export default function ControlPage() {
-  const { dashboard } = useDashboard();
+  const { dashboard, events } = useDashboard();
   const [threshold, setThreshold] = useState(dashboard?.peak_threshold ?? 15);
   const [autoControl, setAutoControl] = useState(true);
   const [loading, setLoading] = useState<string | null>(null);
@@ -80,11 +74,8 @@ export default function ControlPage() {
               onChange={(e) => setThreshold(parseFloat(e.target.value))}
               className="w-full accent-[#F97316]"
             />
-            <Button
-              loading={loading === 'set_threshold'}
-              onClick={() => runAction('set_threshold', { value: threshold })}
-            >
-              적용
+            <Button disabled title="백엔드 임계치 API 준비 중">
+              적용 (준비 중)
             </Button>
           </div>
         </Card>
@@ -94,7 +85,7 @@ export default function ControlPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-[#F1F5F9] mb-1">자동 제어</p>
-              <p className="text-xs text-[#94A3B8]">{autoControl ? 'ON' : 'OFF'}</p>
+              <p className="text-xs text-[#94A3B8]">{autoControl ? 'ON' : 'OFF'} (백엔드 연동 예정)</p>
             </div>
             <button
               onClick={() => setAutoControl(!autoControl)}
@@ -125,16 +116,16 @@ export default function ControlPage() {
                 <Button
                   variant="secondary"
                   className="flex-1 px-2 py-1.5 text-xs"
-                  loading={loading === `pause_${c.device_id}`}
-                  onClick={() => runAction('pause_charger', { device_id: c.device_id })}
+                  disabled
+                  title="충전기 제어 API 준비 중"
                 >
                   일시 정지
                 </Button>
                 <Button
                   variant="secondary"
                   className="flex-1 px-2 py-1.5 text-xs"
-                  loading={loading === `resume_${c.device_id}`}
-                  onClick={() => runAction('resume_charger', { device_id: c.device_id })}
+                  disabled
+                  title="충전기 제어 API 준비 중"
                 >
                   재개
                 </Button>
@@ -147,9 +138,12 @@ export default function ControlPage() {
       {/* Message + Logs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <Card title="실시간 제어 로그">
+          <Card title="실시간 제어 로그" subtitle="알림 이벤트 기반">
             <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-              {controlLogs.map((log) => (
+              {(events ?? []).length === 0 && (
+                <p className="text-sm text-[#94A3B8]">아직 기록된 이벤트가 없습니다.</p>
+              )}
+              {(events ?? []).map((log) => (
                 <div
                   key={log.id}
                   className="flex items-start gap-3 rounded-xl border border-[#334155] bg-[#0F172A] px-4 py-3"
@@ -157,16 +151,18 @@ export default function ControlPage() {
                   <div className="mt-1">
                     <span
                       className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        log.type === 'AI 자동'
-                          ? 'bg-[#3B82F6]/10 text-[#3B82F6]'
-                          : 'bg-[#A78BFA]/10 text-[#A78BFA]'
+                        log.level === 'warning'
+                          ? 'bg-[#F97316]/10 text-[#F97316]'
+                          : log.level === 'success'
+                            ? 'bg-[#34D399]/10 text-[#34D399]'
+                            : 'bg-[#3B82F6]/10 text-[#3B82F6]'
                       }`}
                     >
-                      {log.type}
+                      {log.level === 'warning' ? '피크' : log.level === 'success' ? '해제' : '정보'}
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="font-mono text-xs text-[#94A3B8]">{log.time}</p>
+                    <p className="font-mono text-xs text-[#94A3B8]">{log.timestamp}</p>
                     <p className="text-sm text-[#F1F5F9]">{log.message}</p>
                   </div>
                 </div>

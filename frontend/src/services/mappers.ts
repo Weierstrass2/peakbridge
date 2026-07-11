@@ -6,7 +6,6 @@ import type {
   ReportSummary,
   SensorReading,
 } from '../types';
-import { apiPaths, SENSOR_DEVICE_IDS } from '../config/apiPaths';
 
 /** 백엔드 dashboard 응답 — chart/events는 선택 필드 */
 export interface DashboardResponse extends DashboardData {

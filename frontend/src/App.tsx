@@ -12,9 +12,7 @@ import { useAuthStore } from './store/authStore';
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const token = useAuthStore((s) => s.token);
-  console.log('🛡️ ProtectedRoute - token:', token ? token.substring(0, 20) + '...' : 'null');
   if (!token) {
-    console.log('🔄 Redirecting to login...');
     return <Navigate to="/login" replace />;
   }
   return <>{children}</>;

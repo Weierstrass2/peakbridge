@@ -43,7 +43,7 @@ export default function DashboardPage() {
 
       {/* Forecast (if available) */}
       {dashboard?.forecast && (
-        <Card title="피크 예측" subtitle="다음 20분">
+        <Card title="피크 예측" subtitle="다음 1시간 (5분 간격)">
           <div className="flex flex-wrap gap-3">
             {dashboard.forecast.map((point) => (
               <div
@@ -54,7 +54,14 @@ export default function DashboardPage() {
                     : 'border-[#334155] bg-[#0F172A]'
                 }`}
               >
-                <p className="text-xs text-[#94A3B8]">{point.time}</p>
+                <p className="text-xs text-[#94A3B8]">
+                  {new Date(point.time).toLocaleTimeString('ko-KR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false,
+                    timeZone: 'Asia/Seoul',
+                  })}
+                </p>
                 <p className={`text-lg font-bold tabular-nums mt-1 ${
                   point.will_exceed ? 'text-[#F97316]' : 'text-[#10B981]'
                 }`}>

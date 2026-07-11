@@ -1,5 +1,6 @@
 import type { ChartPoint, DashboardData, EventLogEntry } from '../types';
 import { isMockMode } from '../config/env';
+import type { SensorReading } from '../types';
 import { apiPaths, SENSOR_DEVICE_IDS } from '../config/apiPaths';
 import { mockChartHistory, mockDashboardData, mockEvents, mockFetch } from '../mock/mockData';
 import { api } from './api';
@@ -18,8 +19,27 @@ export async function fetchDashboard(): Promise<DashboardData> {
     return mockFetch({ ...mockDashboardData });
   }
   const { data } = await api.get<BackendResponse<DashboardData>>(apiPaths.dashboard());
-  console.log('📡 Backend dashboard response:', data);
   return data.data;
+}
+
+interface HistoryItem {
+  time: string;
+  avg_value: number;
+  unit: string;
+}
+
+async function fetchDeviceHistory(deviceId: string): Promise<SensorReading[]> {
+  const { data } = await api.get<BackendResponse<{ history: HistoryItem[] }>>(
+    apiPaths.sensorHistory(deviceId),
+    { params: { interval: '5min' } },
+  );
+  return (data.data.history ?? []).map((h) => ({
+    sensor_id: deviceId,
+    type: 'history',
+    value: h.avg_value,
+    unit: h.unit,
+    timestamp: h.time,
+  }));
 }
 
 export async function fetchDashboardFull(): Promise<DashboardResponse> {
@@ -44,8 +64,17 @@ export async function fetchChartHistory(): Promise<ChartPoint[]> {
     return mockFetch([...mockChartHistory]);
   }
 
-  // Fallback to mock chart data since backend doesn't have sensor history endpoint yet
-  return mockFetch([...mockChartHistory]);
+  try {
+    const [grid, ess, charger] = await Promise.all([
+      fetchDeviceHistory(SENSOR_DEVICE_IDS.grid).catch(() => [] as SensorReading[]),
+      fetchDeviceHistory(SENSOR_DEVICE_IDS.ess).catch(() => [] as SensorReading[]),
+      fetchDeviceHistory(SENSOR_DEVICE_IDS.chargerTotal).catch(() => [] as SensorReading[]),
+    ]);
+    const merged = mergeChartSeries(grid, ess, charger);
+    return merged.length > 0 ? merged : mockFetch([...mockChartHistory]);
+  } catch {
+    return mockFetch([...mockChartHistory]);
+  }
 }
 
 export async function fetchEvents(): Promise<EventLogEntry[]> {
@@ -57,7 +86,6 @@ export async function fetchEvents(): Promise<EventLogEntry[]> {
     const alerts = await fetchAlerts();
     return alerts.map(alertToEvent);
   } catch {
-    // If alerts endpoint fails, use mock events
     return mockFetch([...mockEvents]);
   }
 }

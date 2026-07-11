@@ -25,8 +25,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
     };
   }
   const { data } = await api.post<BackendResponse<BackendAuthData>>(apiPaths.authLogin, { email, password });
-  console.log('📡 Backend login response:', data);
-  
+
   // Extract access_token from nested data.data
   const accessToken = data.data.access_token;
   // Create a dummy user since backend doesn't return user data in this response

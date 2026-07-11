@@ -3,19 +3,23 @@ import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { useQuery } from '@tanstack/react-query';
 import { mockReports, formatKRW } from '../mock/mockData';
+import { fetchReports } from '../services/reportApi';
+import { api } from '../services/api';
+import { BUILDING_ID, isMockMode } from '../config/env';
 
-// Mock daily savings data
-const dailySavingsData = Array.from({ length: 30 }, (_, i) => {
-  const day = 30 - i;
+// 예시 일별 절감 데이터 (오늘 기준 최근 30일, 실데이터 누적 전까지 표시용)
+const fallbackDaily = Array.from({ length: 30 }, (_, i) => {
+  const d = new Date();
+  d.setDate(d.getDate() - (29 - i));
   return {
-    day: `6/${day}`,
+    day: `${d.getMonth() + 1}/${d.getDate()}`,
     savings: Math.floor(Math.random() * 50000) + 10000,
     peakCount: Math.floor(Math.random() * 5),
-    isToday: i === 0,
+    isToday: i === 29,
   };
 });
 
-// Mock building comparison data
+// 다중 단지 확장 예시 데이터 (전시용)
 const buildingData = [
   { name: 'A단지', households: 500, savings: 64200000, peakCount: 156, rate: 32 },
   { name: 'B단지', households: 320, savings: 41088000, peakCount: 98, rate: 28 },
@@ -23,13 +27,52 @@ const buildingData = [
 ];
 
 export default function ReportPage() {
-  const { data: reports, isLoading } = useQuery({
+  const { data: reports } = useQuery({
     queryKey: ['reports'],
     queryFn: async () => {
-      await new Promise(r => setTimeout(r, 300));
-      return mockReports;
+      try {
+        return await fetchReports();
+      } catch {
+        return mockReports;
+      }
     },
+    refetchInterval: 60_000,
   });
+
+  // 일별 절감 실데이터 (백엔드 CSV export 파싱, 없으면 예시 폴백)
+  const dailyQ = useQuery({
+    queryKey: ['reports', 'daily'],
+    queryFn: async () => {
+      const res = await api.get<string>(`/api/v1/reports/${BUILDING_ID}/export`, {
+        params: { days: 30 },
+        responseType: 'text',
+        transformResponse: [(d) => d],
+      });
+      const today = new Date().toISOString().slice(0, 10);
+      return String(res.data)
+        .trim()
+        .split('\n')
+        .slice(1)
+        .filter(Boolean)
+        .map((line) => {
+          const [dateStr, , savedWon, , peakCount] = line.split(',');
+          const dt = new Date(dateStr);
+          return {
+            day: `${dt.getMonth() + 1}/${dt.getDate()}`,
+            savings: Math.round(parseFloat(savedWon) || 0),
+            peakCount: parseInt(peakCount, 10) || 0,
+            isToday: dateStr === today,
+          };
+        });
+    },
+    enabled: !isMockMode(),
+    retry: false,
+    refetchInterval: 60_000,
+  });
+
+  const dailySavingsData = dailyQ.data && dailyQ.data.length > 0 ? dailyQ.data : fallbackDaily;
+  const monthSaved = reports?.[0]?.total_saved_won ?? 128400;
+  const annualProjection = monthSaved * 12;
 
   return (
     <div className="space-y-6">
@@ -56,7 +99,8 @@ export default function ReportPage() {
         <Card padding={false}>
           <div className="p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8] mb-2">연간 예상 절감</p>
-            <p className="text-3xl font-bold text-[#A78BFA]">1,540,800원</p>
+            <p className="text-3xl font-bold text-[#A78BFA]">{annualProjection.toLocaleString()}원</p>
+            <p className="mt-1 text-xs text-[#94A3B8]">이번 달 실적 × 12 기준</p>
           </div>
         </Card>
       </div>
@@ -108,7 +152,7 @@ export default function ReportPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Building Comparison Table */}
         <div className="lg:col-span-2">
-          <Card title="단지별 비교" subtitle="성과 분석">
+          <Card title="단지별 비교" subtitle="다중 단지 확장 예시 (전시용 데이터)">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>

@@ -1,5 +1,5 @@
-import type { DashboardData } from '../types';
-import { activeChargerCount } from '../../mock/mockData';
+import type { ReactNode } from 'react';
+import type { DashboardData } from '../../types';
 import { MetricSkeleton } from '../common/LoadingSkeleton';
 
 interface TopMetricsProps {
@@ -12,15 +12,15 @@ function KPICard({
   value,
   sub,
   accent = 'text-white',
-  highlight,
   isHighlight = false,
+  children,
 }: {
   label: string;
   value: string;
   sub?: string;
   accent?: string;
-  highlight?: boolean;
   isHighlight?: boolean;
+  children?: ReactNode;
 }) {
   return (
     <div
@@ -31,6 +31,7 @@ function KPICard({
       <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8]">{label}</p>
       <p className={`mt-2 text-3xl font-bold tabular-nums ${accent}`}>{value}</p>
       {sub && <p className="mt-1 text-sm text-[#94A3B8]">{sub}</p>}
+      {children}
     </div>
   );
 }
@@ -45,8 +46,6 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
       </div>
     );
   }
-
-  const activeCount = activeChargerCount(data.chargers);
 
   return (
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

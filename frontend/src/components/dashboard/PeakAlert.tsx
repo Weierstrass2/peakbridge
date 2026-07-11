@@ -27,7 +27,7 @@ interface PeakAlertBannerProps {
   status: boolean;
 }
 
-export function PeakAlertBanner({ currentPower, peakThreshold, status }: PeakAlertBannerProps) {
+export function PeakAlertBanner({ currentPower, status }: PeakAlertBannerProps) {
   const [showOverlay, setShowOverlay] = useState(false);
   const [gaugeProgress, setGaugeProgress] = useState(0);
   const [savingsCounter, setSavingsCounter] = useState(0);
@@ -61,8 +61,6 @@ export function PeakAlertBanner({ currentPower, peakThreshold, status }: PeakAle
   }, [status]);
 
   if (!status) return null;
-
-  const overBy = currentPower - peakThreshold;
 
   return (
     <>

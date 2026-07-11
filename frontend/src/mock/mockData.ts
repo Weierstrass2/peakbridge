@@ -15,10 +15,7 @@ export const saved_today = 34720;
 export const saved_month = 128400;
 
 export const chargers: Charger[] = [
-  { device_id: 'CH-01', current: 7.2, status: 'charging' },
-  { device_id: 'CH-02', current: 6.8, status: 'charging' },
-  { device_id: 'CH-03', current: 0.0, status: 'idle' },
-  { device_id: 'CH-04', current: 4.1, status: 'charging' },
+  { device_id: 'esp32-charger-01', current: 7.2, status: 'charging' },
 ];
 
 export function activeChargerCount(list: Charger[] = chargers): number {

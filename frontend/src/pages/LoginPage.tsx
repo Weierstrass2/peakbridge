@@ -19,15 +19,11 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
     try {
-      console.log('🔐 Trying to login with:', email);
       const response = await login(email, password);
-      console.log('✅ Login response:', response);
       const { access_token, user } = response;
       setAuth(access_token, user);
-      console.log('🔑 Auth store updated with token:', access_token ? access_token.substring(0, 20) + '...' : 'null');
       navigate('/');
-    } catch (err) {
-      console.error('❌ Login error:', err);
+    } catch {
       setError('Login failed. Check credentials or backend connection.');
     } finally {
       setLoading(false);
