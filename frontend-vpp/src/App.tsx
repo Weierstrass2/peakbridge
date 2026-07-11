@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import MarketPanel from './components/MarketPanel';
 import {
   consoleApi,
   type LedgerSummary,
@@ -270,8 +271,8 @@ export default function App() {
               </div>
             </Panel>
 
-            <Panel title="시장 — SMP 실시간" sub="KPX 연동" span="span 6">
-              <Pending stage="P2 — MARKET" desc="금융급 실시간 차트 모듈 (다음 단계 활성화)" />
+            <Panel title="시장 — SMP · 수요 실시간" sub="3s FEED / KST" span="span 6">
+              <MarketPanel snap={snap} />
             </Panel>
 
             <Panel title="시스템 로그" sub="LIVE" span="span 3">

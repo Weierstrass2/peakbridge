@@ -144,3 +144,16 @@ body {
 }
 .statusbar b { color: var(--tx-2); font-weight: 500; }
 .sb-right { margin-left: auto; display: flex; gap: 18px; }
+
+/* ── 마켓 모듈 ───────────────────────────────────────────── */
+.mkt-wrap { display: flex; flex-direction: column; height: 100%; gap: 6px; }
+.mkt-legend {
+  display: flex; align-items: center; gap: 16px; flex-shrink: 0;
+  font-size: 10px; color: var(--tx-2);
+}
+.mkt-legend .key { display: inline-flex; align-items: center; gap: 5px; }
+.mkt-legend .key i { display: inline-block; width: 10px; height: 2px; }
+.mkt-legend b { font-family: var(--font-num); font-weight: 600; color: var(--tx-1); font-variant-numeric: tabular-nums; }
+.mkt-stats { margin-left: auto; font-size: 9.5px; color: var(--tx-3); }
+.mkt-stats b { color: var(--tx-2); }
+.mkt-chart { flex: 1; min-height: 0; }
