@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 
 import structlog
 
+from app.core.resources import MARKET_RULES, total_max_discharge_kw
 from app.ml.energy_optimizer import EnergyOptimizer
 
 logger = structlog.get_logger(__name__)
@@ -80,15 +81,33 @@ class MarketService:
         s = self._session or self._new_session()
         if s["status"] == "cleared":
             s = self._new_session()  # 개찰 끝난 세션이면 새 세션
+        flex_cap = total_max_discharge_kw()          # 물리 상한 (자원 레지스트리)
+        price_cap = MARKET_RULES["price_cap"]
+        unit = MARKET_RULES["min_bid_unit_kw"]
         merged = {b["hour"]: b for b in s["bids"]}
+        rejected: list[dict] = []
         for b in bids:
             h = int(b.get("hour", -1))
-            if 0 <= h <= 23:
-                merged[h] = {
-                    "hour": h,
-                    "qty_kw": max(0.0, min(500.0, float(b.get("qty_kw", 0)))),
-                    "price": max(0.0, min(500.0, float(b.get("price", 0)))),
-                }
+            if not (0 <= h <= 23):
+                continue
+            qty = float(b.get("qty_kw", 0))
+            price = float(b.get("price", 0))
+            reason = None
+            if qty > flex_cap:
+                reason = f"가용 유연성 초과 ({flex_cap:.0f}kW 상한)"
+                qty = flex_cap
+            if price > price_cap:
+                reason = f"가격상한 초과 ({price_cap:.0f}원 cap)"
+                price = price_cap
+            if 0 < qty < unit:
+                reason = f"최소 입찰단위 미달 ({unit:.0f}kW)"
+                qty = 0.0
+            if qty > 0:
+                qty = round(qty / unit) * unit           # 단위 스냅
+            if reason:
+                rejected.append({"hour": h, "reason": reason})
+            merged[h] = {"hour": h, "qty_kw": max(0.0, qty), "price": max(0.0, price)}
+        s["validation"] = rejected
         s["bids"] = [merged[h] for h in range(24)]
         s["status"] = "draft"
         self._session = s
@@ -109,16 +128,20 @@ class MarketService:
         delivery = datetime.fromisoformat(s["delivery_date"] + "T00:00:00")
         mcp = _mcp_curve(delivery)
 
+        cp_rate = MARKET_RULES["cp_rate"]
         results = []
         total_award_kwh = 0.0
         total_revenue = 0.0
+        total_cp = 0.0
         for b in s["bids"]:
             h = b["hour"]
             awarded = b["qty_kw"] > 0 and b["price"] <= mcp[h]
             revenue = round(b["qty_kw"] * mcp[h], 0) if awarded else 0.0
+            cp = round(b["qty_kw"] * cp_rate, 0) if b["qty_kw"] > 0 else 0.0  # 신고 용량 CP
             if awarded:
-                total_award_kwh += b["qty_kw"]  # 1시간 공급 기준 kWh
+                total_award_kwh += b["qty_kw"]
                 total_revenue += revenue
+            total_cp += cp
             results.append(
                 {
                     "hour": h,
@@ -127,6 +150,7 @@ class MarketService:
                     "mcp": mcp[h],
                     "awarded": awarded,
                     "expected_revenue": revenue,
+                    "cp_payment": cp,
                 }
             )
 
@@ -137,6 +161,7 @@ class MarketService:
             "awarded_hours": sum(1 for r in results if r["awarded"]),
             "total_award_kwh": round(total_award_kwh, 1),
             "total_expected_revenue": round(total_revenue, 0),
+            "total_cp_payment": round(total_cp, 0),
             "avg_mcp": round(sum(mcp) / 24, 1),
         }
         self._session = s
