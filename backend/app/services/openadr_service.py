@@ -17,6 +17,7 @@ import structlog
 
 from app.core.config import settings
 from app.mqtt.publisher import mqtt_publisher
+from app.services.vpp_ledger import vpp_ledger
 
 logger = structlog.get_logger(__name__)
 
@@ -106,6 +107,31 @@ class OpenADRService:
             event["mqtt_sent"] = bool(sent)
         except Exception as exc:
             logger.warning("openadr_mqtt_failed", error=str(exc))
+
+        # 거래 장부 기록 (방전 = DR 정산, 충전 = 차익거래 매수)
+        try:
+            if plan["action"] == "discharge":
+                from app.ml.vpp_simulator import vpp_simulator
+
+                smp_est = 150.0 if event["signal_type"] == "SIMPLE" else max(value, 150.0)
+                rev = vpp_simulator.calculate_dr_revenue(135.0, 1.0, smp_est)
+                vpp_ledger.record(
+                    "DR정산",
+                    f"{plan['label']} — 감축 135kW×1h @SMP {smp_est:.0f}원",
+                    rev["reduction_kwh"],
+                    rev["net_revenue"],
+                    event_id=event["event_id"],
+                )
+            elif plan["action"] == "charge":
+                vpp_ledger.record(
+                    "차익거래",
+                    f"{plan['label']} — 경부하 매수 100kWh @42.5원",
+                    100.0,
+                    -4250.0,
+                    event_id=event["event_id"],
+                )
+        except Exception as exc:
+            logger.warning("ledger_record_failed", error=str(exc))
 
         self._active_event = event if plan["action"] != "standby" else None
         self._ven_state = "responding" if plan["action"] != "standby" else "idle"

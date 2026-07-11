@@ -115,3 +115,80 @@ async def get_arbitrage_revenue(
     result["charge_price"] = charge_price
     result["discharge_price"] = discharge_price
     return success_response(result)
+
+
+# ── 관제센터 실시간 스트림 + 거래 장부 ─────────────────────
+
+import math
+import random
+import time as _time
+
+from app.services.openadr_service import openadr_service
+from app.services.vpp_ledger import vpp_ledger
+
+
+@router.get("/stream")
+async def get_stream(session: DbSession) -> dict:
+    """
+    GET /api/v1/vpp/stream — 관제센터 차트용 실시간 스냅샷 (3초 폴링).
+
+    A단지는 실측 기반, B/C는 시뮬레이션 발전 프로파일.
+    DR 이벤트 활성 시 출력이 상승해 차트에 즉시 반영됨.
+    """
+    t = _time.time()
+    active = openadr_service.get_status().get("active_event")
+    discharging = bool(active and active.get("action") == "discharge")
+    boost = (active.get("discharge_percent", 0) / 100.0) if discharging else 0.0
+
+    # A단지: 실측 SOC/전류
+    live = await _live_building(session)
+    a_soc = live["current_soc"]
+    a_max = live["max_power_kw"]
+    a_out = round(min(a_max, a_max * boost) + random.uniform(-0.3, 0.3), 1) if discharging else round(random.uniform(0.0, 0.6), 1)
+    a_out = max(0.0, a_out)
+
+    # B/C단지: 살아있는 시뮬레이션 프로파일 (사인 + 노이즈)
+    b_base = 42 + 16 * math.sin(t / 240.0)
+    c_base = 62 + 12 * math.sin(t / 300.0 + 2.1)
+    b_out = round(max(0.0, (90 * boost if discharging else b_base * 0.35) + random.uniform(-2, 2)), 1)
+    c_out = round(max(0.0, (75 * boost if discharging else c_base * 0.3) + random.uniform(-2, 2)), 1)
+
+    total = round(a_out + b_out + c_out, 1)
+
+    # 수요/예측 (실측 없으면 시뮬 프로파일이 계속 움직이게)
+    demand = round(255 + 55 * math.sin(t / 700.0) + random.uniform(-4, 4), 1)
+    forecast = round(demand + 9 * math.sin(t / 450.0 + 1.0), 1)
+
+    # SMP (요금 기반 추정 + 변동 — 시뮬레이션 표기)
+    try:
+        base_rate = float(optimizer.get_current_rate()["rate"])
+    except Exception:
+        base_rate = 84.5
+    smp = round(base_rate * 1.15 + 12 * math.sin(t / 600.0) + random.uniform(-1.5, 1.5), 1)
+
+    return success_response(
+        {
+            "ts": __import__("datetime").datetime.now(
+                __import__("datetime").timezone(__import__("datetime").timedelta(hours=9))
+            ).strftime("%H:%M:%S"),
+            "buildings": [
+                {"id": "building-A", "output_kw": a_out, "soc": a_soc, "live": True},
+                {"id": "building-B", "output_kw": b_out, "soc": round(65 + 5 * math.sin(t / 900), 1), "live": False},
+                {"id": "building-C", "output_kw": c_out, "soc": round(80 + 4 * math.sin(t / 1100 + 1), 1), "live": False},
+            ],
+            "total_output_kw": total,
+            "demand_kw": demand,
+            "forecast_kw": forecast,
+            "smp": smp,
+            "dr_active": discharging,
+            "discharge_percent": round(boost * 100),
+        }
+    )
+
+
+@router.get("/ledger")
+async def get_ledger(limit: int = Query(default=12, ge=1, le=100)) -> dict:
+    """GET /api/v1/vpp/ledger — 거래 장부 (DR 정산·차익거래 원장)."""
+    return success_response(
+        {"summary": vpp_ledger.summary(), "entries": vpp_ledger.entries(limit)}
+    )
