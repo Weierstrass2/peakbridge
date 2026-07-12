@@ -166,7 +166,7 @@ async def run_demo_day() -> dict:
     steps = []
     try:
         forecast = market_service.mcp_forecast()
-        ai = ai_bids(forecast)
+        ai = ai_bids(forecast, dict(dispatch_service._soc))  # 실시간 SOC 제약 반영
         market_service.save_bids(ai["bids"])
         steps.append(f"AI 입찰 작성 — 가용 {ai['usable_kwh']}kWh 제약 반영")
         market_service.submit()
