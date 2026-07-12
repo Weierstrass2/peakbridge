@@ -435,3 +435,7 @@ body {
 .au-ts { font-family: var(--font-num); color: var(--tx-3); flex-shrink: 0; }
 .au-act { font-family: var(--font-num); font-weight: 600; color: var(--acc); flex-shrink: 0; font-size: 8.5px; letter-spacing: 0.05em; }
 .au-det { color: var(--tx-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.cbtn.demo { flex-direction: row; gap: 8px; justify-content: center; border-color: rgba(46,189,133,0.5); }
+.cbtn.demo b { color: var(--ok); font-size: 11px; }
+.cbtn.demo:hover { border-color: var(--ok); background: rgba(46,189,133,0.07); }

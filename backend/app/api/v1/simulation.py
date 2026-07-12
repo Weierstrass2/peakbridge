@@ -153,3 +153,35 @@ async def list_scenarios() -> dict:
             ]
         }
     )
+
+
+@router.post("/demo-day")
+async def run_demo_day() -> dict:
+    """원클릭 데모: AI입찰 → 제출 → 개찰 → 급전 활성화 (발표용 시퀀스)."""
+    from app.services.bid_ai import ai_bids
+    from app.services.dispatch_service import dispatch_service
+    from app.services.market_service import market_service
+    from app.services.ops_service import ops_service
+
+    steps = []
+    try:
+        forecast = market_service.mcp_forecast()
+        ai = ai_bids(forecast)
+        market_service.save_bids(ai["bids"])
+        steps.append(f"AI 입찰 작성 — 가용 {ai['usable_kwh']}kWh 제약 반영")
+        market_service.submit()
+        steps.append("입찰 제출 (KPX DAM)")
+        cleared = market_service.clear()
+        r = cleared.get("results") or {}
+        steps.append(
+            f"개찰 — {r.get('awarded_hours', 0)}구간 낙찰, "
+            f"예상 ₩{int(r.get('total_expected_revenue', 0)):,} + CP ₩{int(r.get('total_cp_payment', 0)):,}"
+        )
+        dispatch_service.activate_latest_award()
+        steps.append("급전 스케줄 활성화 — 60× 가속 이행 시작")
+        ops_service.audit("operator", "DEMO_DAY", "원클릭 데모 시퀀스 실행")
+        ops_service.alarm("INFO", "simulation", "데모 시퀀스 가동 — AI 입찰 하루 사이클")
+        return success_response({"status": "running", "steps": steps})
+    except Exception as exc:
+        logger.error("demo_day_failed", error=str(exc))
+        return success_response({"status": "error", "steps": steps, "detail": str(exc)})

@@ -142,6 +142,7 @@ export const consoleApi = {
   opsAlarms: () => get<{ unack: number; items: { id: string; ts: string; severity: string; source: string; msg: string; ack: boolean }[] }>('/ops/alarms'),
   opsAck: (id: string) => post<{ acked: boolean }>(`/ops/alarms/${id}/ack`, {}),
   opsAudit: () => get<{ entries: { ts: string; actor: string; action: string; detail: string }[] }>('/ops/audit'),
+  demoDay: () => post<{ status: string; steps: string[] }>('/simulation/demo-day', {}),
   opsRisk: () => get<{ status: string; usable_kwh: number; obligation_kwh: number; coverage: number }>('/ops/risk'),
   dispatchActivate: () => post<DispatchStatus | { error: string }>('/dispatch/activate', {}),
   marketSaveBids: (bids: Bid[]) => post<MarketSession>('/market/bids', { bids }),

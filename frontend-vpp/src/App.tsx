@@ -336,6 +336,18 @@ export default function App() {
                     {liveA ? fmt(liveA.current_soc, 0) : '—'}<small>%</small>
                   </span>
                 </div>
+                <button
+                  className="cbtn demo"
+                  onClick={async () => {
+                    pushLog('info', '데모 시퀀스 시작 — AI 입찰 하루 사이클');
+                    try {
+                      const data = await import('./lib/api').then(m => m.consoleApi.demoDay());
+                      data.steps.forEach((s: string) => pushLog('ok', s));
+                    } catch { pushLog('warn', '데모 시퀀스 실패'); }
+                  }}
+                >
+                  <b>원클릭 데모</b><span>AI입찰→개찰→급전</span>
+                </button>
                 <div className="stat-row">
                   <span className="k">금일 정산 수익</span>
                   <span className="v" style={{ color: 'var(--ok)' }}>
