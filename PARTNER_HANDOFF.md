@@ -43,11 +43,17 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
   콘솔 재빌드 시: cd frontend-vpp && npx vite build --base=/console/
   → dist를 backend/static/console 로 복사 후 커밋
 
-## 남은 백로그 (우선순위순)
-1. A1+d 실시간 시장(15분 세션) — market_service에 RT 세션 추가
-2. D1 하루 타임랩스 플레이어 (dispatch 60× 가속이 이미 있으므로 UI 연출만)
-3. B3 운영자 로그인 (기존 JWT 재사용)
-4. A5 계약 관리 + C1 시계열 서버 저장 + C2 WebSocket 전환
+## 3차 세션 추가 완료
+- 원클릭 데모: POST /simulation/demo-day + 콘솔 통합개요 [원클릭 데모] 버튼
+  (AI입찰→제출→개찰→급전 활성화 자동 시퀀스, 로그에 단계별 표시)
+- A1+d 실시간 시장(RT): GET /market/rt (15분 슬롯·RT가격·카운트다운),
+  POST /market/rt/sell (시장가 즉시 체결, 슬리피지 3%, 원장 'RT판매' 기록)
+  → 콘솔 입찰 데스크 우측 RT 위젯 (즉시 판매 버튼)
+
+## 남은 백로그 (전부 선택사항)
+1. B3 운영자 로그인 (기존 JWT 재사용)
+2. A5 계약 관리 + C1 시계열 서버 저장 + C2 WebSocket 전환
+3. D1 타임랩스 연출 강화 (현행 60× 가속으로 대체 가능)
 
 ## 주의사항
 - 시장/이행/원장은 in-memory — 서버 재배포 시 초기화됨 (시연 직전 재현 필요)

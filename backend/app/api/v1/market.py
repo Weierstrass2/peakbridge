@@ -103,3 +103,71 @@ async def get_history() -> dict:
     except Exception as exc:
         logger.error("market_history_failed", error=str(exc))
         return success_response({"sessions": []})
+
+
+# ── 실시간 시장 (RT, 15분 슬롯) — A1+d ─────────────────────
+
+from datetime import datetime, timedelta, timezone as _tz
+
+_KST = _tz(timedelta(hours=9))
+
+
+def _rt_slot() -> dict:
+    """현재 15분 슬롯 정보 + RT 가격 (DAM MCP 기반 ± 실시간 변동)."""
+    import math
+    import random as _r
+    now = datetime.now(_KST)
+    slot_idx = now.hour * 4 + now.minute // 15
+    slot_start = now.replace(minute=(now.minute // 15) * 15, second=0, microsecond=0)
+    slot_end = slot_start + timedelta(minutes=15)
+    base = market_service.mcp_forecast()[now.hour]
+    rng = _r.Random(now.toordinal() * 100 + slot_idx)
+    rt_price = round(base * (1.0 + rng.uniform(-0.12, 0.18)) *
+                     (1.05 + 0.05 * math.sin(slot_idx / 96 * 6.28)), 1)
+    return {
+        "slot": f"{slot_start.strftime('%H:%M')}~{slot_end.strftime('%H:%M')}",
+        "seconds_left": int((slot_end - now).total_seconds()),
+        "rt_price": rt_price,
+        "dam_ref": round(base, 1),
+    }
+
+
+@router.get("/rt")
+async def get_rt_market() -> dict:
+    """실시간 시장 현재 슬롯 (15분) — RT 가격, 마감 카운트다운."""
+    try:
+        return success_response(_rt_slot())
+    except Exception as exc:
+        logger.error("market_rt_failed", error=str(exc))
+        return success_response({"slot": "--", "seconds_left": 0, "rt_price": 0, "dam_ref": 0})
+
+
+class RtSellRequest(BaseModel):
+    qty_kw: float = Field(gt=0, le=500)
+
+
+@router.post("/rt/sell")
+async def rt_sell(body: RtSellRequest) -> dict:
+    """RT 즉시 판매 — 현재 슬롯 가격 97%(시장가 주문 슬리피지)로 체결."""
+    try:
+        from app.core.resources import total_max_discharge_kw
+        from app.services.vpp_ledger import vpp_ledger
+
+        slot = _rt_slot()
+        qty = min(body.qty_kw, total_max_discharge_kw())
+        fill = round(slot["rt_price"] * 0.97, 1)
+        kwh = round(qty * 0.25, 1)          # 15분 슬롯 = 0.25h
+        revenue = round(kwh * fill, 0)
+        vpp_ledger.record(
+            "RT판매",
+            f"실시간 {slot['slot']} — {qty:.0f}kW×15분 @₩{fill}",
+            kwh, revenue,
+        )
+        ops_service.audit("operator", "RT_SELL", f"{slot['slot']} {qty:.0f}kW 체결 ₩{int(revenue):,}")
+        return success_response(
+            {"filled": True, "slot": slot["slot"], "qty_kw": qty,
+             "fill_price": fill, "kwh": kwh, "revenue": revenue}
+        )
+    except Exception as exc:
+        logger.error("market_rt_sell_failed", error=str(exc))
+        return success_response({"filled": False})

@@ -29,6 +29,7 @@ export default function BiddingDesk({
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [history, setHistory] = useState<MarketSession[]>([]);
+  const [rt, setRt] = useState<{ slot: string; seconds_left: number; rt_price: number; dam_ref: number } | null>(null);
 
   const load = async () => {
     try {
@@ -44,6 +45,10 @@ export default function BiddingDesk({
     try {
       const { data } = await consoleApi.marketHistory();
       setHistory(data.sessions);
+    } catch { /* noop */ }
+    try {
+      const { data } = await consoleApi.marketRt();
+      setRt(data);
     } catch { /* noop */ }
   };
 
@@ -229,7 +234,33 @@ export default function BiddingDesk({
       </div>
 
       <aside className="bid-right">
-        <div className="dr-cap">세션 이력</div>
+        <div className="dr-cap">실시간 시장 (RT · 15분)</div>
+        {rt && (
+          <div className="rt-widget">
+            <div className="rt-row">
+              <span className="rt-slot">{rt.slot}</span>
+              <span className="rt-price">₩{rt.rt_price}</span>
+            </div>
+            <div className="rt-sub">
+              DAM 기준가 ₩{rt.dam_ref} · 마감 {Math.floor(rt.seconds_left / 60)}분
+            </div>
+            <button
+              className="cbtn wide" disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                try {
+                  const r = await consoleApi.marketRtSell(100);
+                  onLog('ok', `RT 체결 — ${r.slot} 100kW @₩${r.fill_price} → ₩${Math.round(r.revenue).toLocaleString('ko-KR')}`);
+                  await load();
+                } catch { onLog('warn', 'RT 체결 실패'); }
+                finally { setBusy(false); }
+              }}
+            >
+              <b>즉시 판매</b><span>100kW 시장가</span>
+            </button>
+          </div>
+        )}
+        <div className="dr-cap" style={{ marginTop: 10 }}>세션 이력</div>
         <div className="hist-scroll">
           {history.length === 0 && <div className="ledger-empty">이력 없음</div>}
           {history.map((h) => (

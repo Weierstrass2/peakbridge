@@ -439,3 +439,10 @@ body {
 .cbtn.demo { flex-direction: row; gap: 8px; justify-content: center; border-color: rgba(46,189,133,0.5); }
 .cbtn.demo b { color: var(--ok); font-size: 11px; }
 .cbtn.demo:hover { border-color: var(--ok); background: rgba(46,189,133,0.07); }
+
+/* ── RT 시장 위젯 ───────────────────────────────────────── */
+.rt-widget { display: flex; flex-direction: column; gap: 6px; padding-bottom: 4px; }
+.rt-row { display: flex; justify-content: space-between; align-items: baseline; }
+.rt-slot { font-family: var(--font-num); font-size: 11px; color: var(--tx-2); }
+.rt-price { font-family: var(--font-num); font-size: 17px; font-weight: 600; color: var(--warn); font-variant-numeric: tabular-nums; }
+.rt-sub { font-size: 9px; color: var(--tx-3); font-family: var(--font-num); }
