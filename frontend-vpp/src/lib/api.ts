@@ -72,6 +72,7 @@ export interface MarketSession {
     total_award_kwh: number;
     total_expected_revenue: number;
     avg_mcp: number;
+    shadow?: { basis: string; human_net: number; ai_net: number; opportunity_cost: number } | null;
   } | null;
 }
 

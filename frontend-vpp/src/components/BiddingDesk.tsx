@@ -110,6 +110,20 @@ export default function BiddingDesk({
               {results.awarded_hours}구간 · ₩{fmtW(results.total_expected_revenue)}
             </b></span>
           )}
+          {results?.shadow && (
+            <span title={results.shadow.basis}>
+              AI 섀도우 <b style={{ color: 'var(--vio)' }}>₩{fmtW(results.shadow.ai_net)}</b>
+              {results.shadow.opportunity_cost > 0 ? (
+                <b style={{ color: 'var(--crit)', marginLeft: 6 }}>
+                  기회비용 −₩{fmtW(results.shadow.opportunity_cost)}
+                </b>
+              ) : (
+                <b style={{ color: 'var(--ok)', marginLeft: 6 }}>
+                  AI 대비 +₩{fmtW(Math.abs(results.shadow.opportunity_cost))}
+                </b>
+              )}
+            </span>
+          )}
         </div>
         <div className="bid-deadline">
           입찰 마감 <b>{countdown(secLeft)}</b>

@@ -160,6 +160,56 @@ class MarketService:
                 }
             )
 
+        # ── AI 섀도우 입찰: 같은 MCP로 AI가 입찰했다면? (기회비용 산출) ──
+        shadow = None
+        try:
+            from app.services.bid_ai import ai_bids
+
+            soc = None
+            try:
+                from app.services.dispatch_service import dispatch_service
+                soc = dict(dispatch_service._soc)
+            except Exception:
+                pass
+            forecast = _mcp_curve(delivery, jitter=0.0)
+            ai = ai_bids(forecast, soc)
+
+            # 물리 이행 시뮬 통과 순수익 (에너지 제약 + 위약 1.2×) — 공정 비교
+            from app.core.resources import ess_resources
+
+            usable = sum(
+                max(0.0, ((soc or {}).get(k, 60.0) - r["soc_min"])) / 100 * r["capacity_kwh"]
+                for k, r in ess_resources().items()
+            )
+
+            def _net(bid_list: list[dict]) -> float:
+                rev = pen = cp_sum = 0.0
+                energy = usable
+                for b in bid_list:
+                    q, pr, h = b["qty_kw"], b["price"], b["hour"]
+                    if q <= 0:
+                        continue
+                    cp_sum += q * cp_rate
+                    if pr <= mcp[h]:
+                        deliv = min(q, energy)
+                        energy -= deliv
+                        rev += deliv * mcp[h]
+                        short = q - deliv
+                        if short > 0.5:
+                            pen += short * mcp[h] * MARKET_RULES["penalty_factor"]
+                return rev + cp_sum - pen
+
+            human_net = _net(s["bids"])
+            ai_net = _net(ai["bids"])
+            shadow = {
+                "basis": "물리 이행 시뮬 순수익 (위약 반영)",
+                "human_net": round(human_net, 0),
+                "ai_net": round(ai_net, 0),
+                "opportunity_cost": round(ai_net - human_net, 0),
+            }
+        except Exception as exc:
+            logger.warning("shadow_bidding_failed", error=str(exc))
+
         s["status"] = "cleared"
         s["cleared_at"] = datetime.now(KST).isoformat()
         s["results"] = {
@@ -169,6 +219,7 @@ class MarketService:
             "total_expected_revenue": round(total_revenue, 0),
             "total_cp_payment": round(total_cp, 0),
             "avg_mcp": round(sum(mcp) / 24, 1),
+            "shadow": shadow,
         }
         self._session = s
         self._history.insert(0, {k: v for k, v in s.items()})
