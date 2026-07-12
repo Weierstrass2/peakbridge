@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.response import success_response
 from app.services.market_service import market_service
+from app.services.bid_ai import ai_bids
 
 logger = structlog.get_logger(__name__)
 
@@ -74,6 +75,17 @@ async def get_mcp_forecast() -> dict:
     except Exception as exc:
         logger.error("market_mcp_failed", error=str(exc))
         return success_response({"curve": []})
+
+
+@router.get("/ai-bids")
+async def get_ai_bids() -> dict:
+    """학습된 정책 신경망의 추천 입찰 곡선."""
+    try:
+        forecast = market_service.mcp_forecast()
+        return success_response(ai_bids(forecast))
+    except Exception as exc:
+        logger.error("market_ai_bids_failed", error=str(exc))
+        return success_response({"bids": []})
 
 
 @router.get("/history")

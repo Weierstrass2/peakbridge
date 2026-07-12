@@ -393,3 +393,8 @@ body {
 .hist-date { color: var(--tx-3); }
 .hist-bot { display: flex; gap: 12px; margin-top: 3px; font-size: 9.5px; color: var(--tx-3); }
 .hist-bot b { font-family: var(--font-num); color: var(--tx-2); font-weight: 500; }
+
+.bid-actions.five { grid-template-columns: repeat(5, minmax(0, 150px)); }
+.cbtn.ai { border-color: rgba(155,138,251,0.55); }
+.cbtn.ai b { color: var(--vio); }
+.cbtn.ai:hover { border-color: var(--vio); background: rgba(155,138,251,0.08); }

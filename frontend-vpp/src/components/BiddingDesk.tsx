@@ -111,9 +111,24 @@ export default function BiddingDesk({
         </div>
       </div>
 
-      <div className="bid-actions">
+      <div className="bid-actions five">
+        <button
+          className="cbtn wide ai" disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const { data: r } = await consoleApi.marketAiBids();
+              setBids(r.bids);
+              setDirty(true);
+              onLog('ok', `AI 입찰 곡선 적용 — ${r.model} · 가용 ${r.usable_kwh}kWh 제약 반영`);
+            } catch { onLog('warn', 'AI 입찰 생성 실패'); }
+            finally { setBusy(false); }
+          }}
+        >
+          <b>AI 입찰</b><span>정책망</span>
+        </button>
         <button className="cbtn wide" disabled={busy} onClick={fillPeak}>
-          <b>전략 채움</b><span>피크 8구간</span>
+          <b>룰 채움</b><span>피크 8구간</span>
         </button>
         <button
           className="cbtn wide" disabled={busy || !dirty}

@@ -144,6 +144,7 @@ export const consoleApi = {
   marketClear: () => post<MarketSession>('/market/clear', {}),
   marketMcpForecast: () => get<{ curve: number[] }>('/market/mcp-forecast'),
   marketHistory: () => get<{ sessions: MarketSession[] }>('/market/history'),
+  marketAiBids: () => get<{ model: string; usable_kwh: number; eval: { ai: number; naive: number }; bids: Bid[] }>('/market/ai-bids'),
   issueDr: (signalType: string, value: number) =>
     post<DrEventResult>('/dr/event', {
       signal_type: signalType,
