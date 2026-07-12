@@ -1,13 +1,27 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import { useDashboard } from '../hooks/useDashboard';
 import { sendControlAction } from '../services/dashboardApi';
+import { controlApi } from '../services/controlApi';
 
 export default function ControlPage() {
   const { dashboard, events } = useDashboard();
+  const qc = useQueryClient();
+
+  const logsQ = useQuery({
+    queryKey: ['control', 'logs'],
+    queryFn: controlApi.getLogs,
+    refetchInterval: 10_000,
+    retry: false,
+  });
   const [threshold, setThreshold] = useState(dashboard?.peak_threshold ?? 15);
   const [autoControl, setAutoControl] = useState(true);
+
+  useEffect(() => {
+    controlApi.getAutoMode().then(setAutoControl).catch(() => undefined);
+  }, []);
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -74,8 +88,23 @@ export default function ControlPage() {
               onChange={(e) => setThreshold(parseFloat(e.target.value))}
               className="w-full accent-[#F97316]"
             />
-            <Button disabled title="백엔드 임계치 API 준비 중">
-              적용 (준비 중)
+            <Button
+              loading={loading === 'threshold'}
+              onClick={async () => {
+                setLoading('threshold');
+                try {
+                  await controlApi.setThreshold(threshold);
+                  setMessage(`✅ 임계치 ${threshold.toFixed(1)}A 적용됨`);
+                  qc.invalidateQueries({ queryKey: ['dashboard'] });
+                } catch {
+                  setMessage('❌ 임계치 적용 실패 (로그인 확인)');
+                } finally {
+                  setLoading(null);
+                  setTimeout(() => setMessage(null), 3000);
+                }
+              }}
+            >
+              적용
             </Button>
           </div>
         </Card>
@@ -85,10 +114,21 @@ export default function ControlPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-[#F1F5F9] mb-1">자동 제어</p>
-              <p className="text-xs text-[#94A3B8]">{autoControl ? 'ON' : 'OFF'} (백엔드 연동 예정)</p>
+              <p className="text-xs text-[#94A3B8]">{autoControl ? 'ON — 피크쉐이빙·시나리오 자동' : 'OFF — 수동 전용'}</p>
             </div>
             <button
-              onClick={() => setAutoControl(!autoControl)}
+              onClick={async () => {
+                const next = !autoControl;
+                setAutoControl(next);
+                try {
+                  await controlApi.setAutoMode(next);
+                  setMessage(`✅ AI 자동 제어 ${next ? 'ON' : 'OFF'}`);
+                } catch {
+                  setAutoControl(!next);
+                  setMessage('❌ 자동 제어 변경 실패 (로그인 확인)');
+                }
+                setTimeout(() => setMessage(null), 3000);
+              }}
               className={`w-16 h-8 rounded-full transition-colors relative ${
                 autoControl ? 'bg-[#10B981]' : 'bg-[#334155]'
               }`}
@@ -116,16 +156,32 @@ export default function ControlPage() {
                 <Button
                   variant="secondary"
                   className="flex-1 px-2 py-1.5 text-xs"
-                  disabled
-                  title="충전기 제어 API 준비 중"
+                  loading={loading === `pause_${c.device_id}`}
+                  onClick={async () => {
+                    setLoading(`pause_${c.device_id}`);
+                    try {
+                      await controlApi.controlCharger(c.device_id, 'pause');
+                      setMessage(`✅ ${c.device_id} 일시 정지 명령 전송`);
+                      qc.invalidateQueries({ queryKey: ['control', 'logs'] });
+                    } catch { setMessage('❌ 명령 실패 (로그인 확인)'); }
+                    finally { setLoading(null); setTimeout(() => setMessage(null), 3000); }
+                  }}
                 >
                   일시 정지
                 </Button>
                 <Button
                   variant="secondary"
                   className="flex-1 px-2 py-1.5 text-xs"
-                  disabled
-                  title="충전기 제어 API 준비 중"
+                  loading={loading === `resume_${c.device_id}`}
+                  onClick={async () => {
+                    setLoading(`resume_${c.device_id}`);
+                    try {
+                      await controlApi.controlCharger(c.device_id, 'resume');
+                      setMessage(`✅ ${c.device_id} 재개 명령 전송`);
+                      qc.invalidateQueries({ queryKey: ['control', 'logs'] });
+                    } catch { setMessage('❌ 명령 실패 (로그인 확인)'); }
+                    finally { setLoading(null); setTimeout(() => setMessage(null), 3000); }
+                  }}
                 >
                   재개
                 </Button>
@@ -138,35 +194,63 @@ export default function ControlPage() {
       {/* Message + Logs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
-          <Card title="실시간 제어 로그" subtitle="알림 이벤트 기반">
+          <Card title="실시간 제어 로그" subtitle={logsQ.data ? '제어 이력 (10초 갱신)' : '알림 이벤트 기반'}>
             <div className="space-y-3 max-h-80 overflow-y-auto pr-2">
-              {(events ?? []).length === 0 && (
-                <p className="text-sm text-[#94A3B8]">아직 기록된 이벤트가 없습니다.</p>
-              )}
-              {(events ?? []).map((log) => (
-                <div
-                  key={log.id}
-                  className="flex items-start gap-3 rounded-xl border border-[#334155] bg-[#0F172A] px-4 py-3"
-                >
-                  <div className="mt-1">
-                    <span
-                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        log.level === 'warning'
-                          ? 'bg-[#F97316]/10 text-[#F97316]'
-                          : log.level === 'success'
-                            ? 'bg-[#34D399]/10 text-[#34D399]'
-                            : 'bg-[#3B82F6]/10 text-[#3B82F6]'
-                      }`}
+              {logsQ.data && logsQ.data.length > 0 ? (
+                logsQ.data.map((log) => {
+                  const src = log.triggered_by ?? '';
+                  const badge = src === 'ai_auto'
+                    ? { t: 'AI 자동', c: 'bg-[#3B82F6]/10 text-[#3B82F6]' }
+                    : src === 'manual'
+                      ? { t: '수동', c: 'bg-[#A78BFA]/10 text-[#A78BFA]' }
+                      : src.startsWith('scenario')
+                        ? { t: '시나리오', c: 'bg-[#F97316]/10 text-[#F97316]' }
+                        : src === 'openadr'
+                          ? { t: 'DR', c: 'bg-[#EF4444]/10 text-[#EF4444]' }
+                          : { t: src || '시스템', c: 'bg-[#334155]/50 text-[#94A3B8]' };
+                  return (
+                    <div
+                      key={log.id}
+                      className="flex items-start gap-3 rounded-xl border border-[#334155] bg-[#0F172A] px-4 py-3"
                     >
-                      {log.level === 'warning' ? '피크' : log.level === 'success' ? '해제' : '정보'}
-                    </span>
+                      <div className="mt-1">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badge.c}`}>
+                          {badge.t}
+                        </span>
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-mono text-xs text-[#94A3B8]">
+                          {log.created_at ? new Date(log.created_at).toLocaleTimeString('ko-KR', { hour12: false }) : '—'}
+                          {' · '}{log.device_id}
+                        </p>
+                        <p className="text-sm text-[#F1F5F9]">
+                          {log.action === 'discharge' ? 'ESS 방전'
+                            : log.action === 'charge' ? 'ESS 충전'
+                            : log.action === 'standby' ? '대기 전환'
+                            : log.action === 'pause' ? '충전기 일시 정지'
+                            : log.action === 'resume' ? '충전기 재개'
+                            : log.action}
+                          {log.ess_soc_before != null && ` (SOC ${log.ess_soc_before}%)`}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (events ?? []).length === 0 ? (
+                <p className="text-sm text-[#94A3B8]">아직 기록된 이벤트가 없습니다.</p>
+              ) : (
+                (events ?? []).map((log) => (
+                  <div
+                    key={log.id}
+                    className="flex items-start gap-3 rounded-xl border border-[#334155] bg-[#0F172A] px-4 py-3"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-mono text-xs text-[#94A3B8]">{log.timestamp}</p>
+                      <p className="text-sm text-[#F1F5F9]">{log.message}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="font-mono text-xs text-[#94A3B8]">{log.timestamp}</p>
-                    <p className="text-sm text-[#F1F5F9]">{log.message}</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </Card>
         </div>
