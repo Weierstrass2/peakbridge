@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'react';
 import { consoleApi, type LedgerEntry, type LedgerSummary } from '../lib/api';
 
+type Contracts = Awaited<ReturnType<typeof consoleApi.vppContracts>>['data'];
+
 const fmtW = (n: number) => Math.round(n).toLocaleString('ko-KR');
 
 export default function SettleTable() {
   const [entries, setEntries] = useState<LedgerEntry[]>([]);
   const [summary, setSummary] = useState<LedgerSummary | null>(null);
+  const [con, setCon] = useState<Contracts | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -13,6 +16,10 @@ export default function SettleTable() {
       try {
         const { data } = await consoleApi.ledgerFull(50);
         if (alive) { setEntries(data.entries); setSummary(data.summary); }
+      } catch { /* noop */ }
+      try {
+        const { data } = await consoleApi.vppContracts();
+        setCon(data);
       } catch { /* noop */ }
     };
     load();
@@ -33,6 +40,29 @@ export default function SettleTable() {
           </span>
         ))}
       </div>
+      {con && (
+        <div className="contract-strip">
+          <div className="con-split">
+            <span>총 정산 <b>₩{fmtW(con.settlement_split.total_revenue)}</b></span>
+            <span>단지 배분 <b style={{ color: 'var(--acc)' }}>₩{fmtW(con.settlement_split.site_payout)}</b></span>
+            <span>플랫폼 매출 <b style={{ color: 'var(--ok)' }}>₩{fmtW(con.settlement_split.platform_revenue)}</b> <i>(평균 {Math.round(con.settlement_split.avg_platform_share * 100)}%)</i></span>
+          </div>
+          <div className="con-cards">
+            {con.contracts.map((c) => (
+              <div key={c.building_id} className="con-card">
+                <div className="con-top">
+                  <b>{c.name}</b>
+                  <span className="mode">{c.status}</span>
+                </div>
+                <div className="con-body">
+                  {c.type} · 단지 {Math.round(c.site_share * 100)} / 플랫폼 {Math.round(c.platform_share * 100)}
+                </div>
+                <div className="con-meta">{c.term} · {c.resources}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="settle-scroll">
         <table className="dg">
           <thead>

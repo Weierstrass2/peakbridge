@@ -144,6 +144,10 @@ export const consoleApi = {
   opsAudit: () => get<{ entries: { ts: string; actor: string; action: string; detail: string }[] }>('/ops/audit'),
   marketRt: () => get<{ slot: string; seconds_left: number; rt_price: number; dam_ref: number }>('/market/rt'),
   marketRtSell: (qty: number) => post<{ filled: boolean; slot: string; fill_price: number; revenue: number }>('/market/rt/sell', { qty_kw: qty }),
+  vppContracts: () => get<{
+    contracts: { building_id: string; name: string; type: string; site_share: number; platform_share: number; term: string; resources: string; status: string }[];
+    settlement_split: { total_revenue: number; site_payout: number; platform_revenue: number; avg_platform_share: number };
+  }>('/vpp/contracts'),
   demoDay: () => post<{ status: string; steps: string[] }>('/simulation/demo-day', {}),
   opsRisk: () => get<{ status: string; usable_kwh: number; obligation_kwh: number; coverage: number }>('/ops/risk'),
   dispatchActivate: () => post<DispatchStatus | { error: string }>('/dispatch/activate', {}),

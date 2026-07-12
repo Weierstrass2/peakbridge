@@ -446,3 +446,14 @@ body {
 .rt-slot { font-family: var(--font-num); font-size: 11px; color: var(--tx-2); }
 .rt-price { font-family: var(--font-num); font-size: 17px; font-weight: 600; color: var(--warn); font-variant-numeric: tabular-nums; }
 .rt-sub { font-size: 9px; color: var(--tx-3); font-family: var(--font-num); }
+
+/* ── 계약·배분 (A5) ─────────────────────────────────────── */
+.contract-strip { flex-shrink: 0; display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line-0); }
+.con-split { display: flex; gap: 20px; font-size: 10.5px; color: var(--tx-2); }
+.con-split b { font-family: var(--font-num); color: var(--tx-1); font-variant-numeric: tabular-nums; }
+.con-split i { font-style: normal; font-size: 9px; color: var(--tx-3); }
+.con-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.con-card { border: 1px solid var(--line-1); border-radius: 3px; padding: 7px 9px; background: var(--bg-2); }
+.con-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 10.5px; color: var(--tx-1); }
+.con-body { font-size: 9.5px; color: var(--tx-2); margin-top: 3px; font-family: var(--font-num); }
+.con-meta { font-size: 8.5px; color: var(--tx-3); margin-top: 2px; }

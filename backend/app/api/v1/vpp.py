@@ -192,3 +192,43 @@ async def get_ledger(limit: int = Query(default=12, ge=1, le=100)) -> dict:
     return success_response(
         {"summary": vpp_ledger.summary(), "entries": vpp_ledger.entries(limit)}
     )
+
+
+# ── 계약 관리 (A5) ──────────────────────────────────────
+
+CONTRACTS = [
+    {"building_id": "building-A", "name": "실증단지 A", "type": "수익배분형",
+     "site_share": 0.70, "platform_share": 0.30, "term": "2026-03 ~ 2029-03",
+     "resources": "묶음 ESS 100kWh + 충전기 DR", "status": "유효"},
+    {"building_id": "building-B", "name": "단지 B", "type": "수익배분형",
+     "site_share": 0.70, "platform_share": 0.30, "term": "2026-06 ~ 2029-06",
+     "resources": "묶음 ESS 200kWh", "status": "유효(시뮬)"},
+    {"building_id": "building-C", "name": "단지 C", "type": "고정임대형",
+     "site_share": 0.60, "platform_share": 0.40, "term": "2026-05 ~ 2028-05",
+     "resources": "묶음 ESS 150kWh", "status": "유효(시뮬)"},
+]
+
+
+@router.get("/contracts")
+async def get_contracts() -> dict:
+    """단지 계약 현황 + 수익 배분 정산."""
+    try:
+        from app.services.vpp_ledger import vpp_ledger
+
+        s = vpp_ledger.summary()
+        total = max(0.0, s.get("total_revenue", 0.0))
+        avg_platform = sum(c["platform_share"] for c in CONTRACTS) / len(CONTRACTS)
+        return success_response(
+            {
+                "contracts": CONTRACTS,
+                "settlement_split": {
+                    "total_revenue": round(total, 0),
+                    "site_payout": round(total * (1 - avg_platform), 0),
+                    "platform_revenue": round(total * avg_platform, 0),
+                    "avg_platform_share": round(avg_platform, 2),
+                },
+            }
+        )
+    except Exception as exc:
+        logger.error("vpp_contracts_failed", error=str(exc))
+        return success_response({"contracts": [], "settlement_split": {}})
