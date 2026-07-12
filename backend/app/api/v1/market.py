@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 
 from app.schemas.response import success_response
 from app.services.market_service import market_service
+from app.services.ops_service import ops_service
 from app.services.bid_ai import ai_bids
 
 logger = structlog.get_logger(__name__)
@@ -51,7 +52,9 @@ async def save_bids(body: BidSheet) -> dict:
 async def submit_bids() -> dict:
     """입찰서 제출."""
     try:
-        return success_response(market_service.submit())
+        r = market_service.submit()
+        ops_service.audit('operator', 'BID_SUBMIT', f"세션 {r.get('session_id')} 입찰 제출")
+        return success_response(r)
     except Exception as exc:
         logger.error("market_submit_failed", error=str(exc))
         return success_response({"status": "error"})
@@ -61,7 +64,11 @@ async def submit_bids() -> dict:
 async def clear_market() -> dict:
     """개찰 (시연용 수동 트리거) — 낙찰 판정 + 예상 정산."""
     try:
-        return success_response(market_service.clear())
+        r = market_service.clear()
+        res = r.get('results') or {}
+        ops_service.audit('operator', 'MARKET_CLEAR', f"세션 {r.get('session_id')} 개찰 — {res.get('awarded_hours')}구간 낙찰")
+        ops_service.alarm('INFO', 'market', f"개찰 완료 — 낙찰 {res.get('awarded_hours')}구간, 예상 ₩{int(res.get('total_expected_revenue', 0)):,}")
+        return success_response(r)
     except Exception as exc:
         logger.error("market_clear_failed", error=str(exc))
         return success_response({"status": "error"})

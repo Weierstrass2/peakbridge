@@ -27,6 +27,11 @@ export default function SettleTable() {
         <span>금일 물량 <b>{summary?.today_kwh ?? 0} kWh</b></span>
         <span>금일 수익 <b style={{ color: 'var(--ok)' }}>₩{summary ? fmtW(summary.today_revenue) : 0}</b></span>
         <span>누적 수익 <b style={{ color: 'var(--ok)' }}>₩{summary ? fmtW(summary.total_revenue) : 0}</b></span>
+        {summary?.by_type && Object.entries(summary.by_type).map(([k, v]) => (
+          <span key={k} style={{ color: 'var(--tx-3)' }}>
+            {k} <b style={{ color: v >= 0 ? 'var(--tx-2)' : 'var(--crit)' }}>₩{fmtW(v)}</b>
+          </span>
+        ))}
       </div>
       <div className="settle-scroll">
         <table className="dg">

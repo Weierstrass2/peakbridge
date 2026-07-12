@@ -99,6 +99,7 @@ export interface DrEventResult {
 }
 
 export interface LedgerSummary {
+  by_type?: Record<string, number>;
   today_trades: number; today_kwh: number; today_revenue: number; total_revenue: number;
 }
 
@@ -138,6 +139,10 @@ export const consoleApi = {
     get<{ active_event: DrEventResult | null; ven: { state: string } }>('/dr/status'),
   marketSession: () => get<MarketSession>('/market/session'),
   dispatchStatus: () => get<DispatchStatus>('/dispatch/status'),
+  opsAlarms: () => get<{ unack: number; items: { id: string; ts: string; severity: string; source: string; msg: string; ack: boolean }[] }>('/ops/alarms'),
+  opsAck: (id: string) => post<{ acked: boolean }>(`/ops/alarms/${id}/ack`, {}),
+  opsAudit: () => get<{ entries: { ts: string; actor: string; action: string; detail: string }[] }>('/ops/audit'),
+  opsRisk: () => get<{ status: string; usable_kwh: number; obligation_kwh: number; coverage: number }>('/ops/risk'),
   dispatchActivate: () => post<DispatchStatus | { error: string }>('/dispatch/activate', {}),
   marketSaveBids: (bids: Bid[]) => post<MarketSession>('/market/bids', { bids }),
   marketSubmit: () => post<MarketSession>('/market/submit', {}),

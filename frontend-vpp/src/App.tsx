@@ -5,6 +5,7 @@ import MapPanel from './components/MapPanel';
 import SettleTable from './components/SettleTable';
 import BiddingDesk from './components/BiddingDesk';
 import DispatchPanel from './components/DispatchPanel';
+import OpsPanel from './components/OpsPanel';
 import MarketPanel from './components/MarketPanel';
 import {
   consoleApi,
@@ -128,6 +129,7 @@ const NAV = [
   { id: 'drops', label: 'DR 운영' },
   { id: 'map', label: '전국 현황' },
   { id: 'settle', label: '정산 원장' },
+  { id: 'ops', label: '운영 센터' },
 ] as const;
 
 type ViewId = (typeof NAV)[number]['id'];
@@ -307,6 +309,11 @@ export default function App() {
             {view === 'settle' && (
               <Panel title="정산 원장" sub="LEDGER" span="span 12" tall>
                 <SettleTable />
+              </Panel>
+            )}
+            {view === 'ops' && (
+              <Panel title="운영 센터 — 알람 · 이행 리스크 · 감사" sub="OPS" span="span 12" tall>
+                <OpsPanel />
               </Panel>
             )}
             {view === 'overview' && (

@@ -398,3 +398,40 @@ body {
 .cbtn.ai { border-color: rgba(155,138,251,0.55); }
 .cbtn.ai b { color: var(--vio); }
 .cbtn.ai:hover { border-color: var(--vio); background: rgba(155,138,251,0.08); }
+
+/* ── 운영 센터 ──────────────────────────────────────────── */
+.ops { display: flex; gap: 14px; height: 100%; }
+.ops-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ops-col + .ops-col { border-left: 1px solid var(--line-0); padding-left: 14px; }
+.ops-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.ops-scroll::-webkit-scrollbar { width: 3px; }
+.ops-scroll::-webkit-scrollbar-thumb { background: var(--line-2); }
+.alarm-row {
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 6px 0; border-bottom: 1px solid var(--line-0);
+}
+.alarm-row.acked { opacity: 0.4; }
+.al-sev { font-family: var(--font-num); font-size: 8.5px; font-weight: 700; letter-spacing: 0.08em; padding-top: 2px; flex-shrink: 0; width: 34px; }
+.al-body { flex: 1; min-width: 0; }
+.al-msg { font-size: 10.5px; color: var(--tx-1); }
+.al-meta { font-size: 8.5px; color: var(--tx-3); font-family: var(--font-num); margin-top: 1px; }
+.al-ack {
+  flex-shrink: 0; background: none; border: 1px solid var(--line-2); border-radius: 3px;
+  color: var(--tx-2); font-family: var(--font-num); font-size: 8px; letter-spacing: 0.08em;
+  padding: 2px 6px; cursor: pointer;
+}
+.al-ack:hover { border-color: var(--acc); color: var(--acc); }
+.risk-card { display: flex; flex-direction: column; gap: 10px; }
+.risk-status { font-family: var(--font-num); font-size: 26px; font-weight: 600; }
+.risk-bar { height: 5px; background: var(--bg-3); }
+.risk-bar i { display: block; height: 100%; transition: width 0.6s; }
+.risk-rows { display: flex; flex-direction: column; gap: 5px; font-size: 10.5px; color: var(--tx-2); }
+.risk-rows b { font-family: var(--font-num); color: var(--tx-1); float: right; font-variant-numeric: tabular-nums; }
+.risk-note { font-size: 9px; color: var(--tx-3); margin: 4px 0 0; }
+.audit-row {
+  display: flex; gap: 8px; padding: 4.5px 0; border-bottom: 1px solid var(--line-0);
+  font-size: 9.5px; align-items: baseline;
+}
+.au-ts { font-family: var(--font-num); color: var(--tx-3); flex-shrink: 0; }
+.au-act { font-family: var(--font-num); font-weight: 600; color: var(--acc); flex-shrink: 0; font-size: 8.5px; letter-spacing: 0.05em; }
+.au-det { color: var(--tx-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

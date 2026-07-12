@@ -159,6 +159,14 @@ class DispatchService:
                 -penalty,
             )
             logger.warning("dispatch_penalty", hour=h["hour"], penalty=penalty)
+            try:
+                from app.services.ops_service import ops_service
+                ops_service.alarm(
+                    "CRIT", "dispatch",
+                    f"{h['hour']:02d}시 미이행 위약 ₩{int(penalty):,} (이행 {h['compliance']}%)",
+                )
+            except Exception:
+                pass
 
     # ── 조회 ─────────────────────────────────────────
     def status(self) -> dict:

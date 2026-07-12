@@ -43,7 +43,11 @@ class VPPLedger:
     def summary(self) -> dict:
         today = datetime.now(KST).date().isoformat()
         today_entries = [e for e in self._entries if e["ts"][:10] == today]
+        by_type: dict[str, float] = {}
+        for e in self._entries:
+            by_type[e["type"]] = by_type.get(e["type"], 0.0) + e["revenue"]
         return {
+            "by_type": {k: round(v, 0) for k, v in by_type.items()},
             "today_trades": len(today_entries),
             "today_kwh": round(sum(e["kwh"] for e in today_entries), 1),
             "today_revenue": round(sum(e["revenue"] for e in today_entries), 0),
