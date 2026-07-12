@@ -368,3 +368,28 @@ body {
   border-top: 1px solid var(--line-0); font-size: 10px; color: var(--tx-3);
 }
 .dp-soc b { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* ── 입찰 데스크 고도화 ─────────────────────────────────── */
+.bid-cols { display: flex; gap: 14px; flex: 1; min-height: 0; }
+.bid-left { flex: 2.2; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.bid-right { flex: 1; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line-0); padding-left: 14px; }
+.bid-stepper {
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+  font-size: 9.5px; font-family: var(--font-num); color: var(--tx-3); letter-spacing: 0.06em;
+}
+.bid-stepper .step.on { color: var(--acc); font-weight: 600; }
+.bid-stepper .step i { font-style: normal; margin-left: 8px; color: var(--line-2); }
+.price-src { margin-left: auto; font-size: 8.5px; color: var(--tx-3); }
+.bidchart { width: 100%; height: 132px; flex-shrink: 0; background: var(--bg-2); border: 1px solid var(--line-0); }
+.bidchart-legend { display: flex; gap: 14px; font-size: 9px; color: var(--tx-2); flex-shrink: 0; }
+.bidchart-legend .key { display: inline-flex; align-items: center; gap: 4px; }
+.bidchart-legend .key i { width: 9px; height: 2px; display: inline-block; }
+.hist-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.hist-scroll::-webkit-scrollbar { width: 3px; }
+.hist-scroll::-webkit-scrollbar-thumb { background: var(--line-2); }
+.hist-row { padding: 7px 0; border-bottom: 1px solid var(--line-0); }
+.hist-top { display: flex; justify-content: space-between; font-family: var(--font-num); font-size: 9.5px; }
+.hist-id { color: var(--acc); }
+.hist-date { color: var(--tx-3); }
+.hist-bot { display: flex; gap: 12px; margin-top: 3px; font-size: 9.5px; color: var(--tx-3); }
+.hist-bot b { font-family: var(--font-num); color: var(--tx-2); font-weight: 500; }

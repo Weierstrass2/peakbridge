@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import BidChart from './BidChart';
 import { consoleApi, type Bid, type MarketSession } from '../lib/api';
 
 const fmtW = (n: number) => Math.round(n).toLocaleString('ko-KR');
@@ -27,6 +28,7 @@ export default function BiddingDesk({
   const [secLeft, setSecLeft] = useState(0);
   const [busy, setBusy] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [history, setHistory] = useState<MarketSession[]>([]);
 
   const load = async () => {
     try {
@@ -38,6 +40,10 @@ export default function BiddingDesk({
     try {
       const { data } = await consoleApi.marketMcpForecast();
       setMcpRef(data.curve);
+    } catch { /* noop */ }
+    try {
+      const { data } = await consoleApi.marketHistory();
+      setHistory(data.sessions);
     } catch { /* noop */ }
   };
 
@@ -129,6 +135,29 @@ export default function BiddingDesk({
         </button>
       </div>
 
+      <div className="bid-cols">
+      <div className="bid-left">
+        <div className="bid-stepper">
+          {['작성', '제출', '개찰', '급전'].map((s, i) => {
+            const stage = session?.status === 'cleared' ? 2 : session?.status === 'submitted' ? 1 : 0;
+            return (
+              <span key={s} className={`step ${i <= stage ? 'on' : ''}`}>
+                {i + 1} {s}{i < 3 && <i>—</i>}
+              </span>
+            );
+          })}
+          <span className="price-src">
+            {session?.price_source?.engine === 'historical'
+              ? `가격엔진: ${session.price_source.dataset} · ${session.price_source.replay_year}년 재생`
+              : '가격엔진: 형상 모델'}
+          </span>
+        </div>
+        <BidChart mcp={mcpRef} bids={bids} results={results?.hours ?? null} />
+        <div className="bidchart-legend">
+          <span className="key"><i style={{ background: '#E8A33D' }} />예상 MCP</span>
+          <span className="key"><i style={{ background: '#4C8DFF' }} />내 입찰가</span>
+          <span className="key"><i style={{ background: 'rgba(46,189,133,0.6)' }} />낙찰</span>
+        </div>
       <div className="bid-scroll">
         <table className="dg bid-table">
           <thead>
@@ -181,6 +210,30 @@ export default function BiddingDesk({
             })}
           </tbody>
         </table>
+      </div>
+      </div>
+
+      <aside className="bid-right">
+        <div className="dr-cap">세션 이력</div>
+        <div className="hist-scroll">
+          {history.length === 0 && <div className="ledger-empty">이력 없음</div>}
+          {history.map((h) => (
+            <div key={h.session_id} className="hist-row">
+              <div className="hist-top">
+                <span className="hist-id">{h.session_id}</span>
+                <span className="hist-date">{h.delivery_date}</span>
+              </div>
+              <div className="hist-bot">
+                <span>낙찰 <b>{h.results?.awarded_hours ?? 0}구간</b></span>
+                <span>물량 <b>{h.results?.total_award_kwh ?? 0}kWh</b></span>
+                <span style={{ color: 'var(--ok)' }}>
+                  ₩{Math.round((h.results?.total_expected_revenue ?? 0)).toLocaleString('ko-KR')}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </aside>
       </div>
     </div>
   );

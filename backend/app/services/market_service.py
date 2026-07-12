@@ -17,6 +17,7 @@ import structlog
 
 from app.core.resources import MARKET_RULES, total_max_discharge_kw
 from app.ml.energy_optimizer import EnergyOptimizer
+from app.services import market_data
 
 logger = structlog.get_logger(__name__)
 
@@ -27,7 +28,10 @@ optimizer = EnergyOptimizer()
 
 
 def _mcp_curve(day: datetime, jitter: float = 1.0) -> list[float]:
-    """시간대별 시장청산가격(₩/kWh) — 요금표 형상 × 확률 변동."""
+    """시간대별 시장청산가격(₩/kWh) — 실데이터 재생 우선, 형상 모델 폴백."""
+    hist = market_data.mcp_day(day.date(), jitter)
+    if hist is not None:
+        return hist
     prices: list[float] = []
     seed = day.toordinal()
     rng = random.Random(seed)
@@ -71,8 +75,10 @@ class MarketService:
         deadline = now.replace(hour=DAM_DEADLINE_HOUR, minute=0, second=0, microsecond=0)
         if now >= deadline:
             deadline += timedelta(days=1)
+        delivery = datetime.fromisoformat(self._session["delivery_date"] + "T00:00:00")
         return {
             **self._session,
+            "price_source": market_data.source_info(delivery.date()),
             "deadline": deadline.isoformat(),
             "seconds_to_deadline": int((deadline - now).total_seconds()),
         }

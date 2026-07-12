@@ -55,6 +55,7 @@ export interface BidResultHour {
 
 export interface MarketSession {
   session_id: string;
+  price_source?: { engine: string; replay_year?: number | null; dataset?: string };
   delivery_date: string;
   status: 'draft' | 'submitted' | 'cleared' | 'error';
   bids: Bid[];
@@ -142,6 +143,7 @@ export const consoleApi = {
   marketSubmit: () => post<MarketSession>('/market/submit', {}),
   marketClear: () => post<MarketSession>('/market/clear', {}),
   marketMcpForecast: () => get<{ curve: number[] }>('/market/mcp-forecast'),
+  marketHistory: () => get<{ sessions: MarketSession[] }>('/market/history'),
   issueDr: (signalType: string, value: number) =>
     post<DrEventResult>('/dr/event', {
       signal_type: signalType,
