@@ -30,6 +30,8 @@ RUN useradd --create-home --shell /bin/bash appuser
 COPY --from=builder /install /usr/local
 COPY app/ ./app/
 COPY models/best/ ./models/best/
+COPY models/bid_policy.json ./models/bid_policy.json
+COPY static/ ./static/
 COPY alembic/ ./alembic/
 COPY alembic.ini .
 

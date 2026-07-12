@@ -32,12 +32,22 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
 2. 새 세션에서 [AI 입찰]→제출→개찰→이행 → 흑자. "AI가 에너지 제약을 학습해 손실을 수익으로"
 3. DR 운영: SIMPLE 3 발령 → 차트 마커+유닛 20기 점멸+지도 적색+원장 정산 동시 반응
 
+## 추가 완료 (2차 세션)
+- B1 알람 센터: /ops/alarms (+ACK), 개찰·위약·리스크가 자동 발보 → 콘솔 '운영 센터' 뷰
+- B2 이행 리스크: /ops/risk — 가용 에너지 vs 낙찰 의무 커버리지, 105%/70% 임계 알람
+- B4 감사 로그: /ops/audit — 제출·개찰·ACK 등 조작 기록
+- A4 정산 유형별 집계: 원장 요약에 by_type (DR정산/급전정산/CP정산/위약금/차익거래)
+- A3 입찰 AI: models/bid_policy.json — 150일 검증 AI +₩1,993/일 vs 룰 -₩68,458/일
+- C3 콘솔 배포: 백엔드 /console 경로에 정적 서빙 —
+  푸시·배포 후 https://peakbridge-production.up.railway.app/console 접속 (실URL!)
+  콘솔 재빌드 시: cd frontend-vpp && npx vite build --base=/console/
+  → dist를 backend/static/console 로 복사 후 커밋
+
 ## 남은 백로그 (우선순위순)
-1. A1+d 실시간 시장(15분 세션) + A4 월 정산서
-2. B1 알람 센터(ACK 큐) + B2 이행 리스크 모니터(SOC vs 낙찰의무 사전경고) + B4 감사로그
-3. D1 하루 타임랩스 플레이어 (시연 필살기)
-4. C3 콘솔 실배포(Railway static/Vercel) + B3 운영자 로그인
-5. A5 계약 관리 + C1 시계열 서버 저장 + C2 WebSocket 전환
+1. A1+d 실시간 시장(15분 세션) — market_service에 RT 세션 추가
+2. D1 하루 타임랩스 플레이어 (dispatch 60× 가속이 이미 있으므로 UI 연출만)
+3. B3 운영자 로그인 (기존 JWT 재사용)
+4. A5 계약 관리 + C1 시계열 서버 저장 + C2 WebSocket 전환
 
 ## 주의사항
 - 시장/이행/원장은 in-memory — 서버 재배포 시 초기화됨 (시연 직전 재현 필요)

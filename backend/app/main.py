@@ -173,6 +173,21 @@ def create_app() -> FastAPI:
         )
 
     app.include_router(api_v1_router)
+
+    # VPP OS 콘솔 정적 서빙 (/console)
+    try:
+        from pathlib import Path
+
+        from fastapi.staticfiles import StaticFiles
+
+        console_dir = Path(__file__).resolve().parents[1] / "static" / "console"
+        if console_dir.exists():
+            app.mount(
+                "/console", StaticFiles(directory=str(console_dir), html=True), name="console"
+            )
+    except Exception as exc:
+        logger.warning("console_mount_failed", error=str(exc))
+
     return app
 
 
