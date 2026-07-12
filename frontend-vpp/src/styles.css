@@ -469,3 +469,16 @@ body {
 .cbtn.reset b { color: var(--tx-3); font-size: 9.5px; letter-spacing: 0.1em; }
 .cbtn.reset:hover b { color: var(--crit); }
 .cbtn.reset:hover { border-color: rgba(229,72,77,0.4); }
+
+/* ── CRITICAL 고정 스트립 ───────────────────────────────── */
+.crit-strip {
+  display: flex; align-items: center; gap: 12px; flex-shrink: 0;
+  padding: 5px 16px;
+  background: rgba(229,72,77,0.10); border-bottom: 1px solid rgba(229,72,77,0.45);
+}
+.crit-count {
+  font-family: var(--font-num); font-size: 9px; font-weight: 700; letter-spacing: 0.12em;
+  color: var(--crit); animation: blink 1.2s infinite;
+}
+.crit-msg { font-size: 11px; color: var(--tx-1); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-summary i { font-style: normal; font-size: 9px; color: var(--tx-3); }

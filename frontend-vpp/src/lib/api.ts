@@ -18,6 +18,8 @@ export interface StreamSnapshot {
   total_output_kw: number;
   demand_kw: number;
   forecast_kw: number;
+  forecast_hi?: number;
+  forecast_lo?: number;
   smp: number;
   dr_active: boolean;
   discharge_percent: number;
@@ -30,6 +32,7 @@ export interface Portfolio {
   buildings: {
     building_id: string; ess_capacity: number; current_soc: number;
     usable_kwh: number; available_kw: number; live?: boolean;
+    soh?: number; pcs_temp?: number; pcs_eff?: number; link_ms?: number;
   }[];
 }
 
@@ -85,6 +88,7 @@ export interface DispatchStatus {
   active: {
     session_id: string; delivery_date: string; time_scale: number; sim_clock: string;
     hours: DispatchHour[]; awarded_hours: number; settled_hours: number;
+    cumulative?: { awarded_kwh: number; delivered_kwh: number; rate: number; defended_won: number };
     energy_revenue: number; cp_revenue: number; penalties: number; net: number;
   } | null;
 }

@@ -27,6 +27,8 @@ export default function MarketPanel({ snap }: { snap: StreamSnapshot | null }) {
   const smpRef = useRef<ISeriesApi<'Area'> | null>(null);
   const demandRef = useRef<ISeriesApi<'Line'> | null>(null);
   const forecastRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const bandHiRef = useRef<ISeriesApi<'Line'> | null>(null);
+  const bandLoRef = useRef<ISeriesApi<'Line'> | null>(null);
   const seededRef = useRef(false);
   const wasDrRef = useRef(false);
   const markersRef = useRef<SeriesMarker<UTCTimestamp>[]>([]);
@@ -93,6 +95,14 @@ export default function MarketPanel({ snap }: { snap: StreamSnapshot | null }) {
       priceFormat: { type: 'price', precision: 0, minMove: 1 },
     });
 
+    const bandOpts = {
+      color: 'rgba(155,138,251,0.28)', lineWidth: 1 as const, lineStyle: LineStyle.Dotted,
+      priceScaleId: 'left', priceLineVisible: false, lastValueVisible: false,
+      crosshairMarkerVisible: false,
+    };
+    bandHiRef.current = chart.addLineSeries(bandOpts);
+    bandLoRef.current = chart.addLineSeries(bandOpts);
+
     chartRef.current = chart;
     smpRef.current = smp;
     demandRef.current = demand;
@@ -145,6 +155,8 @@ export default function MarketPanel({ snap }: { snap: StreamSnapshot | null }) {
     smpRef.current.update({ time: t, value: snap.smp });
     demandRef.current.update({ time: t, value: snap.demand_kw });
     forecastRef.current.update({ time: t, value: snap.forecast_kw });
+    if (snap.forecast_hi && bandHiRef.current) bandHiRef.current.update({ time: t, value: snap.forecast_hi });
+    if (snap.forecast_lo && bandLoRef.current) bandLoRef.current.update({ time: t, value: snap.forecast_lo });
 
     setStats((prev) =>
       prev
@@ -170,7 +182,7 @@ export default function MarketPanel({ snap }: { snap: StreamSnapshot | null }) {
       <div className="mkt-legend">
         <span className="key"><i style={{ background: '#E8A33D' }} />SMP <b>{snap ? fmt(snap.smp) : '—'}</b></span>
         <span className="key"><i style={{ background: '#4C8DFF' }} />수요 <b>{snap ? fmt(snap.demand_kw, 0) : '—'}</b></span>
-        <span className="key"><i style={{ background: '#9B8AFB' }} />AI 예측 <b>{snap ? fmt(snap.forecast_kw, 0) : '—'}</b></span>
+        <span className="key"><i style={{ background: '#9B8AFB' }} />AI 예측 <b>{snap ? fmt(snap.forecast_kw, 0) : '—'}</b> <i style={{ background: 'none', color: 'var(--tx-3)', fontStyle: 'normal', fontSize: 8.5 }}>±3.5% CI</i></span>
         <span className="mkt-stats">
           H <b>{stats ? fmt(stats.hi) : '—'}</b>&ensp;L <b>{stats ? fmt(stats.lo) : '—'}</b>&ensp;AVG <b>{avg !== null ? fmt(avg) : '—'}</b>
         </span>

@@ -71,6 +71,14 @@ export default function DispatchPanel({
           <div className="dp-summary">
             <span>시장시각 <b className="simclock">{a.sim_clock}</b> <i>({a.time_scale}× 가속)</i></span>
             <span>정산 <b>{a.settled_hours}/{a.awarded_hours}</b></span>
+            {a.cumulative && (
+              <span>누적 이행률 <b style={{
+                color: a.cumulative.rate >= 97 ? 'var(--ok)' : a.cumulative.rate >= 70 ? 'var(--warn)' : 'var(--crit)',
+              }}>{a.cumulative.rate}%</b> <i>({a.cumulative.delivered_kwh}/{a.cumulative.awarded_kwh}kWh)</i></span>
+            )}
+            {a.cumulative && (
+              <span>위약 방어 <b style={{ color: 'var(--acc)' }}>₩{fmtW(a.cumulative.defended_won)}</b></span>
+            )}
             <span>급전수익 <b style={{ color: 'var(--ok)' }}>₩{fmtW(a.energy_revenue)}</b></span>
             <span>CP <b style={{ color: 'var(--acc)' }}>₩{fmtW(a.cp_revenue)}</b></span>
             <span>위약 <b style={{ color: 'var(--crit)' }}>−₩{fmtW(a.penalties)}</b></span>

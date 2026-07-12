@@ -49,7 +49,7 @@ export default function AssetsPanel({
           <thead>
             <tr>
               <th>SITE</th><th>MODE</th><th className="num">SOC</th>
-              <th className="num">CAP kWh</th><th className="num">AVL kW</th><th className="num">OUT kW</th>
+              <th className="num">SOH</th><th className="num">PCS°C</th><th className="num">AVL kW</th><th className="num">OUT kW</th>
             </tr>
           </thead>
           <tbody>
@@ -66,7 +66,12 @@ export default function AssetsPanel({
                   }} /></span>
                   {fmt(b.current_soc)}%
                 </td>
-                <td className="num">{fmt(b.ess_capacity)}</td>
+                <td className="num" style={{ color: (b.soh ?? 100) < 95 ? 'var(--warn)' : 'var(--tx-2)' }}>
+                  {b.soh !== undefined ? `${b.soh}%` : '—'}
+                </td>
+                <td className="num" style={{ color: (b.pcs_temp ?? 0) > 45 ? 'var(--crit)' : 'var(--tx-2)' }}>
+                  {b.pcs_temp !== undefined ? fmt(b.pcs_temp, 1) : '—'}
+                </td>
                 <td className="num" style={{ color: 'var(--acc)' }}>{fmt(b.available_kw)}</td>
                 <td className="num" style={{ color: drActive ? 'var(--crit)' : 'var(--tx-1)' }}>
                   {outputs[b.building_id] !== undefined ? fmt(outputs[b.building_id], 1) : '—'}

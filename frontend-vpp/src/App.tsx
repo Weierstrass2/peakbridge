@@ -192,6 +192,7 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const [latency, setLatency] = useState<number | null>(null);
   const [freq, setFreq] = useState(60.0);
+  const [critAlarms, setCritAlarms] = useState<{ id: string; msg: string }[]>([]);
   const [logs, setLogs] = useState<LogLine[]>([
     { ts: nowTs(), lv: 'info', msg: '콘솔 세션 시작 — 백엔드 피드 연결 시도' },
   ]);
@@ -245,6 +246,20 @@ export default function App() {
     return () => { alive = false; clearInterval(t); };
   }, []);
 
+  // 8초 CRIT 알람 (고정 스트립)
+  useEffect(() => {
+    let alive = true;
+    const tick = async () => {
+      try {
+        const { data } = await consoleApi.opsAlarms();
+        if (alive) setCritAlarms(data.items.filter((a) => a.severity === 'CRIT' && !a.ack).map((a) => ({ id: a.id, msg: a.msg })));
+      } catch { /* noop */ }
+    };
+    tick();
+    const t = setInterval(tick, 8000);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+
   // 15초 포트폴리오/장부
   useEffect(() => {
     let alive = true;
@@ -274,6 +289,19 @@ export default function App() {
         flexKw={portfolio?.available_flexibility_kw ?? null}
         connected={connected}
       />
+
+      {critAlarms.length > 0 && (
+        <div className="crit-strip">
+          <span className="crit-count">CRITICAL {critAlarms.length}</span>
+          <span className="crit-msg">{critAlarms[0].msg}</span>
+          <button className="al-ack" onClick={async () => {
+            try {
+              await consoleApi.opsAck(critAlarms[0].id, localStorage.getItem('op_name') ?? 'operator');
+              setCritAlarms((prev) => prev.slice(1));
+            } catch { /* noop */ }
+          }}>ACK</button>
+        </div>
+      )}
 
       <div className="app-body">
         <Rail view={view} onSelect={setView} />

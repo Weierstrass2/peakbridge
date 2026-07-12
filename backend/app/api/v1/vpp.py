@@ -23,8 +23,8 @@ optimizer = EnergyOptimizer()
 
 # 시연 포트폴리오: 실단지(building-A, DB 연동) + 확장 예시 단지
 DEMO_BUILDINGS = [
-    {"building_id": "building-B", "ess_capacity": 200.0, "current_soc": 65.0, "max_power_kw": 100.0},
-    {"building_id": "building-C", "ess_capacity": 150.0, "current_soc": 80.0, "max_power_kw": 75.0},
+    {"building_id": "building-B", "ess_capacity": 200.0, "current_soc": 65.0, "max_power_kw": 100.0, "soh": 97.1, "pcs_temp": 35.8, "pcs_eff": 95.9, "link_ms": 41},
+    {"building_id": "building-C", "ess_capacity": 150.0, "current_soc": 80.0, "max_power_kw": 75.0, "soh": 99.0, "pcs_temp": 31.2, "pcs_eff": 96.5, "link_ms": 37},
 ]
 
 
@@ -46,6 +46,10 @@ async def _live_building(session) -> dict:
         "current_soc": soc,
         "max_power_kw": 50.0,
         "live": True,
+        "soh": 98.4,
+        "pcs_temp": round(33.0 + 2.5 * __import__("math").sin(__import__("time").time() / 700), 1),
+        "pcs_eff": 96.2,
+        "link_ms": __import__("random").randint(9, 28),
     }
 
 
@@ -180,7 +184,9 @@ async def get_stream(session: DbSession) -> dict:
                 __import__("datetime").timezone(__import__("datetime").timedelta(hours=9))
             ).strftime("%H:%M:%S"),
             "total_output_kw": total, "demand_kw": demand,
-            "forecast_kw": forecast, "smp": smp, "dr_active": discharging,
+            "forecast_kw": forecast,
+            "forecast_hi": round(forecast * 1.035, 1),
+            "forecast_lo": round(forecast * 0.965, 1), "smp": smp, "dr_active": discharging,
         }
     if not _stream_hist or _stream_hist[-1]["ts"] != snap["ts"]:
         _stream_hist.append(snap)
@@ -198,6 +204,8 @@ async def get_stream(session: DbSession) -> dict:
             "total_output_kw": total,
             "demand_kw": demand,
             "forecast_kw": forecast,
+            "forecast_hi": round(forecast * 1.035, 1),
+            "forecast_lo": round(forecast * 0.965, 1),
             "smp": smp,
             "dr_active": discharging,
             "discharge_percent": round(boost * 100),

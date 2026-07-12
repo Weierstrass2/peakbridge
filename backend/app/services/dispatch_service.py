@@ -185,6 +185,11 @@ class DispatchService:
             return {**base, "active": None}
         sim_hours = (time.time() - a["started_at"]) * a["time_scale"] / 3600.0
         awarded = [h for h in a["hours"] if h["awarded"]]
+        awarded_kwh = sum(h["qty_kw"] for h in awarded)
+        delivered_kwh = sum(h["delivered_kwh"] for h in awarded)
+        defended = sum(
+            h["delivered_kwh"] * h["mcp"] * 1.2 for h in awarded if h["delivered_kwh"] > 0
+        )
         return {
             **base,
             "active": {
@@ -195,6 +200,12 @@ class DispatchService:
                 "hours": a["hours"],
                 "awarded_hours": len(awarded),
                 "settled_hours": sum(1 for h in awarded if h["settled"]),
+                "cumulative": {
+                    "awarded_kwh": round(awarded_kwh, 1),
+                    "delivered_kwh": round(delivered_kwh, 1),
+                    "rate": round(delivered_kwh / awarded_kwh * 100, 1) if awarded_kwh > 0 else 100.0,
+                    "defended_won": round(defended, 0),
+                },
                 "energy_revenue": round(a["energy_revenue"], 0),
                 "cp_revenue": round(a["cp_revenue"], 0),
                 "penalties": round(a["penalties"], 0),
