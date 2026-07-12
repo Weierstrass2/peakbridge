@@ -140,8 +140,9 @@ export const consoleApi = {
   marketSession: () => get<MarketSession>('/market/session'),
   dispatchStatus: () => get<DispatchStatus>('/dispatch/status'),
   opsAlarms: () => get<{ unack: number; items: { id: string; ts: string; severity: string; source: string; msg: string; ack: boolean }[] }>('/ops/alarms'),
-  opsAck: (id: string) => post<{ acked: boolean }>(`/ops/alarms/${id}/ack`, {}),
+  opsAck: (id: string, actor = 'operator') => post<{ acked: boolean }>(`/ops/alarms/${id}/ack?actor=${encodeURIComponent(actor)}`, {}),
   opsAudit: () => get<{ entries: { ts: string; actor: string; action: string; detail: string }[] }>('/ops/audit'),
+  streamHistory: () => get<{ points: { ts: string; total_output_kw: number; demand_kw: number; forecast_kw: number; smp: number }[] }>('/vpp/stream/history'),
   marketRt: () => get<{ slot: string; seconds_left: number; rt_price: number; dam_ref: number }>('/market/rt'),
   marketRtSell: (qty: number) => post<{ filled: boolean; slot: string; fill_price: number; revenue: number }>('/market/rt/sell', { qty_kw: qty }),
   vppContracts: () => get<{

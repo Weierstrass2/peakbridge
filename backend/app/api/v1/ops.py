@@ -19,9 +19,12 @@ async def get_alarms(limit: int = Query(default=30, ge=1, le=100)) -> dict:
 
 
 @router.post("/alarms/{alarm_id}/ack")
-async def ack_alarm(alarm_id: str) -> dict:
+async def ack_alarm(alarm_id: str, actor: str = Query(default="operator")) -> dict:
     try:
-        return success_response({"acked": ops_service.ack(alarm_id)})
+        ok = ops_service.ack(alarm_id)
+        if ok and actor != "operator":
+            ops_service.audit(actor, "ALARM_ACK", f"{alarm_id} 확인")
+        return success_response({"acked": ok})
     except Exception as exc:
         logger.error("ops_ack_failed", error=str(exc))
         return success_response({"acked": False})

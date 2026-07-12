@@ -127,6 +127,15 @@ from app.services.openadr_service import openadr_service
 from app.services.vpp_ledger import vpp_ledger
 
 
+_stream_hist: list[dict] = []
+
+
+@router.get("/stream/history")
+async def get_stream_history(limit: int = Query(default=120, ge=1, le=600)) -> dict:
+    """스트림 히스토리 (서버 보관) — 콘솔 새로고침 시 차트 연속성."""
+    return success_response({"points": _stream_hist[-limit:]})
+
+
 @router.get("/stream")
 async def get_stream(session: DbSession) -> dict:
     """
@@ -166,6 +175,16 @@ async def get_stream(session: DbSession) -> dict:
         base_rate = 84.5
     smp = round(base_rate * 1.15 + 12 * math.sin(t / 600.0) + random.uniform(-1.5, 1.5), 1)
 
+    snap = {
+            "ts": __import__("datetime").datetime.now(
+                __import__("datetime").timezone(__import__("datetime").timedelta(hours=9))
+            ).strftime("%H:%M:%S"),
+            "total_output_kw": total, "demand_kw": demand,
+            "forecast_kw": forecast, "smp": smp, "dr_active": discharging,
+        }
+    if not _stream_hist or _stream_hist[-1]["ts"] != snap["ts"]:
+        _stream_hist.append(snap)
+        del _stream_hist[:-600]
     return success_response(
         {
             "ts": __import__("datetime").datetime.now(

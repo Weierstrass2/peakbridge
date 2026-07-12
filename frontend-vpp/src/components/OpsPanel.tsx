@@ -37,7 +37,7 @@ export default function OpsPanel() {
   }, []);
 
   const ack = async (id: string) => {
-    try { await consoleApi.opsAck(id); await load(); } catch { /* noop */ }
+    try { await consoleApi.opsAck(id, localStorage.getItem('op_name') ?? 'operator'); await load(); } catch { /* noop */ }
   };
 
   return (

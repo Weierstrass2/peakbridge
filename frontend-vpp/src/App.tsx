@@ -150,6 +150,15 @@ function Rail({ view, onSelect }: { view: ViewId; onSelect: (v: ViewId) => void 
       <div className="rail-sep" />
       <div className="rail-cap">SITE</div>
       <div className="rail-item">부산 — 실증단지 A</div>
+      <div className="rail-sep" />
+      <div className="rail-cap">OPERATOR</div>
+      <div className="rail-item" style={{ cursor: 'text' }}>
+        <input
+          className="op-input"
+          defaultValue={localStorage.getItem('op_name') ?? '관제사 1'}
+          onBlur={(e) => localStorage.setItem('op_name', e.target.value || '관제사 1')}
+        />
+      </div>
     </nav>
   );
 }

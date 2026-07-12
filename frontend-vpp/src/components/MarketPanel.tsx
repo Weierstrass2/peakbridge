@@ -8,7 +8,7 @@ import {
   type SeriesMarker,
   type UTCTimestamp,
 } from 'lightweight-charts';
-import type { StreamSnapshot } from '../lib/api';
+import { consoleApi, type StreamSnapshot } from '../lib/api';
 
 /** 축 라벨을 KST로 표기하기 위한 타임스탬프 시프트 */
 const kstNow = (): UTCTimestamp =>
@@ -111,7 +111,17 @@ export default function MarketPanel({ snap }: { snap: StreamSnapshot | null }) {
     const t = kstNow();
 
     if (!seededRef.current) {
-      // 세션 시작 시 최근 3분 프로파일 백필 (시뮬레이션 워크백)
+      seededRef.current = true;
+      // 1순위: 서버 보관 히스토리로 시드 (새로고침 연속성)
+      consoleApi.streamHistory().then(({ data }) => {
+        if (data.points.length > 5 && smpRef.current && demandRef.current && forecastRef.current) {
+          const base = (t as number) - data.points.length * 3;
+          smpRef.current.setData(data.points.map((p, i) => ({ time: (base + i * 3) as UTCTimestamp, value: p.smp })));
+          demandRef.current.setData(data.points.map((p, i) => ({ time: (base + i * 3) as UTCTimestamp, value: p.demand_kw })));
+          forecastRef.current.setData(data.points.map((p, i) => ({ time: (base + i * 3) as UTCTimestamp, value: p.forecast_kw })));
+        }
+      }).catch(() => undefined);
+      // 폴백: 합성 백필 (히스토리 부족 시 즉시 표시용)
       const smpSeed: { time: UTCTimestamp; value: number }[] = [];
       const dSeed: { time: UTCTimestamp; value: number }[] = [];
       const fSeed: { time: UTCTimestamp; value: number }[] = [];
@@ -128,7 +138,6 @@ export default function MarketPanel({ snap }: { snap: StreamSnapshot | null }) {
       smpRef.current.setData(smpSeed);
       demandRef.current.setData(dSeed);
       forecastRef.current.setData(fSeed);
-      seededRef.current = true;
       const vals = smpSeed.map((p) => p.value);
       setStats({ hi: Math.max(...vals), lo: Math.min(...vals), sum: vals.reduce((a, b) => a + b, 0), n: vals.length });
     }
