@@ -346,6 +346,17 @@ export default function App() {
                   </span>
                 </div>
                 <button
+                  className="cbtn reset"
+                  onClick={async () => {
+                    try {
+                      await import('./lib/api').then(m => m.consoleApi.demoReset());
+                      pushLog('warn', '데모 상태 초기화 — 시장·이행·원장·알람 리셋');
+                    } catch { pushLog('warn', '리셋 실패'); }
+                  }}
+                >
+                  <b>리셋</b>
+                </button>
+                <button
                   className="cbtn demo"
                   onClick={async () => {
                     pushLog('info', '데모 시퀀스 시작 — AI 입찰 하루 사이클');

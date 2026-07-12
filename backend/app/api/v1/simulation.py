@@ -185,3 +185,31 @@ async def run_demo_day() -> dict:
     except Exception as exc:
         logger.error("demo_day_failed", error=str(exc))
         return success_response({"status": "error", "steps": steps, "detail": str(exc)})
+
+
+@router.post("/demo-reset")
+async def demo_reset() -> dict:
+    """데모 상태 초기화 — 시장·이행·원장·알람 리셋 (리허설 반복용)."""
+    try:
+        from app.services.dispatch_service import dispatch_service
+        from app.services.market_service import market_service
+        from app.services.openadr_service import openadr_service
+        from app.services.ops_service import ops_service
+        from app.services.vpp_ledger import vpp_ledger
+
+        market_service._session = None
+        market_service._history.clear()
+        dispatch_service._active = None
+        dispatch_service._soc = {k: 60.0 for k in dispatch_service._soc}
+        dispatch_service._soc["building-A"] = 25.0
+        vpp_ledger._entries.clear()
+        openadr_service._history.clear()
+        openadr_service._active_event = None
+        openadr_service._ven_state = "idle"
+        ops_service._alarms.clear()
+        ops_service.audit("operator", "DEMO_RESET", "데모 상태 전체 초기화")
+        logger.info("demo_reset_done")
+        return success_response({"reset": True})
+    except Exception as exc:
+        logger.error("demo_reset_failed", error=str(exc))
+        return success_response({"reset": False})

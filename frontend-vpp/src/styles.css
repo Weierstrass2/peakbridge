@@ -464,3 +464,8 @@ body {
   padding: 0; letter-spacing: 0.04em;
 }
 .op-input:focus { color: var(--tx-1); }
+
+.cbtn.reset { flex-direction: row; justify-content: center; padding: 4px; }
+.cbtn.reset b { color: var(--tx-3); font-size: 9.5px; letter-spacing: 0.1em; }
+.cbtn.reset:hover b { color: var(--crit); }
+.cbtn.reset:hover { border-color: rgba(229,72,77,0.4); }
