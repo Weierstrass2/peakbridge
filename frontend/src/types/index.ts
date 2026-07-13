@@ -71,6 +71,7 @@ export interface User {
 }
 
 export interface LoginResponse {
+  refresh_token?: string | null;
   access_token: string;
   user: User;
 }

@@ -20,8 +20,8 @@ export default function LoginPage() {
     setError('');
     try {
       const response = await login(email, password);
-      const { access_token, user } = response;
-      setAuth(access_token, user);
+      const { access_token, user, refresh_token } = response;
+      setAuth(access_token, user, refresh_token ?? null);
       navigate('/');
     } catch {
       setError('Login failed. Check credentials or backend connection.');
