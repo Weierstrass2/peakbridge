@@ -56,6 +56,7 @@ async def control_relay(
     control_repo = ControlLogRepository(session)
     device_repo = DeviceRepository(session)
     sensor_repo = SensorRepository(session)
+    alert_repo_manual = AlertRepository(session)
     mqtt = get_mqtt_publisher()
 
     last = await control_repo.get_last_action(building_id, within_seconds=30)
@@ -86,6 +87,17 @@ async def control_relay(
         ess_soc_before=ess_soc,
     )
     await control_repo.create(log)
+
+    # 수동 제어 알림 (Alerts 페이지 노출용)
+    alert = Alert(
+        id=uuid.uuid4(),
+        building_id=building_id,
+        alert_type=AlertType.MANUAL_CONTROL.value,
+        severity=AlertSeverity.INFO.value,
+        grid_current=0.0,
+        ess_soc=ess_soc,
+    )
+    await alert_repo_manual.create(alert)
     await ws_manager.send_control_executed(building_id, body.action, device.device_id)
 
     return success_response(

@@ -20,6 +20,7 @@ class AlertType(str, Enum):
     PEAK_SHAVING_ACTIVATED = "peak_shaving_activated"
     PEAK_RESOLVED = "peak_resolved"
     CHARGER_CONTROL = "charger_control"
+    MANUAL_CONTROL = "manual_control"
 
 
 class AlertSeverity(str, Enum):

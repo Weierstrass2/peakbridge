@@ -38,7 +38,7 @@ export default function AlertsPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <Badge variant={alert.type === 'peak' ? 'peak' : 'warning'}>
-                    {alert.type}
+                    {alert.type === 'peak' ? '피크' : '제어'}
                   </Badge>
                   {alert.acknowledged && (
                     <Badge variant="success">acknowledged</Badge>
