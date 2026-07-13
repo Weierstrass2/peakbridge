@@ -213,3 +213,28 @@ async def demo_reset() -> dict:
     except Exception as exc:
         logger.error("demo_reset_failed", error=str(exc))
         return success_response({"reset": False})
+
+
+@router.post("/cleanup-devices")
+async def cleanup_demo_devices(session: DbSession) -> dict:
+    """시연 정리 — 잉여 테스트 충전기(esp32-charger-02~04) 및 센서 이력 삭제 (D-1)."""
+    try:
+        from sqlalchemy import delete, select
+
+        from app.models.device import Device
+        from app.models.sensor_reading import SensorReading
+
+        targets = ["esp32-charger-02", "esp32-charger-03", "esp32-charger-04"]
+        found = (
+            (await session.execute(select(Device.device_id).where(Device.device_id.in_(targets))))
+            .scalars()
+            .all()
+        )
+        await session.execute(delete(SensorReading).where(SensorReading.device_id.in_(targets)))
+        await session.execute(delete(Device).where(Device.device_id.in_(targets)))
+        await session.commit()
+        logger.info("demo_devices_cleaned", removed=found)
+        return success_response({"removed": found, "remaining_note": "충전기 1대(esp32-charger-01) 구성"})
+    except Exception as exc:
+        logger.error("cleanup_devices_failed", error=str(exc))
+        return success_response({"removed": [], "error": "정리 실패"})

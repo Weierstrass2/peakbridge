@@ -67,6 +67,21 @@ export function mergeChartSeries(
 export function normalizeSavingsReport(data: SavingsReportResponse): ReportSummary[] {
   if (data.monthly?.length) return data.monthly;
   if (data.reports?.length) return data.reports;
+  // 실제 백엔드 응답: { saved_kwh, saved_won, co2_reduced_kg, peak_count }
+  if ((data as { saved_won?: number }).saved_won != null) {
+    const d = data as unknown as {
+      saved_won: number; co2_reduced_kg?: number; peak_count?: number;
+    };
+    return [
+      {
+        period: new Date().toISOString().slice(0, 7),
+        total_saved_won: d.saved_won,
+        peak_events: d.peak_count ?? 0,
+        co2_reduced_kg: d.co2_reduced_kg ?? 0,
+        avg_grid_current: 0,
+      },
+    ];
+  }
   if (data.month_saved_won != null) {
     return [
       {

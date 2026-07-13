@@ -18,13 +18,6 @@ const brandData = [
   { name: '파워큐브', value: 25, color: '#34D399' },
 ];
 
-const mockChargerDetails = [
-  { id: 'CH-01', brand: '차지비', current: 7.2, voltage: 220, status: 'charging', todayUsage: 12.4 },
-  { id: 'CH-02', brand: '에버온', current: 6.8, voltage: 220, status: 'charging', todayUsage: 11.8 },
-  { id: 'CH-03', brand: '파워큐브', current: 0, voltage: null, status: 'idle', todayUsage: 8.2 },
-  { id: 'CH-04', brand: '차지비', current: 4.1, voltage: 220, status: 'charging', todayUsage: 9.6 },
-];
-
 export default function ChargersPage() {
   const { dashboard, isLoading, isError } = useDashboard();
   const [selectedBuilding, setSelectedBuilding] = useState('A단지');
@@ -39,7 +32,17 @@ export default function ChargersPage() {
     return <CardSkeleton />;
   }
 
-  const selectedChargerData = mockChargerDetails.find(c => c.id === selectedCharger);
+  // 실데이터 기반 목록 (대시보드 chargers)
+  const chargerDetails = (dashboard?.chargers ?? []).map((c) => ({
+    id: c.device_id,
+    brand: 'ESP32 (자체)',
+    current: c.current,
+    voltage: c.current > 0 ? 220 : null,
+    status: c.current > 0 ? 'charging' : 'idle',
+    todayUsage: null as number | null,
+  }));
+
+  const selectedChargerData = chargerDetails.find(c => c.id === selectedCharger);
 
   return (
     <div className="space-y-6">
@@ -91,7 +94,7 @@ export default function ChargersPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {mockChargerDetails.map((c) => (
+                  {chargerDetails.map((c) => (
                     <tr
                       key={c.id}
                       onClick={() => setSelectedCharger(c.id)}
@@ -116,7 +119,7 @@ export default function ChargersPage() {
                           {c.status === 'charging' ? '🟢 충전 중' : c.status === 'idle' ? '⚫ 대기' : '🔴 오류'}
                         </span>
                       </td>
-                      <td className="py-4 text-[#FBBF24] font-semibold">{c.todayUsage.toFixed(1)}kWh</td>
+                      <td className="py-4 text-[#FBBF24] font-semibold">{c.todayUsage != null ? `${c.todayUsage.toFixed(1)}kWh` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -153,7 +156,7 @@ export default function ChargersPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="rounded-xl bg-[#0F172A] p-4 border border-[#334155]">
                       <p className="text-xs text-[#94A3B8] mb-1">총 충전량</p>
-                      <p className="text-xl font-bold text-[#F1F5F9]">{selectedChargerData.todayUsage.toFixed(1)}kWh</p>
+                      <p className="text-xl font-bold text-[#F1F5F9]">{selectedChargerData.todayUsage != null ? `${selectedChargerData.todayUsage.toFixed(1)}kWh` : '—'}</p>
                     </div>
                     <div className="rounded-xl bg-[#0F172A] p-4 border border-[#334155]">
                       <p className="text-xs text-[#94A3B8] mb-1">피크쉐이빙 기여</p>
@@ -170,7 +173,7 @@ export default function ChargersPage() {
           )}
 
           {/* Brand Distribution */}
-          <Card title="브랜드별 분포">
+          <Card title="브랜드별 분포" subtitle="브랜드 연동 예시 (전시용)">
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>

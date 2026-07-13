@@ -70,8 +70,9 @@ export default function ReportPage() {
     refetchInterval: 60_000,
   });
 
-  const dailySavingsData = dailyQ.data && dailyQ.data.length > 0 ? dailyQ.data : fallbackDaily;
-  const monthSaved = reports?.[0]?.total_saved_won ?? 128400;
+  // 실데이터가 5일 이상 쌓이기 전엔 예시 프로파일 표시 (빈 차트 방지)
+  const dailySavingsData = dailyQ.data && dailyQ.data.length >= 5 ? dailyQ.data : fallbackDaily;
+  const monthSaved = reports?.[0]?.total_saved_won ?? 0;
   const annualProjection = monthSaved * 12;
 
   return (
@@ -81,19 +82,19 @@ export default function ReportPage() {
         <Card padding={false}>
           <div className="p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8] mb-2">이번 달 절감</p>
-            <p className="text-3xl font-bold text-[#FBBF24]">{(reports?.[0]?.total_saved_won ?? 128400).toLocaleString()}원</p>
+            <p className="text-3xl font-bold text-[#FBBF24]">{(reports?.[0]?.total_saved_won ?? 0).toLocaleString()}원</p>
           </div>
         </Card>
         <Card padding={false}>
           <div className="p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8] mb-2">피크쉐이빙 횟수</p>
-            <p className="text-3xl font-bold text-[#3B82F6]">{reports?.[0]?.peak_events || 23}회</p>
+            <p className="text-3xl font-bold text-[#3B82F6]">{reports?.[0]?.peak_events ?? 0}회</p>
           </div>
         </Card>
         <Card padding={false}>
           <div className="p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8] mb-2">CO₂ 절감</p>
-            <p className="text-3xl font-bold text-[#34D399]">{reports?.[0]?.co2_reduced_kg || 21}kg</p>
+            <p className="text-3xl font-bold text-[#34D399]">{reports?.[0]?.co2_reduced_kg ?? 0}kg</p>
           </div>
         </Card>
         <Card padding={false}>

@@ -40,7 +40,7 @@ export default function TopBar() {
                 : 'bg-[#EF4444]/15 text-[#EF4444]'
             }`}
           >
-            {wsConnected ? 'LIVE' : 'OFFLINE'}
+            {wsConnected ? 'LIVE' : '폴링 모드'}
           </span>
         )}
         <PeakAlert />
