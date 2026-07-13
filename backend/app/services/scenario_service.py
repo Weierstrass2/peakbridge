@@ -21,6 +21,13 @@ from app.repositories.sensor_repository import SensorRepository
 from app.services.kepco_service import KepcoService
 from app.services.weather_service import WeatherService
 
+
+def _now_kst():
+    """KST 벽시계 (서버가 UTC여도 한국 시간 기준으로 판정)."""
+    from datetime import datetime as _dt, timedelta as _td
+    return _dt.utcnow() + _td(hours=9)
+
+
 logger = structlog.get_logger(__name__)
 
 # 건물별 자동 제어 모드 상태 (in-memory)
@@ -114,7 +121,7 @@ class ScenarioService:
             })
 
         # 3. night_charge
-        now = datetime.now()
+        now = _now_kst()
         hour = now.hour
         is_night = 23 <= hour or hour < 9
         scenarios.append({

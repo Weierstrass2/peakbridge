@@ -8,6 +8,13 @@ from typing import Dict
 from app.core.config import settings
 from app.core.logging import get_logger
 
+
+def _now_kst():
+    """KST 벽시계 (서버가 UTC여도 한국 시간 기준으로 판정)."""
+    from datetime import datetime as _dt, timedelta as _td
+    return _dt.utcnow() + _td(hours=9)
+
+
 logger = get_logger(__name__)
 
 
@@ -23,7 +30,7 @@ class WeatherService:
     async def _get_ultra_srt_ncst(self) -> Dict:
         """초단기실황 API 호출 (현재 기온)"""
         try:
-            now = datetime.now()
+            now = _now_kst()
             base_date = now.strftime("%Y%m%d")
             
             # base_time: 현재 분이 40분 미만이면 1시간 전 정시
@@ -54,7 +61,7 @@ class WeatherService:
     
     def _get_base_time(self):
         """단기예보 base_date, base_time 계산"""
-        now = datetime.now()
+        now = _now_kst()
         base_times = [2, 5, 8, 11, 14, 17, 20, 23]
         
         current_hour = now.hour
@@ -112,7 +119,7 @@ class WeatherService:
             data = await self._get_vilage_fcst()
             items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
             
-            tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y%m%d")
+            tomorrow = (_now_kst() + timedelta(days=1)).strftime("%Y%m%d")
             
             for item in items:
                 if item.get("category") == "TMX" and item.get("fcstDate") == tomorrow:
@@ -128,7 +135,7 @@ class WeatherService:
             data = await self._get_vilage_fcst()
             items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
             
-            tomorrow = (datetime.now() + timedelta(days=1)).strftime("%Y%m%d")
+            tomorrow = (_now_kst() + timedelta(days=1)).strftime("%Y%m%d")
             
             for item in items:
                 if item.get("category") == "TMN" and item.get("fcstDate") == tomorrow:

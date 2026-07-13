@@ -17,6 +17,13 @@ import structlog
 from app.core.config import settings
 from app.ml.energy_optimizer import EnergyOptimizer
 
+
+def _now_kst():
+    """KST 벽시계 (서버가 UTC여도 한국 시간 기준으로 판정)."""
+    from datetime import datetime as _dt, timedelta as _td
+    return _dt.utcnow() + _td(hours=9)
+
+
 logger = structlog.get_logger(__name__)
 
 # ── 학습 모델 스펙 (EV2Gym PublicPST) ─────────────────
@@ -84,7 +91,7 @@ class PPOService:
         [2] 요금 수준(최대부하 대비), 슬롯0 = 실유닛(연결, 부하율, SOC),
         나머지 슬롯 = 미연결(0).
         """
-        now = datetime.now()
+        now = _now_kst()
         threshold = max(0.1, settings.PEAK_THRESHOLD_A)
 
         obs = np.zeros(OBS_DIM, dtype=np.float32)
@@ -128,7 +135,7 @@ class PPOService:
             rate0, rate_mean = self._interpret(np.asarray(outputs))
 
             threshold = max(0.1, settings.PEAK_THRESHOLD_A)
-            hour = datetime.now().hour
+            hour = _now_kst().hour
             is_night = hour >= 23 or hour < 9
 
             # 모델 충전률 + 안전 규칙 결합

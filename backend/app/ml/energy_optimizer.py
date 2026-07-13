@@ -8,6 +8,13 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 
+def _now_kst():
+    """KST 벽시계 (서버가 UTC여도 한국 시간 기준으로 판정)."""
+    from datetime import datetime as _dt, timedelta as _td
+    return _dt.utcnow() + _td(hours=9)
+
+
+
 class EnergyOptimizer:
     """에너지 최적화 클래스"""
 
@@ -72,7 +79,7 @@ class EnergyOptimizer:
         현재 날짜/시간/요일/공휴일 여부 반영해서 실제 적용 요금 반환
         """
         if dt is None:
-            dt = datetime.now()
+            dt = _now_kst()
 
         season = self._get_season(dt)
         base_period = self._get_period(dt)
@@ -137,7 +144,7 @@ class EnergyOptimizer:
         향후 24시간 시간대별 요금 스케줄
         """
         if start_dt is None:
-            start_dt = datetime.now()
+            start_dt = _now_kst()
 
         schedule = []
         current_dt = start_dt.replace(minute=0, second=0, microsecond=0)
@@ -245,7 +252,7 @@ class EnergyOptimizer:
     ) -> Dict:
         """실제 요금 기반 차익 계산"""
         if season is None:
-            season = self._get_season(datetime.now())
+            season = self._get_season(_now_kst())
 
         charge_rate = self.RATES[season][charge_period]
         discharge_rate = self.RATES[season][discharge_period]

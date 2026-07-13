@@ -8,6 +8,13 @@ from typing import Dict
 from app.core.config import settings
 from app.core.logging import get_logger
 
+
+def _now_kst():
+    """KST 벽시계 (서버가 UTC여도 한국 시간 기준으로 판정)."""
+    from datetime import datetime as _dt, timedelta as _td
+    return _dt.utcnow() + _td(hours=9)
+
+
 logger = get_logger(__name__)
 
 
@@ -20,7 +27,7 @@ class KepcoService:
     
     def get_current_tariff_info(self) -> tuple:
         """현재 시간대 요금 정보 반환"""
-        now = datetime.now()
+        now = _now_kst()
         hour = now.hour
         month = now.month
         
@@ -53,8 +60,8 @@ class KepcoService:
     async def get_current_smp(self) -> float:
         """현재 SMP 가격 반환 (원/kWh)"""
         try:
-            today = datetime.now().strftime("%Y%m%d")
-            current_hour = datetime.now().hour
+            today = _now_kst().strftime("%Y%m%d")
+            current_hour = _now_kst().hour
             
             url = "https://apis.data.go.kr/B552115/SmpWithForecastDemand"
             params = {

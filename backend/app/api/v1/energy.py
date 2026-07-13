@@ -11,6 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.repositories.device_repository import DeviceRepository
 from app.repositories.sensor_repository import SensorRepository
 
+
+def _now_kst():
+    """KST 벽시계 (서버가 UTC여도 한국 시간 기준으로 판정)."""
+    from datetime import datetime as _dt, timedelta as _td
+    return _dt.utcnow() + _td(hours=9)
+
+
 try:
     from app.ml.xgboost_forecaster import XGBoostForecaster
 except ImportError:
@@ -66,7 +73,7 @@ async def get_arbitrage(
 ):
     """오늘 실제 차익 계산"""
     # 간단한 예시 계산
-    season = optimizer._get_season(datetime.now())
+    season = optimizer._get_season(_now_kst())
     arbitrage = optimizer.calculate_arbitrage(
         charged_kwh=5.0,
         discharged_kwh=4.5,
@@ -77,7 +84,7 @@ async def get_arbitrage(
 
     return {
         "building_id": building_id,
-        "date": datetime.now().strftime("%Y-%m-%d"),
+        "date": _now_kst().strftime("%Y-%m-%d"),
         **arbitrage
     }
 
@@ -115,7 +122,7 @@ async def get_realtime_recommendation(
 
     return {
         "building_id": building_id,
-        "timestamp": datetime.now().isoformat(),
+        "timestamp": _now_kst().isoformat(),
         **recommendation
     }
 
