@@ -139,7 +139,17 @@ class ScenarioService:
             )
             grid_current = grid_reading.value if grid_reading else 0.0
             threshold = get_threshold(building_id)
-            is_guard = grid_current >= threshold * 0.9
+            # 데이터 신선도 가드: 10분 넘은 측정값으로는 경보하지 않음
+            fresh = False
+            if grid_reading and grid_reading.recorded_at:
+                from datetime import datetime, timezone
+
+                age = (
+                    datetime.now(timezone.utc)
+                    - grid_reading.recorded_at.replace(tzinfo=timezone.utc)
+                ).total_seconds()
+                fresh = age <= 600
+            is_guard = fresh and grid_current >= threshold * 0.9
             scenarios.append({
                 "id": "transformer_guard",
                 "name": "변압기 한계 감시",
