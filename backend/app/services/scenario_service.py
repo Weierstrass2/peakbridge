@@ -128,7 +128,7 @@ class ScenarioService:
         # 4. transformer_guard
         try:
             grid_reading = await self.sensor_repo.get_latest_by_building(
-                building_id, "grid_current", "grid"
+                building_id, "grid_current", "grid_meter"
             )
             grid_current = grid_reading.value if grid_reading else 0.0
             threshold = get_threshold(building_id)
