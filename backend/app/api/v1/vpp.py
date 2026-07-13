@@ -155,6 +155,14 @@ async def get_stream(session: DbSession) -> dict:
 
     # A단지: 실측 SOC/전류
     live = await _live_building(session)
+    # 실측 SOC → 급전 엔진 동기화 (이행 중이 아닐 때만 — 시뮬 방전과 충돌 방지)
+    try:
+        from app.services.dispatch_service import dispatch_service
+
+        if dispatch_service._active is None:
+            dispatch_service._soc["building-A"] = float(live["current_soc"])
+    except Exception:
+        pass
     a_soc = live["current_soc"]
     a_max = live["max_power_kw"]
     a_out = round(min(a_max, a_max * boost) + random.uniform(-0.3, 0.3), 1) if discharging else round(random.uniform(0.0, 0.6), 1)
