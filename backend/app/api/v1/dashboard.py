@@ -4,7 +4,6 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter
 
-from app.core.config import settings
 from app.core.constants import DeviceType, SensorType
 from app.core.deps import DbSession
 from app.repositories.alert_repository import AlertRepository
@@ -13,6 +12,7 @@ from app.repositories.energy_repository import EnergyRepository
 from app.repositories.sensor_repository import SensorRepository
 from app.schemas.response import success_response
 from app.services.forecast_service import ForecastService
+from app.services.scenario_service import get_threshold
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -65,7 +65,7 @@ async def get_dashboard(session: DbSession, building_id: str) -> dict:
         "grid_current": grid.value if grid else 0.0,
         "ess_soc": ess.value if ess else 0.0,
         "peak_active": peak_active,
-        "peak_threshold": settings.PEAK_THRESHOLD_A,
+        "peak_threshold": get_threshold(building_id),
         "chargers": charger_data,
         "forecast": forecast,
         "today_saved_won": today.saved_won if today else 0.0,

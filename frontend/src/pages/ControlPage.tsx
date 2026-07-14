@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import axios from 'axios';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
@@ -32,8 +33,13 @@ export default function ControlPage() {
       await sendControlAction(action, payload);
       setMessage(`✅ '${action}' 명령이 전송되었습니다.`);
       setTimeout(() => setMessage(null), 3000);
-    } catch {
-      setMessage(`❌ '${action}' 명령 전송에 실패했습니다.`);
+    } catch (err) {
+      const isDuplicate = axios.isAxiosError(err) && err.response?.status === 409;
+      setMessage(
+        isDuplicate
+          ? `⏳ '${action}' 명령이 30초 이내에 이미 전송됐습니다. 잠시 후 다시 시도하세요.`
+          : `❌ '${action}' 명령 전송에 실패했습니다.`,
+      );
       setTimeout(() => setMessage(null), 3000);
     } finally {
       setLoading(null);
