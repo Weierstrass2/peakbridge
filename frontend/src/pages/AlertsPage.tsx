@@ -19,15 +19,15 @@ export default function AlertsPage() {
   });
 
   if (isError) {
-    return <Card title="Error" subtitle="Failed to load alerts" />;
+    return <Card title="오류" subtitle="알림을 불러올 수 없습니다" />;
   }
 
   return (
-    <Card title="Alerts" subtitle="Peak and system notifications">
+    <Card title="알림" subtitle="피크 및 시스템 알림">
       {isLoading || !data ? (
         <LoadingSkeleton rows={4} />
       ) : data.length === 0 ? (
-        <p className="text-sm text-muted">No active alerts</p>
+        <p className="text-sm text-muted">활성 알림이 없습니다</p>
       ) : (
         <div className="space-y-2">
           {data.map((alert) => (
@@ -41,7 +41,7 @@ export default function AlertsPage() {
                     {alert.type === 'peak' ? '피크' : '제어'}
                   </Badge>
                   {alert.acknowledged && (
-                    <Badge variant="success">acknowledged</Badge>
+                    <Badge variant="success">확인됨</Badge>
                   )}
                 </div>
                 <p className="mt-1 text-sm text-slate-300">{alert.message}</p>
@@ -56,7 +56,7 @@ export default function AlertsPage() {
                   loading={ackMutation.isPending}
                   onClick={() => ackMutation.mutate(alert.id)}
                 >
-                  Acknowledge
+                  확인
                 </Button>
               )}
             </div>

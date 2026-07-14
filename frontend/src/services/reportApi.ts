@@ -5,6 +5,8 @@ import { mockAlerts, mockFetch, mockReports } from '../mock/mockData';
 import { api } from './api';
 import { normalizeSavingsReport, type SavingsReportResponse } from './mappers';
 
+const V1 = '/api/v1';
+
 // Backend response wrapper type
 interface BackendResponse<T> {
   success: boolean;
@@ -61,11 +63,10 @@ export async function fetchAlerts(): Promise<AlertItem[]> {
   }));
 }
 
-/** 백엔드 acknowledge 엔드포인트 확정 전 — mock 전용 */
 export async function acknowledgeAlert(alertId: string): Promise<void> {
   if (isMockMode()) {
     await mockFetch(null, 200);
     return;
   }
-  console.warn(`acknowledgeAlert(${alertId}): API not yet defined on backend`);
+  await api.post(`${V1}/alerts/${alertId}/resolve`);
 }
