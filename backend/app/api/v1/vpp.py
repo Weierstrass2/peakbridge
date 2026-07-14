@@ -130,8 +130,39 @@ import time as _time
 from app.services.openadr_service import openadr_service
 from app.services.vpp_ledger import vpp_ledger
 
+try:
+    from app.ml.xgboost_forecaster import XGBoostForecaster
+except ImportError:
+    XGBoostForecaster = None
+
 
 _stream_hist: list[dict] = []
+
+# 학습된 XGBoost 모델 인스턴스 캐시 (3초 폴링마다 joblib 재로드 방지)
+_xgb_forecaster = None
+_xgb_load_failed = False
+
+
+def _xgb_forecast_curve() -> list[float] | None:
+    """실제 학습된 XGBoost 모델의 향후 60분(5분 간격) 예측 곡선 반환.
+
+    building-A 단일 스케일로 학습된 모델이라, 호출 측에서 포트폴리오
+    수요 스케일에 비율로 반영한다 (원시값을 그대로 쓰면 스케일이 안 맞음).
+    """
+    global _xgb_forecaster, _xgb_load_failed
+    if XGBoostForecaster is None or _xgb_load_failed:
+        return None
+    try:
+        if _xgb_forecaster is None:
+            _xgb_forecaster = XGBoostForecaster("building-A")
+            if not _xgb_forecaster.load():
+                _xgb_load_failed = True
+                return None
+        preds = _xgb_forecaster.predict_next_hour()
+        return [p["predicted"] for p in preds] if preds else None
+    except Exception:
+        _xgb_load_failed = True
+        return None
 
 
 @router.get("/stream/history")
@@ -176,9 +207,18 @@ async def get_stream(session: DbSession) -> dict:
 
     total = round(a_out + b_out + c_out, 1)
 
-    # 수요/예측 (실측 없으면 시뮬 프로파일이 계속 움직이게)
+    # 수요 (실측 없으면 시뮬 프로파일이 계속 움직이게)
     demand = round(255 + 55 * math.sin(t / 700.0) + random.uniform(-4, 4), 1)
-    forecast = round(demand + 9 * math.sin(t / 450.0 + 1.0), 1)
+
+    # 예측 (실제 학습된 XGBoost 모델의 시간대별 추세를 현재 수요 스케일에 반영)
+    xgb_curve = _xgb_forecast_curve()
+    if xgb_curve:
+        idx = int((t // 300) % len(xgb_curve))
+        base = xgb_curve[0] or 1.0
+        trend_ratio = max(0.85, min(1.2, xgb_curve[idx] / base))
+        forecast = round(demand * trend_ratio, 1)
+    else:
+        forecast = round(demand + 9 * math.sin(t / 450.0 + 1.0), 1)
 
     # SMP (요금 기반 추정 + 변동 — 시뮬레이션 표기)
     try:
