@@ -143,11 +143,13 @@ _xgb_forecaster = None
 _xgb_load_failed = False
 
 
-def _xgb_forecast_curve() -> list[float] | None:
-    """실제 학습된 XGBoost 모델의 향후 60분(5분 간격) 예측 곡선 반환.
+def _xgb_forecast_curve() -> tuple[list[float], float] | None:
+    """실제 학습된 XGBoost 모델의 향후 60분(5분 간격) 예측 곡선 + MAE 기반 CI 비율 반환.
 
     building-A 단일 스케일로 학습된 모델이라, 호출 측에서 포트폴리오
     수요 스케일에 비율로 반영한다 (원시값을 그대로 쓰면 스케일이 안 맞음).
+    CI 비율은 모델 실측 MAE를 예측 평균 대비 상대 오차로 환산 (2~8% 클램프,
+    MAE 없으면 기존 3.5% 유지).
     """
     global _xgb_forecaster, _xgb_load_failed
     if XGBoostForecaster is None or _xgb_load_failed:
@@ -159,7 +161,15 @@ def _xgb_forecast_curve() -> list[float] | None:
                 _xgb_load_failed = True
                 return None
         preds = _xgb_forecaster.predict_next_hour()
-        return [p["predicted"] for p in preds] if preds else None
+        if not preds:
+            return None
+        curve = [p["predicted"] for p in preds]
+        mean_pred = sum(curve) / len(curve)
+        mae = getattr(_xgb_forecaster, "mae", None)
+        ci_ratio = 0.035
+        if mae and mean_pred > 0:
+            ci_ratio = max(0.02, min(0.08, float(mae) / mean_pred))
+        return curve, round(ci_ratio, 4)
     except Exception:
         _xgb_load_failed = True
         return None
@@ -211,14 +221,18 @@ async def get_stream(session: DbSession) -> dict:
     demand = round(255 + 55 * math.sin(t / 700.0) + random.uniform(-4, 4), 1)
 
     # 예측 (실제 학습된 XGBoost 모델의 시간대별 추세를 현재 수요 스케일에 반영)
-    xgb_curve = _xgb_forecast_curve()
-    if xgb_curve:
-        idx = int((t // 300) % len(xgb_curve))
-        base = xgb_curve[0] or 1.0
-        trend_ratio = max(0.85, min(1.2, xgb_curve[idx] / base))
+    xgb = _xgb_forecast_curve()
+    if xgb:
+        curve, ci_ratio = xgb
+        idx = int((t // 300) % len(curve))
+        base = curve[0] or 1.0
+        trend_ratio = max(0.85, min(1.2, curve[idx] / base))
         forecast = round(demand * trend_ratio, 1)
+        forecast_source = "xgboost"
     else:
+        ci_ratio = 0.035
         forecast = round(demand + 9 * math.sin(t / 450.0 + 1.0), 1)
+        forecast_source = "sim"
 
     # SMP (요금 기반 추정 + 변동 — 시뮬레이션 표기)
     try:
@@ -233,8 +247,10 @@ async def get_stream(session: DbSession) -> dict:
             ).strftime("%H:%M:%S"),
             "total_output_kw": total, "demand_kw": demand,
             "forecast_kw": forecast,
-            "forecast_hi": round(forecast * 1.035, 1),
-            "forecast_lo": round(forecast * 0.965, 1), "smp": smp, "dr_active": discharging,
+            "forecast_hi": round(forecast * (1 + ci_ratio), 1),
+            "forecast_lo": round(forecast * (1 - ci_ratio), 1),
+            "forecast_source": forecast_source,
+            "smp": smp, "dr_active": discharging,
         }
     if not _stream_hist or _stream_hist[-1]["ts"] != snap["ts"]:
         _stream_hist.append(snap)
@@ -252,8 +268,10 @@ async def get_stream(session: DbSession) -> dict:
             "total_output_kw": total,
             "demand_kw": demand,
             "forecast_kw": forecast,
-            "forecast_hi": round(forecast * 1.035, 1),
-            "forecast_lo": round(forecast * 0.965, 1),
+            "forecast_hi": round(forecast * (1 + ci_ratio), 1),
+            "forecast_lo": round(forecast * (1 - ci_ratio), 1),
+            "forecast_source": forecast_source,
+            "ci_ratio": ci_ratio,
             "smp": smp,
             "dr_active": discharging,
             "discharge_percent": round(boost * 100),

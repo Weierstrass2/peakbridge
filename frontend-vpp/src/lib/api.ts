@@ -25,6 +25,23 @@ export interface StreamSnapshot {
   discharge_percent: number;
 }
 
+export interface WeatherPoint {
+  region: string;
+  lat: number;
+  lon: number;
+  temperature: number;
+  wind_speed: number;
+  solar_radiation: number;
+  solar_estimated?: boolean;
+  alert: string | null;
+}
+
+export interface WeatherOverlay {
+  points: WeatherPoint[];
+  updated_at: string;
+  source?: string;
+}
+
 export interface Portfolio {
   total_capacity_kwh: number;
   available_flexibility_kw: number;
@@ -154,6 +171,7 @@ export const consoleApi = {
     contracts: { building_id: string; name: string; type: string; site_share: number; platform_share: number; term: string; resources: string; status: string }[];
     settlement_split: { total_revenue: number; site_payout: number; platform_revenue: number; avg_platform_share: number };
   }>('/vpp/contracts'),
+  weatherOverlay: () => get<WeatherOverlay>('/weather/map-overlay', 15000),
   demoReset: () => post<{ reset: boolean }>('/simulation/demo-reset', {}),
   demoDay: () => post<{ status: string; steps: string[] }>('/simulation/demo-day', {}),
   opsRisk: () => get<{ status: string; usable_kwh: number; obligation_kwh: number; coverage: number }>('/ops/risk'),

@@ -2,6 +2,9 @@
 기상청 VilageFcstInfoService_2.0 API 기반 날씨 서비스
 """
 
+import asyncio
+import math
+import time as _time
 import httpx
 from datetime import datetime, timedelta
 from typing import Dict
@@ -17,6 +20,23 @@ def _now_kst():
 
 logger = get_logger(__name__)
 
+# 전국 주요 지점 (기상청 격자 nx/ny + 위경도) — 지도 오버레이용
+MAP_POINTS = [
+    {"region": "서울", "lat": 37.5665, "lon": 126.9780, "nx": 60, "ny": 127},
+    {"region": "인천", "lat": 37.4563, "lon": 126.7052, "nx": 55, "ny": 124},
+    {"region": "강릉", "lat": 37.7519, "lon": 128.8761, "nx": 92, "ny": 131},
+    {"region": "대전", "lat": 36.3504, "lon": 127.3845, "nx": 67, "ny": 100},
+    {"region": "대구", "lat": 35.8714, "lon": 128.6014, "nx": 89, "ny": 90},
+    {"region": "광주", "lat": 35.1595, "lon": 126.8526, "nx": 58, "ny": 74},
+    {"region": "울산", "lat": 35.5384, "lon": 129.3114, "nx": 102, "ny": 84},
+    {"region": "부산", "lat": 35.1796, "lon": 129.0756, "nx": 98, "ny": 76},
+    {"region": "제주", "lat": 33.4996, "lon": 126.5312, "nx": 52, "ny": 38},
+]
+
+# 오버레이 인메모리 캐시 (기상청 API 호출 제한 고려, 10분)
+_overlay_cache: Dict = {"ts": 0.0, "data": None}
+_OVERLAY_TTL_S = 600
+
 
 class WeatherService:
     """기상청 API 연동 서비스"""
@@ -27,8 +47,8 @@ class WeatherService:
         self.ny = settings.WEATHER_NY
         self.client = httpx.AsyncClient(timeout=10.0)
     
-    async def _get_ultra_srt_ncst(self) -> Dict:
-        """초단기실황 API 호출 (현재 기온)"""
+    async def _get_ultra_srt_ncst(self, nx: int | None = None, ny: int | None = None) -> Dict:
+        """초단기실황 API 호출 (현재 기온). nx/ny 미지정 시 기본 지점."""
         try:
             now = _now_kst()
             base_date = now.strftime("%Y%m%d")
@@ -47,11 +67,11 @@ class WeatherService:
                 "dataType": "JSON",
                 "base_date": base_date,
                 "base_time": base_time,
-                "nx": self.nx,
-                "ny": self.ny,
+                "nx": nx if nx is not None else self.nx,
+                "ny": ny if ny is not None else self.ny,
                 "authKey": self.api_key
             }
-            
+
             response = await self.client.get(url, params=params)
             response.raise_for_status()
             return response.json()
@@ -213,7 +233,7 @@ class WeatherService:
             reason = f"현재 기온 ({current_temp}도)으로 전력 부하 증가 예상"
             target_soc = 90
             scenario = "high_load"
-        
+
         return {
             "current_temp": current_temp,
             "tomorrow_max_temp": tomorrow_max,
@@ -229,3 +249,90 @@ class WeatherService:
             },
             "source": "기상청 VilageFcstInfoService_2.0 실시간"
         }
+
+    # ── 지도 기상 오버레이 ──────────────────────────────────
+
+    async def _point_overlay(self, point: Dict) -> Dict | None:
+        """단일 지점 실황 → 오버레이 항목. 실패 시 None (해당 지점만 제외)."""
+        data = await self._get_ultra_srt_ncst(nx=point["nx"], ny=point["ny"])
+        items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
+        if not items:
+            return None
+        temp = None
+        wind = None
+        rain = 0.0
+        for it in items:
+            cat = it.get("category")
+            try:
+                if cat == "T1H":
+                    temp = float(it.get("obsrValue"))
+                elif cat == "WSD":
+                    wind = float(it.get("obsrValue"))
+                elif cat == "RN1":
+                    rain = float(it.get("obsrValue") or 0.0)
+            except (TypeError, ValueError):
+                continue
+        if temp is None:
+            return None
+
+        # 일사량: 기상청 실황에 일사 관측 항목이 없어 청천 곡선 기반 추정치
+        # (06~19시 sin 곡선, 최대 900W/m2, 강수 시 30%로 감쇠) — 응답에 추정 명시
+        now = _now_kst()
+        hour = now.hour + now.minute / 60.0
+        solar = 0.0
+        if 6.0 <= hour <= 19.0:
+            solar = 900.0 * math.sin(math.pi * (hour - 6.0) / 13.0)
+            if rain > 0:
+                solar *= 0.3
+
+        # 특보 판정 (실황값 기반 규칙 — 기상청 특보 기준과 동일)
+        alert = None
+        if temp >= 35.0:
+            alert = "폭염경보"
+        elif temp >= 33.0:
+            alert = "폭염주의보"
+        elif temp <= -15.0:
+            alert = "한파경보"
+        elif temp <= -12.0:
+            alert = "한파주의보"
+        elif wind is not None and wind >= 14.0:
+            alert = "강풍주의보"
+
+        return {
+            "region": point["region"],
+            "lat": point["lat"],
+            "lon": point["lon"],
+            "temperature": temp,
+            "wind_speed": wind if wind is not None else 0.0,
+            "solar_radiation": round(solar),
+            "solar_estimated": True,
+            "alert": alert,
+        }
+
+    async def get_map_overlay(self) -> Dict:
+        """전국 주요 지점 기상 오버레이 (10분 인메모리 캐시).
+
+        지점별 병렬 조회, 실패 지점은 제외하고 나머지 반환 (전체 실패 금지).
+        전 지점 실패 시 캐시를 갱신하지 않아 다음 호출에서 재시도.
+        """
+        now = _time.time()
+        if _overlay_cache["data"] is not None and now - _overlay_cache["ts"] < _OVERLAY_TTL_S:
+            return _overlay_cache["data"]
+
+        results = await asyncio.gather(
+            *[self._point_overlay(p) for p in MAP_POINTS], return_exceptions=True
+        )
+        points = [r for r in results if isinstance(r, dict)]
+        failed = len(MAP_POINTS) - len(points)
+        if failed:
+            logger.warning("weather_overlay_partial", failed=failed, ok=len(points))
+
+        payload = {
+            "points": points,
+            "updated_at": _now_kst().isoformat(timespec="seconds"),
+            "source": "기상청 초단기실황 (일사량은 청천 곡선 추정치)",
+        }
+        if points:
+            _overlay_cache["ts"] = now
+            _overlay_cache["data"] = payload
+        return payload

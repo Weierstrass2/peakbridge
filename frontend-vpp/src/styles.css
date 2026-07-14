@@ -266,6 +266,16 @@ body {
 .map-offline { margin: auto; font-size: 10px; color: var(--tx-3); font-family: var(--font-num); }
 .site-lb { font-size: 3px; fill: var(--tx-2); font-family: var(--font-num); }
 .site-list { flex-shrink: 0; border-top: 1px solid var(--line-0); padding-top: 6px; }
+.wx-bar { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.wx-btn {
+  font-size: 9.5px; padding: 3px 8px; border-radius: 4px; cursor: pointer;
+  border: 1px solid var(--line-1); background: transparent; color: var(--tx-2);
+  font-family: var(--font-num); letter-spacing: 0.04em;
+}
+.wx-btn.on { border-color: var(--acc); color: var(--acc); }
+.wx-meta { font-size: 9px; color: var(--tx-3); font-family: var(--font-num); }
+.wx-lb { font-size: 2.6px; font-family: var(--font-num); }
+.wx-alert-lb { font-size: 2.5px; fill: var(--crit); font-family: var(--font-num); font-weight: 700; }
 .site-row {
   display: flex; align-items: center; gap: 7px;
   padding: 3.5px 0; font-size: 10.5px;
