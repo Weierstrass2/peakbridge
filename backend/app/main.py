@@ -188,6 +188,29 @@ def create_app() -> FastAPI:
     except Exception as exc:
         logger.warning("console_mount_failed", error=str(exc))
 
+    # 아파트 관제 대시보드 정적 서빙 (/app) — React Router SPA
+    try:
+        from pathlib import Path
+
+        from starlette.staticfiles import StaticFiles as _StaticFiles
+
+        class SPAStaticFiles(_StaticFiles):
+            """SPA용 정적 서빙: 없는 경로(딥링크·새로고침)는 index.html로 폴백."""
+
+            async def get_response(self, path, scope):
+                response = await super().get_response(path, scope)
+                if response.status_code == 404:
+                    response = await super().get_response("index.html", scope)
+                return response
+
+        app_dir = Path(__file__).resolve().parents[1] / "static" / "app"
+        if app_dir.exists():
+            app.mount(
+                "/app", SPAStaticFiles(directory=str(app_dir), html=True), name="apt_app"
+            )
+    except Exception as exc:
+        logger.warning("apt_app_mount_failed", error=str(exc))
+
     return app
 
 
