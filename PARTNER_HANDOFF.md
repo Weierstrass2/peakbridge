@@ -1,4 +1,4 @@
-# PeakBridge 인수인계 (2026-07-21 기준)
+# PeakBridge 인수인계 (2026-07-28 기준)
 
 ## 현재 상태 — 완료된 것
 
@@ -127,6 +127,24 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
 - **검증**: 4개 스케치 전부 arduino-cli 컴파일 통과 (esp32:esp32:esp32, 코어 3.3.11).
   백엔드 수정 파일 py_compile 통과. 프론트는 threshold PUT 응답을 파싱하지 않아 무영향.
   프로덕션 MQTT 미연결 상태에선 `mqtt_sent: false`로만 응답 (기존 동작 보존).
+
+## 10차 세션 추가 완료 (2026-07-28) — 하드웨어 실기기 연동 대비 견고화
+- **Wi-Fi 유실 복구 (grid/ess/relay 3종, `5495ebfa`)**: 운영 중 Wi-Fi가 끊기면
+  MQTT `reconnect()` 무한 루프에 갇혀 영영 복구 불가였던 구조 수정 —
+  `loop()`에서 Wi-Fi 상태 확인 후 재수립, `reconnect()`는 Wi-Fi 유실 시 즉시 반환.
+  ess/relay의 `setupWiFi`도 grid와 동일하게 10회 시도 후 `ESP.restart()`로 통일.
+- **esp32_ess 견고성**: `ina219.begin()` 실패 시 정지(센서 미연결 상태로 SOC 0%
+  계속 발행하던 것 차단) + `Serial.begin` 추가 (relay에도) — 현장 디버깅 가능.
+- **grid 폴백 임계치**: 서버(/settings) 폴링 실패 시 15.0A → 0.1A(실측 CT 스케일).
+  정상 경로에선 부팅 시 서버값으로 덮어써지므로 동작 변화 없음.
+- **peak_shaving 주석 정정**: INA_LOW_mA "500mA 임시" 낡은 문구 → 실측 710mA 반영.
+- **검증**: 4개 스케치 전부 arduino-cli 컴파일 통과 (esp32:esp32:esp32).
+  백엔드·프론트 무변경 — 시연 각본 영향 없음.
+- **하드웨어 리뷰 참고사항**: relay의 `control/relay/ack` 발행은 백엔드가 구독하지
+  않음(의도적 방치 — 시연 시 `mosquitto_sub`로 육안 확인 용도로 충분).
+  실측 스케일 ~0.08A는 백엔드 이상치 필터 물리 범위(0~200A) 안이라 통과 확인.
+- **환경**: `shain1912/esp32-skills` 스킬 저장소 최신화 —
+  `xiao-esp32s3-mqtt-dashboard`(멀티보드 MQTT 대시보드) 신규 설치, 기존 4종은 동일.
 
 ## 남은 백로그 (의도적 미구현 — 필요성 낮음)
 - C2 WebSocket 전환 (3초 폴링으로 시연 충분)
