@@ -140,7 +140,8 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
 ## 주의사항
 - 시장/이행/원장은 in-memory — 서버 재배포 시 초기화됨 (시연 직전 재현 필요)
 - ppo_service의 이전 SB3 코드는 numpy 로더로 교체됨 — SB3/torch 설치 금지 (배포 무거워짐)
-- 시연용 부하 임계치: Railway env PEAK_THRESHOLD_A=0.5
+- 시연용 부하 임계치: Railway env PEAK_THRESHOLD_A=0.08 (의도된 값 — 실제 하드웨어 CT에
+  ~0.08A 수준이 흐르므로 실측 스케일로 잡고, 아파트 대시보드에서는 배수 환산으로 실증)
 - frontend-vpp는 npm install 필요 (topojson-client 등)
 - git push 후 Railway 자동배포 2~3분, /docs에서 market·dispatch 태그 확인
 - 하드웨어 미제작 상태 — MQTT 브로커 미연결, ESP32 등 실기기 연동은 추후 작업
