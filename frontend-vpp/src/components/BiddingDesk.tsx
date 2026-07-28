@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import BidChart from './BidChart';
+import StrategyPicker from './StrategyPicker';
 import { consoleApi, type Bid, type MarketSession } from '../lib/api';
 
 const fmtW = (n: number) => Math.round(n).toLocaleString('ko-KR');
@@ -168,6 +169,12 @@ export default function BiddingDesk({
           <b>개찰</b><span>clearing</span>
         </button>
       </div>
+
+      {/* 전략 라이브러리 — 백테스트 성과를 보고 알고리즘을 골라 적용 */}
+      <StrategyPicker
+        onApply={(b) => { setBids(b); setDirty(true); }}
+        onLog={onLog}
+      />
 
       <div className="bid-cols">
       <div className="bid-left">

@@ -492,3 +492,31 @@ body {
 }
 .crit-msg { font-size: 11px; color: var(--tx-1); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dp-summary i { font-style: normal; font-size: 9px; color: var(--tx-3); }
+
+/* ── 전략 선택기 (백테스트 리더보드 기반) ────────────────── */
+.stratbar { padding: 0 12px 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.strat-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--bg-3); border: 1px solid var(--line-1); border-radius: 4px;
+  padding: 5px 10px; cursor: pointer; color: var(--tx-1); font-family: inherit;
+}
+.strat-toggle:hover { border-color: var(--line-2); }
+.strat-toggle .k { font-size: 9px; letter-spacing: 0.12em; color: var(--tx-3); font-weight: 600; }
+.strat-toggle b { font-size: 11px; font-family: var(--font-num); }
+.strat-toggle .mini { font-size: 10px; color: var(--tx-2); font-family: var(--font-num); }
+.strat-toggle .caret { font-size: 9px; color: var(--tx-3); }
+
+.strat-hint { font-size: 10px; color: var(--tx-3); font-family: var(--font-num); }
+.strat-hint b { color: var(--ok); }
+
+.strat-table {
+  width: 100%; background: var(--bg-1); border: 1px solid var(--line-1);
+  border-radius: 4px; overflow: hidden;
+}
+.strat-table td .desc { font-size: 9.5px; color: var(--tx-3); margin-top: 2px; }
+.strat-table tr.on { background: rgba(76, 141, 255, 0.08); }
+.strat-note { padding: 7px 8px; font-size: 9.5px; color: var(--tx-3); border-top: 1px solid var(--line-0); }
+
+.cbtn.tiny { padding: 3px 9px; min-width: 0; }
+.cbtn.tiny b { font-size: 10px; }

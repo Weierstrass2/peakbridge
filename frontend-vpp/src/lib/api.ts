@@ -68,6 +68,34 @@ export interface GridMap {
 
 export interface Bid { hour: number; qty_kw: number; price: number; }
 
+/** 전략 카탈로그 1건 — 백테스트 성과가 함께 온다 (없으면 null) */
+export interface StrategyInfo {
+  name: string;
+  family: string;
+  description: string;
+  active: boolean;
+  daily_mean_won: number | null;
+  sharpe: number | null;
+  max_drawdown_won: number | null;
+  hit_rate: number | null;
+  fill_rate: number | null;
+}
+
+export interface StrategyBidResult {
+  strategy: string;
+  family: string;
+  description: string;
+  backtest: {
+    daily_mean_won: number | null;
+    sharpe: number | null;
+    max_drawdown_won: number | null;
+    test_days: number | null;
+  };
+  usable_kwh: number;
+  power_kw: number;
+  bids: Bid[];
+}
+
 export interface BidResultHour {
   hour: number; qty_kw: number; bid_price: number; mcp: number;
   awarded: boolean; expected_revenue: number;
@@ -182,6 +210,16 @@ export const consoleApi = {
   marketMcpForecast: () => get<{ curve: number[] }>('/market/mcp-forecast'),
   marketHistory: () => get<{ sessions: MarketSession[] }>('/market/history'),
   marketAiBids: () => get<{ model: string; usable_kwh: number; eval: { ai: number; naive: number }; bids: Bid[] }>('/market/ai-bids'),
+
+  // ── 전략 라이브러리 (퀀트 백테스트 결과 기반) ──
+  strategies: () =>
+    get<{ active: string; strategies: StrategyInfo[] }>('/market/strategies'),
+  strategyActivate: (name: string) =>
+    post<{ active: string }>('/market/strategies/activate', { name }),
+  strategyBids: (name?: string) =>
+    get<StrategyBidResult>(
+      `/market/strategy-bids${name ? `?strategy=${encodeURIComponent(name)}` : ''}`,
+    ),
   issueDr: (signalType: string, value: number) =>
     post<DrEventResult>('/dr/event', {
       signal_type: signalType,
