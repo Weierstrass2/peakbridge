@@ -1,0 +1,9 @@
+*.db
+*.db-wal
+*.db-shm
+node_modules/
+dist/
+wifi_secrets*
+__pycache__/
+*.pyc
+.venv/

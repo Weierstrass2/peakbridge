@@ -1,0 +1,181 @@
+/* frontend-vpp 디자인 토큰 축약판.
+   외부 웹폰트 금지 — 시스템 폰트 스택(맑은 고딕 포함)만 사용한다. */
+
+:root {
+  --bg: #0a0c10;
+  --panel: #12161d;
+  --panel-2: #171c25;
+  --line: #232a35;
+  --text: #e6ebf2;
+  --muted: #8b97a8;
+  --blue: #3b82f6;
+  --blue-dim: #1e3a8a;
+  --amber: #f59e0b;
+  --amber-dim: #78350f;
+  --green: #10b981;
+  --red: #ef4444;
+
+  --mono: ui-monospace, 'Cascadia Mono', 'Consolas', 'D2Coding', monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Malgun Gothic', '맑은 고딕',
+    'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+}
+
+.app {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+.topbar h1 { font-size: 18px; margin: 0; letter-spacing: -0.01em; }
+.topbar .sub { color: var(--muted); font-size: 12px; font-family: var(--mono); }
+
+.grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 980px) {
+  .grid { grid-template-columns: 1fr; }
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.card h2 {
+  font-size: 13px;
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.stack { display: flex; flex-direction: column; gap: 16px; }
+
+/* 디바이스 선택기 (구성 A / 구성 B 동시 수신 시) */
+.devices { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.chip {
+  background: var(--panel-2);
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip.on { background: var(--blue-dim); border-color: var(--blue); color: #dbeafe; }
+.chip .count { opacity: 0.6; font-size: 11px; }
+
+/* 릴레이 상태 배너 */
+.banner {
+  border-radius: 10px;
+  padding: 18px 20px;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.banner .label { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.banner .meta { font-family: var(--mono); font-size: 12px; opacity: 0.85; }
+.banner .value { font-family: var(--mono); font-size: 30px; font-weight: 600; }
+
+.banner.nc { background: rgba(59, 130, 246, 0.12); border-color: var(--blue); color: #dbeafe; }
+.banner.no { background: rgba(245, 158, 11, 0.12); border-color: var(--amber); color: #fef3c7; }
+.banner.stale { background: var(--panel-2); border-color: var(--line); color: var(--muted); }
+
+/* 이벤트 로그 */
+.events { display: flex; flex-direction: column; gap: 6px; max-height: 260px; overflow-y: auto; }
+
+.event {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  background: var(--panel-2);
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.event .time { color: var(--muted); }
+.event .arrow { font-weight: 700; }
+.event.to-no .arrow { color: var(--amber); }
+.event.to-nc .arrow { color: var(--blue); }
+
+/* 폼 */
+.form { display: flex; flex-direction: column; gap: 10px; }
+.field { display: flex; flex-direction: column; gap: 4px; }
+.field label { font-size: 12px; color: var(--muted); }
+
+.field input {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 13px;
+}
+
+.field input:focus { outline: none; border-color: var(--blue); }
+
+button {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:disabled { opacity: 0.5; cursor: default; }
+
+.msg { font-size: 12px; padding: 8px 10px; border-radius: 6px; line-height: 1.5; }
+.msg.err { background: rgba(239, 68, 68, 0.12); color: #fecaca; border: 1px solid var(--red); }
+.msg.ok { background: rgba(16, 185, 129, 0.12); color: #a7f3d0; border: 1px solid var(--green); }
+
+/* ESS 패널 */
+.kv { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.kv:last-child { border-bottom: none; }
+.kv .k { color: var(--muted); font-size: 12px; }
+.kv .v { font-family: var(--mono); font-size: 13px; }
+.kv .v.none { color: var(--muted); }
+
+.empty { color: var(--muted); font-size: 12px; padding: 14px 0; text-align: center; }
