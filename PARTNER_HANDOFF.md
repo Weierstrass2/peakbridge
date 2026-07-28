@@ -111,6 +111,23 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
     `--base=/app/` 빌드 후 `backend/static/app`로 복사·커밋 (콘솔의 `/console`과 동일 패턴).
   → **백로그 '아파트 관제 프론트엔드 실제 호스팅/배포' 완료.**
 
+## 9차 세션 추가 완료 (2026-07-28) — 하드웨어 병합분 검수·수정
+- **HTML 엔티티 오염 복구**: 파트너가 푸시한 `esp32_grid/ess/relay.ino` + `setup.sh`에
+  `&lt;` `&gt;` `&amp;`가 문자 그대로 들어가 컴파일·실행 불가였던 것 전부 복구.
+- **릴레이 MQTT 토픽 불일치 수정**: 백엔드 `publisher.py`가 `peakbridge/control/relay`로
+  발행하던 것을 하드웨어·README 기준인 `peakbridge/{building_id}/control/relay`로 통일.
+- **ESP32 임계치 동기화 경로 구축**:
+  - `GET /control/{id}/settings` 신설 (ESP32가 부팅 시 폴링하던 미존재 주소 → 실제 구현)
+  - `PUT /control/{id}/threshold` 시 `peakbridge/{id}/config` 토픽으로 자동 전파
+    (`publisher.publish_config` 신설) — 응답에 `mqtt_sent` 필드 추가
+  - `esp32_grid.ino`: HTTPS(`WiFiClientSecure.setInsecure`) 적용, 응답 봉투
+    (`data.threshold`) 파싱, `delay(5000)` 블로킹 제거(millis 타이머 — 피크 LED 점멸 정상화)
+- **`peak_shaving_core.ino` → `esp32_peak_shaving.ino` 개명**: 아두이노 폴더=파일명 규칙
+  위반으로 컴파일 자체가 안 열리던 문제.
+- **검증**: 4개 스케치 전부 arduino-cli 컴파일 통과 (esp32:esp32:esp32, 코어 3.3.11).
+  백엔드 수정 파일 py_compile 통과. 프론트는 threshold PUT 응답을 파싱하지 않아 무영향.
+  프로덕션 MQTT 미연결 상태에선 `mqtt_sent: false`로만 응답 (기존 동작 보존).
+
 ## 남은 백로그 (의도적 미구현 — 필요성 낮음)
 - C2 WebSocket 전환 (3초 폴링으로 시연 충분)
 - 정식 JWT 콘솔 로그인 (시연 마찰 증가)
