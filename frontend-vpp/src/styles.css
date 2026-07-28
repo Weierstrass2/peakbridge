@@ -520,3 +520,56 @@ body {
 
 .cbtn.tiny { padding: 3px 9px; min-width: 0; }
 .cbtn.tiny b { font-size: 10px; }
+
+/* ── 트레이딩 데스크 ─────────────────────────────────────── */
+.desk { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 14px; overflow-y: auto; }
+
+.desk-kpis {
+  display: flex; align-items: stretch; gap: 1px; flex-wrap: wrap;
+  background: var(--line-0); border: 1px solid var(--line-1); border-radius: 4px; overflow: hidden;
+}
+.desk-kpi { background: var(--bg-1); padding: 7px 14px; min-width: 110px; display: flex; flex-direction: column; gap: 2px; }
+.desk-kpi .k { font-size: 9px; letter-spacing: 0.1em; color: var(--tx-3); font-weight: 600; }
+.desk-kpi b { font-size: 14px; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.desk-actions { background: var(--bg-1); padding: 7px 10px; display: flex; gap: 6px; align-items: center; margin-left: auto; }
+
+.desk-kill {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(229, 72, 77, 0.12); border: 1px solid var(--crit); border-radius: 4px;
+  padding: 7px 12px; font-size: 11px; color: var(--crit); font-weight: 600;
+}
+
+.desk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.desk-card { background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 4px; padding: 10px 12px; min-width: 0; }
+.desk-card.wide { grid-column: 1 / -1; }
+.desk-card h4 {
+  margin: 0 0 8px; font-size: 12px; font-weight: 600; color: var(--tx-1);
+  display: flex; align-items: baseline; gap: 8px;
+}
+.desk-card h4 span { font-size: 9px; letter-spacing: 0.12em; color: var(--tx-3); font-weight: 600; }
+.desk-empty { font-size: 11px; color: var(--tx-3); padding: 16px 0; text-align: center; }
+.desk-note { font-size: 9.5px; color: var(--tx-3); margin-top: 7px; line-height: 1.5; }
+.desk-verdict { font-size: 11px; font-weight: 600; margin-bottom: 7px; }
+.desk-scroll { max-height: 300px; overflow-y: auto; }
+
+.lim-bar { width: 62px; height: 4px; background: var(--bg-3); border-radius: 2px; overflow: hidden; display: inline-block; }
+.lim-bar i { display: block; height: 100%; }
+
+.attr { display: flex; flex-direction: column; gap: 5px; }
+.attr-row { display: grid; grid-template-columns: 70px 1fr 92px; align-items: center; gap: 8px; font-size: 11px; }
+.attr-row .lb { color: var(--tx-2); }
+.attr-row .track { height: 9px; background: var(--bg-3); border-radius: 2px; overflow: hidden; }
+.attr-row .track i { display: block; height: 100%; }
+.attr-row .vl { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.attr-row.total { border-top: 1px solid var(--line-1); padding-top: 6px; margin-top: 3px; font-weight: 600; }
+
+.eq { width: 100%; height: 130px; display: block; }
+.eq-legend { display: flex; gap: 14px; font-size: 10px; color: var(--tx-2); margin-top: 5px; }
+.eq-legend i { display: inline-block; width: 9px; height: 2px; margin-right: 5px; vertical-align: middle; }
+
+.kv-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 12px; }
+.kv-grid div { display: flex; flex-direction: column; gap: 2px; }
+.kv-grid span { font-size: 9px; color: var(--tx-3); letter-spacing: 0.08em; }
+.kv-grid b { font-size: 13px; font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--tx-1); }
+
+@media (max-width: 1200px) { .desk-grid { grid-template-columns: 1fr; } }

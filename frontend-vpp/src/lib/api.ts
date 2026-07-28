@@ -81,6 +81,95 @@ export interface StrategyInfo {
   fill_rate: number | null;
 }
 
+/* ── 트레이딩 데스크 타입 ── */
+
+export interface DeskOverview {
+  portfolio: { power_kw: number; usable_kwh: number; units: number };
+  equity_won: number;
+  sessions: number;
+  current_sharpe: number | null;
+  current_drawdown_won: number;
+  var95_won: number;
+  cvar95_won: number;
+  kill_switch: boolean;
+  reason: string;
+  active_strategy: string;
+  totals: Record<string, number>;
+}
+
+export interface Fill {
+  id: string;
+  date: string;
+  hour: number;
+  strategy: string;
+  side: string;
+  qty_kw: number;
+  delivered_kw: number;
+  bid_price: number;
+  clear_price: number;
+  slippage: number;
+  value_won: number;
+  status: string;
+}
+
+export interface DeskPnl {
+  sessions: {
+    date: string;
+    strategy: string;
+    net_won: number;
+    attribution: Record<string, number>;
+    volume: Record<string, number | null>;
+  }[];
+  totals: Record<string, number>;
+  rolling: {
+    points: { i: number; pnl: number; equity: number; drawdown: number; sharpe: number | null }[];
+    current_sharpe?: number | null;
+    current_drawdown?: number;
+    max_drawdown?: number;
+    equity_won?: number;
+  };
+}
+
+export interface DeskTca {
+  avg_slippage?: number;
+  hit_ratio?: number;
+  captured_won?: number;
+  missed_value_won?: number;
+  sessions?: number;
+}
+
+export interface ForecastQuality {
+  samples?: number;
+  mape_pct?: number;
+  rmse?: number;
+  bias?: number;
+  pinball_loss?: number;
+  verdict?: string;
+  calibration?: { bucket: number; forecast_mean: number; actual_mean: number; gap: number }[];
+}
+
+export interface RiskCheckRow {
+  code: string;
+  severity: 'ok' | 'warn' | 'breach';
+  message: string;
+  value: number;
+  limit: number;
+}
+
+export interface PreTrade {
+  status: 'ok' | 'warn' | 'breach';
+  blocked: boolean;
+  kill_switch: boolean;
+  reason: string;
+  checks: RiskCheckRow[];
+  var95_won: number;
+  cvar95_won: number;
+  stress: { scenario: string; description: string; pnl_won: number; delta_won: number; energy_kwh: number }[];
+  portfolio: { power_kw: number; usable_kwh: number };
+  strategy?: string;
+  bids?: Bid[];
+}
+
 export interface StrategyBidResult {
   strategy: string;
   family: string;
@@ -210,6 +299,20 @@ export const consoleApi = {
   marketMcpForecast: () => get<{ curve: number[] }>('/market/mcp-forecast'),
   marketHistory: () => get<{ sessions: MarketSession[] }>('/market/history'),
   marketAiBids: () => get<{ model: string; usable_kwh: number; eval: { ai: number; naive: number }; bids: Bid[] }>('/market/ai-bids'),
+
+  // ── 트레이딩 데스크 ──
+  deskOverview: () => get<DeskOverview>('/desk/overview'),
+  deskBlotter: (limit = 40) => get<{ fills: Fill[] }>(`/desk/blotter?limit=${limit}`),
+  deskPnl: () => get<DeskPnl>('/desk/pnl'),
+  deskTca: () => get<DeskTca>('/desk/tca'),
+  deskForecastQuality: () => get<ForecastQuality>('/desk/forecast-quality'),
+  deskRisk: () => get<{ limits: Record<string, number>; kill_switch: boolean; reason: string }>('/desk/risk'),
+  deskPreTrade: (strategy?: string) =>
+    get<PreTrade>(`/desk/pre-trade${strategy ? `?strategy=${encodeURIComponent(strategy)}` : ''}`, 12000),
+  deskSeed: (strategy = 'zscore', days = 30) =>
+    post<{ seeded: number; fills: number }>('/desk/seed', { strategy, days }),
+  deskKillReset: () => post<{ kill_switch: boolean }>('/desk/kill-switch/reset', {}),
+  deskReset: () => post<{ reset: boolean }>('/desk/reset', {}),
 
   // ── 전략 라이브러리 (퀀트 백테스트 결과 기반) ──
   strategies: () =>
