@@ -132,15 +132,39 @@ async def get_control_logs(
     ])
 
 
+@router.get("/{building_id}/settings")
+async def get_settings(building_id: str) -> dict:
+    """
+    현장 기기(ESP32)·프론트 공용 설정 조회 — 현재 임계치와 자동 모드.
+
+    무인증: 부팅 시 임계치 폴링용 (다른 조회성 엔드포인트와 동일 정책).
+    """
+    return success_response(
+        {
+            "building_id": building_id,
+            "threshold": get_threshold(building_id),
+            "auto_mode": get_auto_mode(building_id),
+        }
+    )
+
+
 @router.put("/{building_id}/threshold")
 async def update_threshold(
     building_id: str,
     request: ThresholdRequest,
     user: AdminOrManager,
 ) -> dict:
-    """임계치 동적 변경 (0.1~100A)."""
+    """임계치 동적 변경 (0.1~100A) — MQTT config 토픽으로 현장 기기에도 전파."""
     set_threshold(building_id, request.value)
-    return success_response({"building_id": building_id, "threshold": request.value})
+    mqtt = get_mqtt_publisher()
+    mqtt_sent = await mqtt.publish_config(building_id, {"threshold": request.value})
+    return success_response(
+        {
+            "building_id": building_id,
+            "threshold": request.value,
+            "mqtt_sent": mqtt_sent,
+        }
+    )
 
 
 @router.get("/{building_id}/auto-mode")

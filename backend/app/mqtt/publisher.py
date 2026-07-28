@@ -71,14 +71,19 @@ class MQTTPublisher:
     async def publish_relay_control(
         self, building_id: str, action: str, triggered_by: str = "ai_auto"
     ) -> bool:
-        """peakbridge/control/relay 토픽으로 ESS 제어 명령 발행."""
-        topic = f"{settings.MQTT_TOPIC_PREFIX}/control/relay"
+        """peakbridge/{building_id}/control/relay 토픽으로 ESS 제어 명령 발행."""
+        topic = f"{settings.MQTT_TOPIC_PREFIX}/{building_id}/control/relay"
         payload = {
             "building_id": building_id,
             "action": action,
             "triggered_by": triggered_by,
         }
         return await self.publish(topic, payload, qos=1)
+
+    async def publish_config(self, building_id: str, config: dict[str, Any]) -> bool:
+        """peakbridge/{building_id}/config 토픽으로 설정 변경(임계치 등) 발행."""
+        topic = f"{settings.MQTT_TOPIC_PREFIX}/{building_id}/config"
+        return await self.publish(topic, config, qos=1)
 
     async def publish_charger_control(
         self, building_id: str, device_id: str, action: str
