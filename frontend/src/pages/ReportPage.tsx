@@ -81,27 +81,27 @@ export default function ReportPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card padding={false}>
           <div className="p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8] mb-2">이번 달 절감</p>
-            <p className="text-3xl font-bold text-[#FBBF24]">{(reports?.[0]?.total_saved_won ?? 0).toLocaleString()}원</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">이번 달 절감</p>
+            <p className="text-2xl font-bold text-[#E8A33D]">{(reports?.[0]?.total_saved_won ?? 0).toLocaleString()}원</p>
           </div>
         </Card>
         <Card padding={false}>
           <div className="p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8] mb-2">피크쉐이빙 횟수</p>
-            <p className="text-3xl font-bold text-[#3B82F6]">{reports?.[0]?.peak_events ?? 0}회</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">피크쉐이빙 횟수</p>
+            <p className="text-2xl font-bold text-[#4C8DFF]">{reports?.[0]?.peak_events ?? 0}회</p>
           </div>
         </Card>
         <Card padding={false}>
           <div className="p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8] mb-2">CO₂ 절감</p>
-            <p className="text-3xl font-bold text-[#34D399]">{reports?.[0]?.co2_reduced_kg ?? 0}kg</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">CO₂ 절감</p>
+            <p className="text-2xl font-bold text-[#2EBD85]">{reports?.[0]?.co2_reduced_kg ?? 0}kg</p>
           </div>
         </Card>
         <Card padding={false}>
           <div className="p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8] mb-2">연간 예상 절감</p>
-            <p className="text-3xl font-bold text-[#A78BFA]">{annualProjection.toLocaleString()}원</p>
-            <p className="mt-1 text-xs text-[#94A3B8]">이번 달 실적 × 12 기준</p>
+            <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">연간 예상 절감</p>
+            <p className="text-2xl font-bold text-[#9B8AFB]">{annualProjection.toLocaleString()}원</p>
+            <p className="mt-1 text-xs text-[#98A2B3]">이번 달 실적 × 12 기준</p>
           </div>
         </Card>
       </div>
@@ -111,37 +111,37 @@ export default function ReportPage() {
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailySavingsData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#222933" vertical={false} />
               <XAxis
                 dataKey="day"
-                tick={{ fill: '#94A3B8', fontSize: 12 }}
+                tick={{ fill: '#98A2B3', fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
                 interval={3}
               />
               <YAxis
-                tick={{ fill: '#94A3B8', fontSize: 12 }}
+                tick={{ fill: '#98A2B3', fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: '#1E293B',
-                  border: '1px solid #334155',
+                  backgroundColor: '#0E1116',
+                  border: '1px solid #222933',
                   borderRadius: 12,
                   fontSize: 13,
-                  color: '#F1F5F9',
+                  color: '#E8ECF1',
                 }}
                 formatter={(value: number, name: string) => [
                   name === 'savings' ? `${formatKRW(value)}` : `${value}회`,
                   name === 'savings' ? '절감액' : '피크 횟수',
                 ]}
               />
-              <Legend wrapperStyle={{ fontSize: 13, color: '#94A3B8' }} />
+              <Legend wrapperStyle={{ fontSize: 13, color: '#98A2B3' }} />
               <Bar dataKey="savings" name="절감액" radius={[8, 8, 0, 0]} barSize={30}>
                 {dailySavingsData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.isToday ? '#FBBF24' : '#3B82F6'} />
+                  <Cell key={`cell-${index}`} fill={entry.isToday ? '#E8A33D' : '#4C8DFF'} />
                 ))}
               </Bar>
             </BarChart>
@@ -157,23 +157,23 @@ export default function ReportPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead>
-                  <tr className="border-b border-[#334155]">
-                    <th className="pb-4 pr-4 text-xs font-semibold text-[#94A3B8]">단지명</th>
-                    <th className="pb-4 pr-4 text-xs font-semibold text-[#94A3B8]">세대수</th>
-                    <th className="pb-4 pr-4 text-xs font-semibold text-[#94A3B8]">이번 달 절감</th>
-                    <th className="pb-4 pr-4 text-xs font-semibold text-[#94A3B8]">피크 횟수</th>
-                    <th className="pb-4 text-xs font-semibold text-[#94A3B8]">절감률</th>
+                  <tr className="border-b border-[#222933]">
+                    <th className="pb-4 pr-4 text-xs font-semibold text-[#98A2B3]">단지명</th>
+                    <th className="pb-4 pr-4 text-xs font-semibold text-[#98A2B3]">세대수</th>
+                    <th className="pb-4 pr-4 text-xs font-semibold text-[#98A2B3]">이번 달 절감</th>
+                    <th className="pb-4 pr-4 text-xs font-semibold text-[#98A2B3]">피크 횟수</th>
+                    <th className="pb-4 text-xs font-semibold text-[#98A2B3]">절감률</th>
                   </tr>
                 </thead>
                 <tbody>
                   {buildingData.map((b) => (
-                    <tr key={b.name} className="border-b border-[#334155]/50">
-                      <td className="py-4 pr-4 font-medium text-[#F1F5F9]">{b.name}</td>
-                      <td className="py-4 pr-4 text-[#94A3B8]">{b.households}</td>
-                      <td className="py-4 pr-4 text-[#FBBF24] font-semibold">{b.savings.toLocaleString()}원</td>
-                      <td className="py-4 pr-4 text-[#94A3B8]">{b.peakCount}회</td>
+                    <tr key={b.name} className="border-b border-[#222933]/50">
+                      <td className="py-4 pr-4 font-medium text-[#E8ECF1]">{b.name}</td>
+                      <td className="py-4 pr-4 text-[#98A2B3]">{b.households}</td>
+                      <td className="py-4 pr-4 text-[#E8A33D] font-semibold">{b.savings.toLocaleString()}원</td>
+                      <td className="py-4 pr-4 text-[#98A2B3]">{b.peakCount}회</td>
                       <td className="py-4">
-                        <span className="rounded-full bg-[#10B981]/10 px-2.5 py-1 text-xs font-semibold text-[#10B981]">{b.rate}%</span>
+                        <span className="rounded-full bg-[#2EBD85]/10 px-2.5 py-1 text-xs font-semibold text-[#2EBD85]">{b.rate}%</span>
                       </td>
                     </tr>
                   ))}
@@ -185,12 +185,12 @@ export default function ReportPage() {
 
         {/* ROI Calculator */}
         <Card title="ROI 계산기" subtitle="투자 회수 기간">
-          <div className="rounded-xl bg-[#0F172A] p-6 border border-[#334155]">
-            <p className="text-sm text-[#94A3B8] mb-2">변압기 교체 비용</p>
-            <p className="text-2xl font-bold text-[#F1F5F9] mb-6">3억원</p>
-            <div className="border-t border-[#334155] pt-6">
-              <p className="text-sm text-[#94A3B8] mb-2">PeakBridge 도입 시 회수 기간</p>
-              <p className="text-3xl font-bold text-[#FBBF24]">2.3년</p>
+          <div className="rounded-md bg-[#0A0C10] p-6 border border-[#222933]">
+            <p className="text-sm text-[#98A2B3] mb-2">변압기 교체 비용</p>
+            <p className="text-2xl font-bold text-[#E8ECF1] mb-6">3억원</p>
+            <div className="border-t border-[#222933] pt-6">
+              <p className="text-sm text-[#98A2B3] mb-2">PeakBridge 도입 시 회수 기간</p>
+              <p className="text-2xl font-bold text-[#E8A33D]">2.3년</p>
             </div>
           </div>
           <div className="mt-6">

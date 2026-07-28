@@ -37,16 +37,16 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#222933" />
             <XAxis
               dataKey="time"
-              tick={{ fill: '#94A3B8', fontSize: 12 }}
+              tick={{ fill: '#98A2B3', fontSize: 12 }}
               tickLine={false}
               axisLine={false}
               interval={3}
             />
             <YAxis
-              tick={{ fill: '#94A3B8', fontSize: 12 }}
+              tick={{ fill: '#98A2B3', fontSize: 12 }}
               tickLine={false}
               axisLine={false}
               domain={[0, 30]}
@@ -54,25 +54,25 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#1E293B',
-                border: '1px solid #334155',
+                backgroundColor: '#0E1116',
+                border: '1px solid #222933',
                 borderRadius: 12,
                 fontSize: 13,
-                color: '#F1F5F9',
+                color: '#E8ECF1',
               }}
               itemStyle={{ padding: '4px 0' }}
-              labelStyle={{ color: '#F1F5F9', marginBottom: 8 }}
+              labelStyle={{ color: '#E8ECF1', marginBottom: 8 }}
             />
             <Legend
-              wrapperStyle={{ fontSize: 13, color: '#94A3B8', paddingTop: 10 }}
+              wrapperStyle={{ fontSize: 13, color: '#98A2B3', paddingTop: 10 }}
               iconType="circle"
               iconSize={8}
             />
             {/* Peak shading area */}
             <defs>
               <linearGradient id="peakShade" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#F97316" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#F97316" stopOpacity={0.05} />
+                <stop offset="0%" stopColor="#E8A33D" stopOpacity={0.2} />
+                <stop offset="100%" stopColor="#E8A33D" stopOpacity={0.05} />
               </linearGradient>
             </defs>
             <Area
@@ -85,11 +85,11 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
             />
             <ReferenceLine
               y={threshold}
-              stroke="#EF4444"
+              stroke="#E5484D"
               strokeDasharray="6 4"
               label={{
                 value: `임계치 ${threshold}A`,
-                fill: '#F97316',
+                fill: '#E8A33D',
                 fontSize: 12,
                 position: 'insideTopRight',
               }}
@@ -98,7 +98,7 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
               type="monotone"
               dataKey="grid_current"
               name="그리드 전류"
-              stroke="#3B82F6"
+              stroke="#4C8DFF"
               strokeWidth={3}
               dot={false}
               activeDot={{ r: 6 }}
@@ -107,7 +107,7 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
               type="monotone"
               dataKey="ess_discharge"
               name="ESS 방전"
-              stroke="#34D399"
+              stroke="#2EBD85"
               strokeWidth={2.5}
               dot={false}
             />
@@ -115,7 +115,7 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
               type="monotone"
               dataKey="prediction"
               name="AI 예측"
-              stroke="#F97316"
+              stroke="#E8A33D"
               strokeDasharray="5 5"
               strokeWidth={2}
               dot={false}

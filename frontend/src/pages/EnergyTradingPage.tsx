@@ -68,19 +68,19 @@ const fallbackSchedule: BarEntry[] = Array.from({ length: 24 }, (_, i) => {
 });
 
 const SCENARIO_META: Record<string, { icon: string; description: string }> = {
-  peak_detect: { icon: '⚡', description: '피크 시간대 감지 시 자동 대응' },
-  heatwave: { icon: '🌡️', description: '고온 시 ESS 우선 방전' },
-  night_charge: { icon: '🔋', description: '경부하 시간대 최대 충전' },
-  transformer_guard: { icon: '🏗️', description: '변압기 과부하 방지' },
-  vpp_dr: { icon: '🌐', description: '전력거래소 신호 대기' },
+  peak_detect: { icon: 'PEAK', description: '피크 시간대 감지 시 자동 대응' },
+  heatwave: { icon: 'TEMP', description: '고온 시 ESS 우선 방전' },
+  night_charge: { icon: 'CHG', description: '경부하 시간대 최대 충전' },
+  transformer_guard: { icon: 'TR', description: '변압기 과부하 방지' },
+  vpp_dr: { icon: 'VPP', description: '전력거래소 신호 대기' },
 };
 
 const fallbackScenarios = [
-  { icon: '⚡', name: '일반 피크 감지', status: 'standby' as const, description: '피크 시간대 감지 시 자동 대응' },
-  { icon: '🌡️', name: '폭염 대응 모드', status: 'standby' as const, description: '고온 시 ESS 우선 방전' },
-  { icon: '🔋', name: '심야 최적 충전', status: 'standby' as const, description: '경부하 시간대 최대 충전' },
-  { icon: '🏗️', name: '변압기 한계 감시', status: 'standby' as const, description: '변압기 과부하 방지' },
-  { icon: '🌐', name: 'VPP 수요반응 대기', status: 'standby' as const, description: '전력거래소 신호 대기' },
+  { icon: 'PEAK', name: '일반 피크 감지', status: 'standby' as const, description: '피크 시간대 감지 시 자동 대응' },
+  { icon: 'TEMP', name: '폭염 대응 모드', status: 'standby' as const, description: '고온 시 ESS 우선 방전' },
+  { icon: 'CHG', name: '심야 최적 충전', status: 'standby' as const, description: '경부하 시간대 최대 충전' },
+  { icon: 'TR', name: '변압기 한계 감시', status: 'standby' as const, description: '변압기 과부하 방지' },
+  { icon: 'VPP', name: 'VPP 수요반응 대기', status: 'standby' as const, description: '전력거래소 신호 대기' },
 ];
 
 function periodToType(period: string): 'light' | 'medium' | 'heavy' {
@@ -110,21 +110,21 @@ function KPICard({
 }) {
   return (
     <div
-      className={`rounded-xl border bg-[#1E293B] p-5 ${
-        isHighlight ? 'border-[#34D399]/40 shadow-[0_0_20px_rgba(52,211,153,0.15)]' : 'border-[#334155]'
+      className={`rounded-md border bg-[#0E1116] p-5 ${
+        isHighlight ? 'border-[#2EBD85]/50 bg-[#2EBD85]/[0.06]' : 'border-[#222933]'
       }`}
     >
-      <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8]">{label}</p>
-      <p className={`mt-2 text-3xl font-bold tabular-nums ${accent}`}>{value}</p>
-      {sub && <p className="mt-1 text-sm text-[#94A3B8]">{sub}</p>}
+      <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">{label}</p>
+      <p className={`mt-2 text-2xl font-bold tabular-nums ${accent}`}>{value}</p>
+      {sub && <p className="mt-1 text-sm text-[#98A2B3]">{sub}</p>}
     </div>
   );
 }
 
 function StatusBadge({ status }: { status: 'active' | 'standby' }) {
   const colors = status === 'active'
-    ? 'bg-[#34D399]/20 text-[#34D399]'
-    : 'bg-[#334155]/50 text-[#94A3B8]';
+    ? 'bg-[#2EBD85]/20 text-[#2EBD85]'
+    : 'bg-[#222933]/50 text-[#98A2B3]';
 
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors}`}>
@@ -205,7 +205,7 @@ export default function EnergyTradingPage() {
   const scenarios =
     scenQ.data && scenQ.data.length > 0
       ? scenQ.data.map((s) => ({
-          icon: SCENARIO_META[s.id]?.icon ?? '🤖',
+          icon: SCENARIO_META[s.id]?.icon ?? 'AI',
           name: s.name,
           status: (s.active ? 'active' : 'standby') as 'active' | 'standby',
           description: SCENARIO_META[s.id]?.description ?? '',
@@ -233,8 +233,8 @@ export default function EnergyTradingPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-[#F1F5F9]">에너지 거래 현황</h1>
-        <p className="mt-1 text-sm text-[#94A3B8]">실시간 요금, AI 권고, 차익 실적을 확인하세요</p>
+        <h1 className="text-2xl font-bold text-[#E8ECF1]">에너지 거래 현황</h1>
+        <p className="mt-1 text-sm text-[#98A2B3]">실시간 요금, AI 권고, 차익 실적을 확인하세요</p>
       </div>
 
       {/* KPI Cards */}
@@ -243,27 +243,27 @@ export default function EnergyTradingPage() {
           label="현재 요금"
           value={rate ? `${rate.rate}원/kWh` : '42.5원/kWh'}
           sub={rate ? `${rate.period} • 다음 구간까지 ${rate.next_period_in_minutes}분` : '요금표 기준 (연결 대기)'}
-          accent="text-[#3B82F6]"
+          accent="text-[#4C8DFF]"
         />
         <KPICard
           label={rec?.model ? `AI 권고 (${rec.model})` : 'AI 권고'}
           value={rec ? (ACTION_LABEL[rec.action] ?? rec.action) : '충전 권장'}
           sub={rec ? rec.reason : '"경부하 시간대, 충전 유리"'}
-          accent="text-[#34D399]"
+          accent="text-[#2EBD85]"
           isHighlight={true}
         />
         <KPICard
           label="오늘 차익"
           value={arb ? `₩${Math.round(arb.arbitrage ?? 0).toLocaleString()}` : '₩7,220'}
           sub="충전비용 vs 방전절감 차이"
-          accent="text-[#34D399]"
+          accent="text-[#2EBD85]"
           isHighlight={true}
         />
         <KPICard
           label="VPP 예상 수익"
           value="₩340,000"
           sub="전력거래소 수요반응 기준"
-          accent="text-[#F1F5F9]"
+          accent="text-[#E8ECF1]"
         />
       </div>
 
@@ -272,35 +272,35 @@ export default function EnergyTradingPage() {
         <div className="h-72">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={scheduleData} margin={{ top: 28, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke="#222933" vertical={false} />
               <XAxis
                 dataKey="hour"
-                stroke="#94A3B8"
+                stroke="#98A2B3"
                 tick={{ fontSize: 12 }}
                 tickFormatter={(hour) => `${hour}시`}
               />
               <YAxis
-                stroke="#94A3B8"
+                stroke="#98A2B3"
                 tick={{ fontSize: 12 }}
                 tickFormatter={(r) => `${r}원`}
               />
               <Tooltip
-                contentStyle={{ backgroundColor: '#1E293B', border: '1px solid #334155', borderRadius: '8px' }}
-                labelStyle={{ color: '#F1F5F9' }}
+                contentStyle={{ backgroundColor: '#0E1116', border: '1px solid #222933', borderRadius: '8px' }}
+                labelStyle={{ color: '#E8ECF1' }}
                 formatter={(value: number) => [`${value}원/kWh`, '요금']}
                 labelFormatter={(hour) => `${hour}시`}
               />
-              <ReferenceLine x={currentHour} stroke="#FBBF24" strokeWidth={2} label={{ value: '현재', fill: '#FBBF24', position: 'top' }} />
+              <ReferenceLine x={currentHour} stroke="#E8A33D" strokeWidth={2} label={{ value: '현재', fill: '#E8A33D', position: 'top' }} />
               <Bar dataKey="rate" radius={[4, 4, 0, 0]}>
                 {scheduleData.map((entry) => (
                   <Cell
                     key={entry.hour}
                     fill={
                       entry.type === 'light'
-                        ? '#3B82F6'
+                        ? '#4C8DFF'
                         : entry.type === 'medium'
-                          ? '#FBBF24'
-                          : '#EF4444'
+                          ? '#E8A33D'
+                          : '#E5484D'
                     }
                   />
                 ))}
@@ -310,16 +310,16 @@ export default function EnergyTradingPage() {
         </div>
         <div className="mt-4 flex items-center justify-center gap-6">
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-[#3B82F6]" />
-            <span className="text-xs text-[#94A3B8]">경부하 (충전)</span>
+            <div className="h-3 w-3 rounded bg-[#4C8DFF]" />
+            <span className="text-xs text-[#98A2B3]">경부하 (충전)</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-[#FBBF24]" />
-            <span className="text-xs text-[#94A3B8]">중간부하 (대기)</span>
+            <div className="h-3 w-3 rounded bg-[#E8A33D]" />
+            <span className="text-xs text-[#98A2B3]">중간부하 (대기)</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="h-3 w-3 rounded bg-[#EF4444]" />
-            <span className="text-xs text-[#94A3B8]">최대부하 (방전)</span>
+            <div className="h-3 w-3 rounded bg-[#E5484D]" />
+            <span className="text-xs text-[#98A2B3]">최대부하 (방전)</span>
           </div>
         </div>
       </Card>
@@ -328,11 +328,11 @@ export default function EnergyTradingPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Left - Trading Stats */}
         <Card title="에너지 거래 실적" subtitle={arb ? '실시간 계산' : '예시 데이터'}>
-          <div className="divide-y divide-[#334155]">
+          <div className="divide-y divide-[#222933]">
             {tradingStats.map((stat, index) => (
-              <div key={index} className={`flex justify-between py-3 ${stat.highlight ? 'text-[#34D399]' : 'text-[#F1F5F9]'}`}>
-                <span className="text-sm text-[#94A3B8]">{stat.label}</span>
-                <span className={`text-sm font-semibold ${stat.highlight ? 'text-[#34D399]' : 'text-[#F1F5F9]'}`}>{stat.value}</span>
+              <div key={index} className={`flex justify-between py-3 ${stat.highlight ? 'text-[#2EBD85]' : 'text-[#E8ECF1]'}`}>
+                <span className="text-sm text-[#98A2B3]">{stat.label}</span>
+                <span className={`text-sm font-semibold ${stat.highlight ? 'text-[#2EBD85]' : 'text-[#E8ECF1]'}`}>{stat.value}</span>
               </div>
             ))}
           </div>
@@ -342,13 +342,13 @@ export default function EnergyTradingPage() {
         <Card title="AI 시나리오 현황" subtitle={scenQ.data ? '실시간 상태' : '연결 대기'}>
           <div className="space-y-3">
             {scenarios.map((scenario, index) => (
-              <div key={index} className="flex items-start justify-between rounded-lg border border-[#334155] bg-[#0F172A] p-4">
+              <div key={index} className="flex items-start justify-between rounded-md border border-[#222933] bg-[#0A0C10] p-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-xl">{scenario.icon}</span>
-                    <span className="font-medium text-[#F1F5F9]">{scenario.name}</span>
+                    <span className="num rounded-sm border border-[#222933] bg-[#13171E] px-1.5 py-0.5 text-[10px] tracking-wider text-[#98A2B3]">{scenario.icon}</span>
+                    <span className="font-medium text-[#E8ECF1]">{scenario.name}</span>
                   </div>
-                  <p className="mt-1 text-xs text-[#94A3B8]">{scenario.description}</p>
+                  <p className="mt-1 text-xs text-[#98A2B3]">{scenario.description}</p>
                 </div>
                 <StatusBadge status={scenario.status} />
               </div>

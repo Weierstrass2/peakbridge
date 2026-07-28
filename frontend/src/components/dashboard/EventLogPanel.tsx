@@ -8,9 +8,9 @@ interface EventLogProps {
 }
 
 const levelStyles: Record<EventLogEntry['level'], { dot: string; text: string }> = {
-  info: { dot: 'bg-[#3B82F6]', text: 'text-[#3B82F6]' },
-  warning: { dot: 'bg-[#F97316]', text: 'text-[#F97316]' },
-  success: { dot: 'bg-[#10B981]', text: 'text-[#10B981]' },
+  info: { dot: 'bg-[#4C8DFF]', text: 'text-[#4C8DFF]' },
+  warning: { dot: 'bg-[#E8A33D]', text: 'text-[#E8A33D]' },
+  success: { dot: 'bg-[#2EBD85]', text: 'text-[#2EBD85]' },
 };
 
 export default function EventLogPanel({ events, loading }: EventLogProps) {
@@ -25,15 +25,15 @@ export default function EventLogPanel({ events, loading }: EventLogProps) {
             return (
               <div
                 key={event.id}
-                className="flex items-start gap-3 rounded-xl border border-[#334155] bg-[#0F172A] px-4 py-3"
+                className="flex items-start gap-3 rounded-md border border-[#222933] bg-[#0A0C10] px-4 py-3"
               >
                 <span className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${style.dot}`} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-[#94A3B8]">{event.timestamp}</span>
+                    <span className="font-mono text-xs text-[#98A2B3]">{event.timestamp}</span>
                     <span className={`text-[10px] font-semibold uppercase ${style.text}`}>{event.level}</span>
                   </div>
-                  <p className="mt-1 text-sm leading-relaxed text-[#F1F5F9]">{event.message}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-[#E8ECF1]">{event.message}</p>
                 </div>
               </div>
             );

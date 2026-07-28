@@ -24,13 +24,13 @@ function KPICard({
 }) {
   return (
     <div
-      className={`rounded-xl border bg-[#1E293B] p-5 ${
-        isHighlight ? 'border-[#FBBF24]/40 shadow-[0_0_20px_rgba(251,191,36,0.15)]' : 'border-[#334155]'
+      className={`rounded-md border bg-[#0E1116] p-5 ${
+        isHighlight ? 'border-[#E8A33D]/50 bg-[#E8A33D]/[0.06]' : 'border-[#222933]'
       }`}
     >
-      <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8]">{label}</p>
-      <p className={`mt-2 text-3xl font-bold tabular-nums ${accent}`}>{value}</p>
-      {sub && <p className="mt-1 text-sm text-[#94A3B8]">{sub}</p>}
+      <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">{label}</p>
+      <p className={`mt-2 text-2xl font-bold tabular-nums ${accent}`}>{value}</p>
+      {sub && <p className="mt-1 text-sm text-[#98A2B3]">{sub}</p>}
       {children}
     </div>
   );
@@ -52,23 +52,23 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
       <KPICard
         label="오늘 절감액"
         value={`${(data.today_saved_won ?? 0).toLocaleString()}원`}
-        accent="text-[#FBBF24]"
+        accent="text-[#E8A33D]"
         isHighlight={true}
       />
       <KPICard
         label="이번달 절감액"
         value={`${(data.month_saved_won ?? 0).toLocaleString()}원`}
-        accent="text-[#F1F5F9]"
+        accent="text-[#E8ECF1]"
       />
       <KPICard
         label="ESS 잔량"
         value={`${data.ess_soc ?? 0}%`}
-        accent={(data.ess_soc ?? 0) < 20 ? 'text-[#EF4444]' : 'text-[#34D399]'}
+        accent={(data.ess_soc ?? 0) < 20 ? 'text-[#E5484D]' : 'text-[#2EBD85]'}
       >
-        <div className="mt-2 w-full bg-[#334155] rounded-full h-2">
+        <div className="mt-2 w-full bg-[#222933] rounded-full h-2">
           <div
             className={`h-2 rounded-full transition-all duration-500 ${
-              (data.ess_soc ?? 0) < 20 ? 'bg-[#EF4444]' : 'bg-[#34D399]'
+              (data.ess_soc ?? 0) < 20 ? 'bg-[#E5484D]' : 'bg-[#2EBD85]'
             }`}
             style={{ width: `${data.ess_soc ?? 0}%` }}
           />
@@ -77,7 +77,7 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
       <KPICard
         label="CO2 절감"
         value={`${data.co2_reduced_kg ?? 0}kg`}
-        accent="text-[#34D399]"
+        accent="text-[#2EBD85]"
       />
     </div>
   );

@@ -1,37 +1,87 @@
 @import "tailwindcss";
 
+/* ── PeakBridge 아파트 관제 — 디자인 토큰 ────────────────────────
+   VPP OS 콘솔(frontend-vpp)과 동일한 토큰 체계를 사용한다.
+   두 화면이 한 제품으로 보이는 것이 목적이므로, 값을 임의로 바꾸지 말 것.
+
+   원칙:
+   - 화면의 90%는 무채색. 색은 '이상 신호'와 '손익 부호'에만 등장한다.
+   - 액센트는 5개로 고정 (ok / warn / crit / acc / vio). 더 늘리지 않는다.
+   - 글로우(box-shadow 확산)는 쓰지 않는다. 상태 강조는 보더 + 배경 틴트로 한다.
+   ────────────────────────────────────────────────────────────── */
+
 @theme {
-  --color-bg-primary: #0F172A;
-  --color-surface: #0F172A;
-  --color-card-bg: #1E293B;
-  --color-panel: #1E293B;
-  --color-border: #334155;
-  --color-panel-border: #334155;
-  --color-text-primary: #F1F5F9;
-  --color-text-secondary: #94A3B8;
-  --color-muted: #94A3B8;
-  --color-accent-green: #10B981;
-  --color-accent-orange: #F97316;
-  --color-accent-red: #EF4444;
-  --color-accent-yellow: #FBBF24;
-  --color-accent-blue: #3B82F6;
-  --color-accent-purple: #A78BFA;
-  --color-accent-emerald: #34D399;
+  /* 배경 4단계 */
+  --color-bg-primary: #0A0C10;  /* 앱 배경 */
+  --color-surface: #0A0C10;
+  --color-card-bg: #0E1116;     /* 패널 */
+  --color-panel: #0E1116;
+  --color-bg-2: #13171E;        /* 패널 헤더/호버 */
+  --color-bg-3: #1A2029;        /* 인풋/버튼 */
+
+  /* 라인 3단계 */
+  --color-line-0: #161B22;      /* 헤어라인 */
+  --color-border: #222933;      /* 기본 보더 */
+  --color-panel-border: #222933;
+  --color-line-2: #303947;      /* 강조 보더 */
+
+  /* 텍스트 3단계 */
+  --color-text-primary: #E8ECF1;
+  --color-text-secondary: #98A2B3;
+  --color-muted: #98A2B3;
+  --color-text-3: #5C6673;      /* 캡션/비활성 */
+
+  /* 시맨틱 액센트 5개 */
+  --color-accent-green: #2EBD85;   /* 정상/수익 */
+  --color-accent-emerald: #2EBD85; /* green과 통합 */
+  --color-accent-orange: #E8A33D;  /* 경고 */
+  --color-accent-yellow: #E8A33D;  /* orange와 통합 */
+  --color-accent-red: #E5484D;     /* 위험/긴급 */
+  --color-accent-blue: #4C8DFF;    /* 액션/링크 */
+  --color-accent-purple: #9B8AFB;  /* 예측/AI */
+
+  --font-ui: "Pretendard Variable", Pretendard, -apple-system, "Segoe UI",
+    "Malgun Gothic", sans-serif;
+  --font-num: "JetBrains Mono", ui-monospace, "SF Mono", Consolas, monospace;
 }
 
 body {
   margin: 0;
   background-color: var(--color-bg-primary);
   color: var(--color-text-primary);
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  /* 실시간 수치가 갱신될 때 숫자 폭이 흔들리지 않게 한다 */
+  font-variant-numeric: tabular-nums;
 }
 
+/* 수치 표기용 — 전류/SOC/금액 등 변하는 숫자에 붙인다 */
+.num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* 섹션 라벨 — 관제 화면 특유의 작은 대문자 캡션 */
+.label-cap {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  color: var(--color-text-3);
+  text-transform: uppercase;
+}
+
+/* ── 상태 표시 ──────────────────────────────────────────────
+   글로우 대신 좌측 보더 + 배경 틴트. 눈이 편하고 정보 위계가 산다. */
+
 @keyframes pulse-dot {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.4; transform: scale(0.85); }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }
 .animate-pulse-dot {
-  animation: pulse-dot 1.5s ease-in-out infinite;
+  animation: pulse-dot 1.6s ease-in-out infinite;
 }
 
 @keyframes slide-in {
@@ -39,30 +89,35 @@ body {
   to { transform: translateY(0); opacity: 1; }
 }
 .animate-slide-in {
-  animation: slide-in 0.5s ease-out forwards;
+  animation: slide-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-@keyframes pulse-bg {
-  0%, 100% { box-shadow: 0 0 20px rgba(249, 115, 22, 0.4); }
-  50% { box-shadow: 0 0 40px rgba(249, 115, 22, 0.8); }
+/* 구 pulse-bg(오렌지 글로우)를 대체.
+   기존 클래스명을 유지해 컴포넌트 수정 없이 표현만 바꾼다. */
+@keyframes pulse-edge {
+  0%, 100% { border-color: var(--color-accent-orange); }
+  50% { border-color: color-mix(in srgb, var(--color-accent-orange) 45%, transparent); }
 }
 .animate-pulse-bg {
-  animation: pulse-bg 2s ease-in-out infinite;
+  border-left: 2px solid var(--color-accent-orange);
+  background-color: color-mix(in srgb, var(--color-accent-orange) 8%, transparent);
+  animation: pulse-edge 2s ease-in-out infinite;
+  box-shadow: none;
 }
 
 @keyframes count-up {
-  from { opacity: 0; transform: translateY(10px); }
+  from { opacity: 0; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-count-up {
-  animation: count-up 0.5s ease-out forwards;
+  animation: count-up 0.24s ease-out forwards;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--color-bg-primary); }
 ::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--color-text-secondary); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-line-2); }
 
 @keyframes ticker {
   0% { transform: translateX(100%); }

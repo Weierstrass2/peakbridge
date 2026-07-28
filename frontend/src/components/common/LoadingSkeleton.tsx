@@ -15,7 +15,7 @@ export default function LoadingSkeleton({ className = '', rows = 1 }: LoadingSke
 
 export function MetricSkeleton() {
   return (
-    <div className="animate-pulse rounded-xl border border-panel-border bg-panel p-4">
+    <div className="animate-pulse rounded-md border border-panel-border bg-panel p-4">
       <div className="h-3 w-20 rounded bg-panel-border/60" />
       <div className="mt-3 h-8 w-28 rounded bg-panel-border/60" />
       <div className="mt-2 h-3 w-32 rounded bg-panel-border/60" />
@@ -25,16 +25,16 @@ export function MetricSkeleton() {
 
 export function ChartSkeleton() {
   return (
-    <div className="animate-pulse rounded-xl border border-panel-border bg-panel p-4">
+    <div className="animate-pulse rounded-md border border-panel-border bg-panel p-4">
       <div className="mb-4 h-4 w-40 rounded bg-panel-border/60" />
-      <div className="h-64 rounded-lg bg-panel-border/30" />
+      <div className="h-64 rounded-md bg-panel-border/30" />
     </div>
   );
 }
 
 export function CardSkeleton() {
   return (
-    <div className="animate-pulse rounded-xl border border-panel-border bg-panel p-4">
+    <div className="animate-pulse rounded-md border border-panel-border bg-panel p-4">
       <div className="h-4 w-24 rounded bg-panel-border/60" />
       <div className="mt-4 h-20 rounded bg-panel-border/30" />
     </div>

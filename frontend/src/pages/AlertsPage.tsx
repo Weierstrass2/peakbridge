@@ -33,7 +33,7 @@ export default function AlertsPage() {
           {data.map((alert) => (
             <div
               key={alert.id}
-              className="flex items-center justify-between rounded-lg border border-panel-border bg-surface px-4 py-3"
+              className="flex items-center justify-between rounded-md border border-panel-border bg-surface px-4 py-3"
             >
               <div>
                 <div className="flex items-center gap-2">

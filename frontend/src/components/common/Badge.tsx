@@ -9,12 +9,12 @@ interface BadgeProps {
 }
 
 const styles: Record<BadgeVariant, string> = {
-  default: 'border-[#334155] bg-[#1E293B] text-[#94A3B8]',
-  peak: 'border-[#F97316]/40 bg-[#F97316]/10 text-[#F97316]',
-  success: 'border-[#10B981]/40 bg-[#10B981]/10 text-[#10B981]',
-  warning: 'border-[#FBBF24]/40 bg-[#FBBF24]/10 text-[#FBBF24]',
-  info: 'border-[#3B82F6]/40 bg-[#3B82F6]/10 text-[#3B82F6]',
-  danger: 'border-[#EF4444]/40 bg-[#EF4444]/10 text-[#EF4444]',
+  default: 'border-[#222933] bg-[#0E1116] text-[#98A2B3]',
+  peak: 'border-[#E8A33D]/40 bg-[#E8A33D]/10 text-[#E8A33D]',
+  success: 'border-[#2EBD85]/40 bg-[#2EBD85]/10 text-[#2EBD85]',
+  warning: 'border-[#E8A33D]/40 bg-[#E8A33D]/10 text-[#E8A33D]',
+  info: 'border-[#4C8DFF]/40 bg-[#4C8DFF]/10 text-[#4C8DFF]',
+  danger: 'border-[#E5484D]/40 bg-[#E5484D]/10 text-[#E5484D]',
 };
 
 export default function Badge({ variant = 'default', pulse, children }: BadgeProps) {
@@ -22,7 +22,7 @@ export default function Badge({ variant = 'default', pulse, children }: BadgePro
     <span
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold ${styles[variant]}`}
     >
-      {pulse && <span className="animate-pulse-dot h-2 w-2 rounded-full bg-[#F97316]" />}
+      {pulse && <span className="animate-pulse-dot h-2 w-2 rounded-full bg-[#E8A33D]" />}
       {children}
     </span>
   );

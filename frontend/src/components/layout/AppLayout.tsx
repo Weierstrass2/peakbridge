@@ -11,7 +11,7 @@ export const AppLayout: React.FC = () => {
   const { dashboard } = useDashboard();
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-[#F1F5F9] flex">
+    <div className="min-h-screen bg-[#0A0C10] text-[#E8ECF1] flex">
       {/* 1. 고정 사이드바 */}
       <Sidebar />
 

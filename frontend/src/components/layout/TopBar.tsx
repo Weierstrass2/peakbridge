@@ -10,11 +10,11 @@ export default function TopBar() {
   const user = useAuthStore((s) => s.user);
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-[#334155] bg-[#1E293B] px-4 sm:px-6">
+    <header className="flex h-14 items-center justify-between border-b border-[#222933] bg-[#0E1116] px-4 sm:px-6">
       <div className="md:hidden">
-        <h1 className="text-base font-bold text-[#F1F5F9]">PeakBridge</h1>
+        <h1 className="text-base font-bold text-[#E8ECF1]">PeakBridge</h1>
       </div>
-      <div className="hidden text-xs text-[#94A3B8] md:block">
+      <div className="hidden text-xs text-[#98A2B3] md:block">
         {new Date().toLocaleDateString('ko-KR', {
           weekday: 'short',
           year: 'numeric',
@@ -29,15 +29,15 @@ export default function TopBar() {
       </div>
       <div className="flex items-center gap-3">
         {isMockMode() ? (
-          <span className="rounded-full bg-[#FBBF24]/15 px-3 py-1 text-[10px] font-medium text-[#FBBF24]">
+          <span className="rounded-full bg-[#E8A33D]/15 px-3 py-1 text-[10px] font-medium text-[#E8A33D]">
             MOCK
           </span>
         ) : (
           <span
             className={`rounded-full px-3 py-1 text-[10px] font-medium ${
               wsConnected
-                ? 'bg-[#10B981]/15 text-[#10B981]'
-                : 'bg-[#EF4444]/15 text-[#EF4444]'
+                ? 'bg-[#2EBD85]/15 text-[#2EBD85]'
+                : 'bg-[#E5484D]/15 text-[#E5484D]'
             }`}
           >
             {wsConnected ? 'LIVE' : '폴링 모드'}
@@ -47,7 +47,7 @@ export default function TopBar() {
         {user && (
           <button
             onClick={logout}
-            className="text-xs text-[#94A3B8] hover:text-[#F1F5F9]"
+            className="text-xs text-[#98A2B3] hover:text-[#E8ECF1]"
             type="button"
           >
             Logout

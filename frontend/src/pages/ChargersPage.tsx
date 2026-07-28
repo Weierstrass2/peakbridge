@@ -69,7 +69,7 @@ export default function ChargersPage() {
     setBusy(`${action}_${id}`);
     try {
       await controlApi.controlCharger(id, action);
-      setMessage(`✅ ${id} ${action === 'pause' ? '일시 정지' : '재개'} 명령 전송`);
+      setMessage(`${id} ${action === 'pause' ? '일시 정지' : '재개'} 명령 전송`);
       qc.invalidateQueries({ queryKey: ['dashboard'] });
     } catch {
       setMessage('❌ 명령 실패 (admin 로그인 필요)');
@@ -83,38 +83,38 @@ export default function ChargersPage() {
     <div className="space-y-6">
       {/* Summary KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <div className="rounded-xl border border-[#334155] bg-[#1E293B] p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8]">등록 충전기</p>
-          <p className="mt-2 text-3xl font-bold text-[#F1F5F9] tabular-nums">{details.length}대</p>
+        <div className="rounded-md border border-[#222933] bg-[#0E1116] p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">등록 충전기</p>
+          <p className="mt-2 text-2xl font-bold text-[#E8ECF1] tabular-nums">{details.length}대</p>
         </div>
-        <div className="rounded-xl border border-[#334155] bg-[#1E293B] p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8]">충전 중</p>
-          <p className="mt-2 text-3xl font-bold text-[#34D399] tabular-nums">{chargingCount}대</p>
+        <div className="rounded-md border border-[#222933] bg-[#0E1116] p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">충전 중</p>
+          <p className="mt-2 text-2xl font-bold text-[#2EBD85] tabular-nums">{chargingCount}대</p>
         </div>
-        <div className="rounded-xl border border-[#334155] bg-[#1E293B] p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8]">합계 전류</p>
-          <p className="mt-2 text-3xl font-bold text-[#A78BFA] tabular-nums">{totalCurrent.toFixed(1)}A</p>
+        <div className="rounded-md border border-[#222933] bg-[#0E1116] p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">합계 전류</p>
+          <p className="mt-2 text-2xl font-bold text-[#9B8AFB] tabular-nums">{totalCurrent.toFixed(1)}A</p>
         </div>
-        <div className="rounded-xl border border-[#334155] bg-[#1E293B] p-5">
-          <p className="text-xs font-medium uppercase tracking-wider text-[#94A3B8]">정격 용량</p>
-          <p className="mt-2 text-3xl font-bold text-[#3B82F6] tabular-nums">{details.length * 7}kW</p>
-          <p className="mt-1 text-xs text-[#94A3B8]">7kW × {details.length}기</p>
+        <div className="rounded-md border border-[#222933] bg-[#0E1116] p-5">
+          <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">정격 용량</p>
+          <p className="mt-2 text-2xl font-bold text-[#4C8DFF] tabular-nums">{details.length * 7}kW</p>
+          <p className="mt-1 text-xs text-[#98A2B3]">7kW × {details.length}기</p>
         </div>
       </div>
 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div>
-          <label className="text-xs text-[#94A3B8] mb-1 block">단지 선택 (다중 단지 확장 예정)</label>
+          <label className="text-xs text-[#98A2B3] mb-1 block">단지 선택 (다중 단지 확장 예정)</label>
           <select
-            className="rounded-lg border border-[#334155] bg-[#1E293B] px-4 py-2 text-sm text-[#F1F5F9] outline-none focus:border-[#3B82F6]"
+            className="rounded-md border border-[#222933] bg-[#0E1116] px-4 py-2 text-sm text-[#E8ECF1] outline-none focus:border-[#4C8DFF]"
             defaultValue="A단지"
           >
             <option value="A단지">A단지 — 부산 실증</option>
           </select>
         </div>
         <div>
-          <label className="text-xs text-[#94A3B8] mb-1 block">상태 필터</label>
+          <label className="text-xs text-[#98A2B3] mb-1 block">상태 필터</label>
           <div className="flex gap-2">
             {([
               { v: 'all', t: `전체 ${details.length}` },
@@ -124,10 +124,10 @@ export default function ChargersPage() {
               <button
                 key={f.v}
                 onClick={() => setStatusFilter(f.v)}
-                className={`rounded-lg border px-4 py-2 text-sm transition-colors ${
+                className={`rounded-md border px-4 py-2 text-sm transition-colors ${
                   statusFilter === f.v
-                    ? 'border-[#3B82F6] bg-[#3B82F6]/15 text-[#3B82F6] font-semibold'
-                    : 'border-[#334155] bg-[#1E293B] text-[#94A3B8] hover:text-[#F1F5F9]'
+                    ? 'border-[#4C8DFF] bg-[#4C8DFF]/15 text-[#4C8DFF] font-semibold'
+                    : 'border-[#222933] bg-[#0E1116] text-[#98A2B3] hover:text-[#E8ECF1]'
                 }`}
               >
                 {f.t}
@@ -135,7 +135,7 @@ export default function ChargersPage() {
             ))}
           </div>
         </div>
-        {message && <p className="text-sm text-[#F1F5F9] self-end pb-2">{message}</p>}
+        {message && <p className="text-sm text-[#E8ECF1] self-end pb-2">{message}</p>}
       </div>
 
       {/* Charger Grid (filtered) */}
@@ -149,30 +149,30 @@ export default function ChargersPage() {
           <Card title="충전기 목록" subtitle={`${filtered.length}대 표시`}>
             <table className="w-full text-left">
               <thead>
-                <tr className="border-b border-[#334155]">
-                  <th className="pb-3 pr-4 text-xs font-semibold text-[#94A3B8]">충전기 ID</th>
-                  <th className="pb-3 pr-4 text-xs font-semibold text-[#94A3B8]">전류</th>
-                  <th className="pb-3 pr-4 text-xs font-semibold text-[#94A3B8]">상태</th>
-                  <th className="pb-3 text-xs font-semibold text-[#94A3B8]">제어</th>
+                <tr className="border-b border-[#222933]">
+                  <th className="pb-3 pr-4 text-xs font-semibold text-[#98A2B3]">충전기 ID</th>
+                  <th className="pb-3 pr-4 text-xs font-semibold text-[#98A2B3]">전류</th>
+                  <th className="pb-3 pr-4 text-xs font-semibold text-[#98A2B3]">상태</th>
+                  <th className="pb-3 text-xs font-semibold text-[#98A2B3]">제어</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 && (
-                  <tr><td colSpan={4} className="py-4 text-sm text-[#94A3B8]">해당 상태의 충전기가 없습니다</td></tr>
+                  <tr><td colSpan={4} className="py-4 text-sm text-[#98A2B3]">해당 상태의 충전기가 없습니다</td></tr>
                 )}
                 {filtered.map((c) => (
                   <tr
                     key={c.id}
                     onClick={() => setSelectedCharger(c.id)}
-                    className={`border-b border-[#334155]/50 cursor-pointer transition-all hover:bg-[#334155]/20 ${
-                      selectedId === c.id ? 'bg-[#334155]/30' : ''
+                    className={`border-b border-[#222933]/50 cursor-pointer transition-all hover:bg-[#222933]/20 ${
+                      selectedId === c.id ? 'bg-[#222933]/30' : ''
                     }`}
                   >
-                    <td className="py-4 pr-4 font-medium text-[#F1F5F9]">{c.id}</td>
-                    <td className="py-4 pr-4 tabular-nums text-[#A78BFA] font-semibold">{c.current.toFixed(1)}A</td>
+                    <td className="py-4 pr-4 font-medium text-[#E8ECF1]">{c.id}</td>
+                    <td className="py-4 pr-4 tabular-nums text-[#9B8AFB] font-semibold">{c.current.toFixed(1)}A</td>
                     <td className="py-4 pr-4">
                       <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                        c.charging ? 'bg-[#10B981]/10 text-[#10B981]' : 'bg-[#334155]/50 text-[#94A3B8]'
+                        c.charging ? 'bg-[#2EBD85]/10 text-[#2EBD85]' : 'bg-[#222933]/50 text-[#98A2B3]'
                       }`}>
                         {c.charging ? '충전 중' : '대기'}
                       </span>
@@ -202,22 +202,22 @@ export default function ChargersPage() {
               {historyQ.data && historyQ.data.length > 1 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={historyQ.data} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                    <XAxis dataKey="time" tick={{ fill: '#94A3B8', fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} tickLine={false} axisLine={false}
+                    <CartesianGrid strokeDasharray="3 3" stroke="#222933" vertical={false} />
+                    <XAxis dataKey="time" tick={{ fill: '#98A2B3', fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fill: '#98A2B3', fontSize: 11 }} tickLine={false} axisLine={false}
                       tickFormatter={(v) => `${v}A`} />
                     <Tooltip
-                      contentStyle={{ backgroundColor: '#1E293B', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }}
+                      contentStyle={{ backgroundColor: '#0E1116', border: '1px solid #222933', borderRadius: 8, fontSize: 12 }}
                       formatter={(v: number) => [`${v}A`, '전류']}
                     />
-                    <Area type="monotone" dataKey="current" stroke="#A78BFA" strokeWidth={2}
-                      fill="#A78BFA" fillOpacity={0.15} />
+                    <Area type="monotone" dataKey="current" stroke="#9B8AFB" strokeWidth={2}
+                      fill="#9B8AFB" fillOpacity={0.15} />
                   </AreaChart>
                 </ResponsiveContainer>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-1">
-                  <p className="text-sm text-[#94A3B8]">아직 수집된 전류 이력이 없습니다</p>
-                  <p className="text-xs text-[#64748B]">ESP32가 측정값을 전송하면 자동으로 채워집니다</p>
+                  <p className="text-sm text-[#98A2B3]">아직 수집된 전류 이력이 없습니다</p>
+                  <p className="text-xs text-[#5C6673]">ESP32가 측정값을 전송하면 자동으로 채워집니다</p>
                 </div>
               )}
             </div>
@@ -230,34 +230,34 @@ export default function ChargersPage() {
             <Card title={`${selected.id} 상세`} subtitle="기기 텔레메트리">
               <div className="space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#94A3B8]">현재 전류</span>
-                  <span className="font-bold text-[#A78BFA] tabular-nums">{selected.current.toFixed(1)}A</span>
+                  <span className="text-[#98A2B3]">현재 전류</span>
+                  <span className="font-bold text-[#9B8AFB] tabular-nums">{selected.current.toFixed(1)}A</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#94A3B8]">상태</span>
-                  <span className={selected.charging ? 'text-[#34D399] font-semibold' : 'text-[#94A3B8]'}>
+                  <span className="text-[#98A2B3]">상태</span>
+                  <span className={selected.charging ? 'text-[#2EBD85] font-semibold' : 'text-[#98A2B3]'}>
                     {selected.charging ? '충전 중' : '대기'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#94A3B8]">정격 출력</span>
-                  <span className="text-[#F1F5F9] tabular-nums">7.0 kW</span>
+                  <span className="text-[#98A2B3]">정격 출력</span>
+                  <span className="text-[#E8ECF1] tabular-nums">7.0 kW</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#94A3B8]">전압</span>
-                  <span className="text-[#F1F5F9] tabular-nums">{selected.charging ? '220V' : '—'}</span>
+                  <span className="text-[#98A2B3]">전압</span>
+                  <span className="text-[#E8ECF1] tabular-nums">{selected.charging ? '220V' : '—'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-[#94A3B8]">통신</span>
-                  <span className="text-[#F1F5F9]">MQTT · ESP32</span>
+                  <span className="text-[#98A2B3]">통신</span>
+                  <span className="text-[#E8ECF1]">MQTT · ESP32</span>
                 </div>
-                <div className="border-t border-[#334155] pt-3">
-                  <p className="text-xs text-[#94A3B8] mb-1">센서 토픽</p>
-                  <p className="font-mono text-[11px] text-[#64748B] break-all">
+                <div className="border-t border-[#222933] pt-3">
+                  <p className="text-xs text-[#98A2B3] mb-1">센서 토픽</p>
+                  <p className="font-mono text-[11px] text-[#5C6673] break-all">
                     peakbridge/building-A/charger/{selected.id}/current
                   </p>
-                  <p className="text-xs text-[#94A3B8] mt-2 mb-1">제어 토픽</p>
-                  <p className="font-mono text-[11px] text-[#64748B] break-all">
+                  <p className="text-xs text-[#98A2B3] mt-2 mb-1">제어 토픽</p>
+                  <p className="font-mono text-[11px] text-[#5C6673] break-all">
                     peakbridge/building-A/charger/{selected.id}/control
                   </p>
                 </div>
@@ -265,7 +265,7 @@ export default function ChargersPage() {
             </Card>
           )}
           <Card title="확장 로드맵" subtitle="다중 브랜드 연동">
-            <p className="text-sm text-[#94A3B8] leading-relaxed">
+            <p className="text-sm text-[#98A2B3] leading-relaxed">
               현재 자체 ESP32 충전기 1기로 실증 중입니다.
               OCPP 표준 연동으로 차지비·에버온·파워큐브 등
               상용 충전기를 동일 파이프라인에 수용하는 것이 확장 계획입니다.
