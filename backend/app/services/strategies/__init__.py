@@ -18,12 +18,15 @@ from .backtest import (
 )
 from .base import Bid, MarketContext, Strategy
 from .library import registry
+from .stochastic import StochasticCVaR, make_scenarios
 
 __all__ = [
     "Bid",
     "MarketContext",
     "Strategy",
     "registry",
+    "StochasticCVaR",
+    "make_scenarios",
     "MarketSimulator",
     "BacktestResult",
     "DayResult",

@@ -148,6 +148,100 @@ export interface ForecastQuality {
   calibration?: { bucket: number; forecast_mean: number; actual_mean: number; gap: number }[];
 }
 
+export interface HedgeDecisionRow {
+  hour: number;
+  obligation_kw: number;
+  deliverable_kw: number;
+  shortfall_kw: number;
+  rt_price: number;
+  penalty_price: number;
+  action: 'hedge' | 'accept_penalty' | 'none';
+  cost_won: number;
+  saved_won: number;
+  reason: string;
+}
+
+export interface HedgePlan {
+  strategy?: string;
+  available_kwh?: number;
+  available_ratio?: number;
+  decisions: HedgeDecisionRow[];
+  summary: {
+    obligation_kwh?: number;
+    deliverable_kwh?: number;
+    shortfall_kwh?: number;
+    hedged_kwh?: number;
+    hedge_cost_won?: number;
+    penalty_avoided_won?: number;
+    penalty_paid_won?: number;
+    hedge_count?: number;
+    coverage_after?: number;
+  };
+  comparison?: {
+    without_hedge_won: number;
+    with_hedge_won: number;
+    improvement_won: number;
+    hedge_cost_won: number;
+    coverage_after: number;
+  };
+}
+
+export interface StochasticPlan {
+  scenarios?: number;
+  expected_won?: number;
+  cvar5_won?: number;
+  var5_won?: number;
+  worst_won?: number;
+  best_won?: number;
+  loss_prob?: number;
+  active_hours?: number;
+  bids?: Bid[];
+}
+
+export interface SettlementLine {
+  item: string;
+  label: string;
+  ours_won: number;
+  theirs_won: number;
+  diff_won: number;
+  diff_pct: number;
+  verdict: 'match' | 'minor' | 'dispute';
+}
+
+export interface SettlementCheck {
+  strategy?: string;
+  error_mode?: string;
+  status?: 'match' | 'minor' | 'dispute' | 'error';
+  checks: SettlementLine[];
+  underpaid_won?: number;
+  overpaid_won?: number;
+  dispute_items?: string[];
+  summary?: string;
+}
+
+export interface OverfitReport {
+  best_strategy?: string;
+  test_days?: number;
+  deflated_sharpe?: {
+    observed_sharpe_annual?: number;
+    trials?: number;
+    expected_max_sharpe_annual?: number;
+    deflated_sharpe_prob?: number;
+    significant?: boolean;
+    skew?: number;
+    kurtosis?: number;
+    samples?: number;
+    verdict?: string;
+  };
+  pbo?: {
+    pbo?: number;
+    combinations?: number;
+    splits?: number;
+    strategies?: number;
+    verdict?: string;
+  };
+}
+
 export interface RiskCheckRow {
   code: string;
   severity: 'ok' | 'warn' | 'breach';
@@ -311,6 +405,15 @@ export const consoleApi = {
     get<PreTrade>(`/desk/pre-trade${strategy ? `?strategy=${encodeURIComponent(strategy)}` : ''}`, 12000),
   deskSeed: (strategy = 'zscore', days = 30) =>
     post<{ seeded: number; fills: number }>('/desk/seed', { strategy, days }),
+  deskHedge: (availableRatio = 0.7, strategy?: string) =>
+    get<HedgePlan>(
+      `/desk/hedge?available_ratio=${availableRatio}${strategy ? `&strategy=${encodeURIComponent(strategy)}` : ''}`,
+      12000,
+    ),
+  deskStochastic: (scenarios = 200) => get<StochasticPlan>(`/desk/stochastic?scenarios=${scenarios}`, 15000),
+  deskSettlement: (errorMode = 'underpay') =>
+    get<SettlementCheck>(`/desk/settlement?error_mode=${errorMode}`, 12000),
+  deskOverfit: (days = 60) => get<OverfitReport>(`/desk/overfit?days=${days}`, 30000),
   deskKillReset: () => post<{ kill_switch: boolean }>('/desk/kill-switch/reset', {}),
   deskReset: () => post<{ reset: boolean }>('/desk/reset', {}),
 

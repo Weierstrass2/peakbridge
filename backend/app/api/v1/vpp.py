@@ -234,12 +234,34 @@ async def get_stream(session: DbSession) -> dict:
         forecast = round(demand + 9 * math.sin(t / 450.0 + 1.0), 1)
         forecast_source = "sim"
 
-    # SMP (요금 기반 추정 + 변동 — 시뮬레이션 표기)
+    # ── SMP: 시간대별 확정값 (계단형) ──────────────────────────
+    # 실제 SMP는 하루전시장에서 시간대별로 확정된다. 정시에만 바뀌고,
+    # 시간 내에서는 상수다. 초 단위로 요동치게 만들면 시장 문법과 어긋난다.
+    # (분 단위로 움직이는 가격은 실시간시장(RT) — 아래 rt_price로 따로 제공)
+    _now_kst = __import__("datetime").datetime.now(
+        __import__("datetime").timezone(__import__("datetime").timedelta(hours=9))
+    )
+    hour = _now_kst.hour
+    smp = None
     try:
-        base_rate = float(optimizer.get_current_rate()["rate"])
-    except Exception:
-        base_rate = 84.5
-    smp = round(base_rate * 1.15 + 12 * math.sin(t / 600.0) + random.uniform(-1.5, 1.5), 1)
+        from app.services.market_service import market_service
+
+        curve = market_service.mcp_forecast()      # 24개 시간대 확정 곡선
+        if curve and len(curve) == 24:
+            smp = round(float(curve[hour]), 1)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("stream_smp_curve_failed", error=str(exc))
+    if smp is None:
+        try:
+            base_rate = float(optimizer.get_current_rate()["rate"])
+        except Exception:  # noqa: BLE001
+            base_rate = 84.5
+        smp = round(base_rate * 1.15, 1)           # 폴백도 시간 내 상수
+
+    # 실시간시장 가격 — 15분 슬롯 단위로만 갱신 (제주 시범사업 구조)
+    slot = int(_now_kst.minute // 15)
+    rt_seed = hash((_now_kst.year, _now_kst.month, _now_kst.day, hour, slot)) % 10_000
+    rt_price = round(smp * (1 + ((rt_seed / 10_000) - 0.5) * 0.12), 1)
 
     snap = {
             "ts": __import__("datetime").datetime.now(
@@ -251,6 +273,11 @@ async def get_stream(session: DbSession) -> dict:
             "forecast_lo": round(forecast * (1 - ci_ratio), 1),
             "forecast_source": forecast_source,
             "smp": smp, "dr_active": discharging,
+            # 가격 문법 표기 — 화면에서 '시간별 확정'과 '실시간'을 구분해 보여준다
+            "smp_basis": "hourly",          # 하루전시장 시간대별 확정
+            "smp_hour": hour,
+            "rt_price": rt_price,           # 실시간시장 15분 슬롯
+            "rt_slot": f"{hour:02d}:{slot * 15:02d}",
         }
     if not _stream_hist or _stream_hist[-1]["ts"] != snap["ts"]:
         _stream_hist.append(snap)

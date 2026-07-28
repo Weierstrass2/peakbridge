@@ -366,6 +366,9 @@ class BanditSelector:
         self.w = np.clip(self.w, 1e-3, 1e3)
 
 
+from .stochastic import StochasticCVaR  # noqa: E402
+
+
 def registry() -> dict:
     """벤치마크 대상 전략 목록 — 이름 → 인스턴스 팩토리."""
     return {
@@ -378,6 +381,7 @@ def registry() -> dict:
         "vol_scaled": VolatilityScaled,
         "cvar_guard": PenaltyAwareCVaR,
         "cem_policy": CEMPolicy,
+        "stochastic_cvar": StochasticCVaR,
         "ensemble": EnsembleMedian,
         "bandit": BanditSelector,
     }

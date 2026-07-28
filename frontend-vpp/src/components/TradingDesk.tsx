@@ -6,7 +6,11 @@ import {
   type DeskTca,
   type Fill,
   type ForecastQuality,
+  type HedgePlan,
+  type OverfitReport,
   type PreTrade,
+  type SettlementCheck,
+  type StochasticPlan,
 } from '../lib/api';
 
 const won = (n: number | null | undefined) =>
@@ -31,6 +35,12 @@ export default function TradingDesk({
   const [fills, setFills] = useState<Fill[]>([]);
   const [tca, setTca] = useState<DeskTca>({});
   const [fq, setFq] = useState<ForecastQuality>({});
+  const [hedge, setHedge] = useState<HedgePlan | null>(null);
+  const [stoch, setStoch] = useState<StochasticPlan | null>(null);
+  const [availRatio, setAvailRatio] = useState(0.6);   // 급전 시점 가용 에너지 시나리오
+  const [settle, setSettle] = useState<SettlementCheck | null>(null);
+  const [errMode, setErrMode] = useState('underpay');
+  const [ofit, setOfit] = useState<OverfitReport | null>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -64,6 +74,61 @@ export default function TradingDesk({
           : `사전 리스크 심사 통과 (${data.strategy}) · VaR95 ₩${won(data.var95_won)}`,
       );
     } catch { onLog('warn', '사전 리스크 심사 실패'); }
+    finally { setBusy(false); }
+  };
+
+  const runStochastic = async () => {
+    setBusy(true);
+    try {
+      const { data } = await consoleApi.deskStochastic(200);
+      setStoch(data);
+      onLog(
+        'ok',
+        `확률적 입찰 — 시나리오 ${data.scenarios}개 · 기대 ₩${won(data.expected_won)} · ` +
+          `CVaR5 ₩${won(data.cvar5_won)} · 손실확률 ${Math.round((data.loss_prob ?? 0) * 100)}%`,
+      );
+    } catch { onLog('warn', '확률적 입찰 계산 실패'); }
+    finally { setBusy(false); }
+  };
+
+  const runHedge = async (ratio = availRatio) => {
+    setBusy(true);
+    try {
+      const { data } = await consoleApi.deskHedge(ratio);
+      setHedge(data);
+      const sm = data.summary ?? {};
+      onLog(
+        (sm.hedged_kwh ?? 0) > 0 ? 'ok' : 'info',
+        `RT 헤지 — 부족 ${sm.shortfall_kwh ?? 0}kWh 중 ${sm.hedged_kwh ?? 0}kWh 매수 커버 · ` +
+          `위약 회피 ₩${won(sm.penalty_avoided_won)} · 커버리지 ${sm.coverage_after ?? '—'}`,
+      );
+    } catch { onLog('warn', 'RT 헤지 계획 실패'); }
+    finally { setBusy(false); }
+  };
+
+  const runSettlement = async (mode = errMode) => {
+    setBusy(true);
+    try {
+      const { data } = await consoleApi.deskSettlement(mode);
+      setSettle(data);
+      onLog(
+        data.status === 'dispute' ? 'crit' : data.status === 'minor' ? 'warn' : 'ok',
+        `정산 검증 — ${data.summary}` +
+          ((data.underpaid_won ?? 0) > 0 ? ` · 미지급 ₩${won(data.underpaid_won)}` : ''),
+      );
+    } catch { onLog('warn', '정산 검증 실패'); }
+    finally { setBusy(false); }
+  };
+
+  const runOverfit = async () => {
+    setBusy(true);
+    try {
+      const { data } = await consoleApi.deskOverfit(60);
+      setOfit(data);
+      const d = data.deflated_sharpe ?? {};
+      const p = data.pbo ?? {};
+      onLog('ok', `과최적화 진단 — DSR ${d.deflated_sharpe_prob} (${d.verdict}) · PBO ${p.pbo} (${p.verdict})`);
+    } catch { onLog('warn', '과최적화 진단 실패'); }
     finally { setBusy(false); }
   };
 
@@ -114,6 +179,18 @@ export default function TradingDesk({
         <div className="desk-actions">
           <button className="cbtn tiny" disabled={busy} onClick={runPreTrade} type="button">
             <b>사전 리스크 심사</b>
+          </button>
+          <button className="cbtn tiny" disabled={busy} onClick={runStochastic} type="button">
+            <b>확률적 입찰</b>
+          </button>
+          <button className="cbtn tiny" disabled={busy} onClick={() => runHedge()} type="button">
+            <b>RT 헤지 계획</b>
+          </button>
+          <button className="cbtn tiny" disabled={busy} onClick={() => runSettlement()} type="button">
+            <b>정산 검증</b>
+          </button>
+          <button className="cbtn tiny" disabled={busy} onClick={runOverfit} type="button">
+            <b>과최적화 진단</b>
           </button>
           <button className="cbtn tiny" disabled={busy} onClick={seed} type="button">
             <b>과거 30일 적재</b>
@@ -262,6 +339,210 @@ export default function TradingDesk({
             <div><span>표본</span><b>{fq.samples ?? 0}</b></div>
           </div>
           {fq.verdict && <div className="desk-note">예측 진단: {fq.verdict}</div>}
+        </section>
+
+
+        {/* ── 확률적 입찰 (시나리오 분포) ── */}
+        <section className="desk-card">
+          <h4>확률적 입찰 <span>SCENARIO · CVaR</span></h4>
+          {!stoch ? (
+            <div className="desk-empty">[확률적 입찰]을 누르면 가격·가용에너지 시나리오 200개로 분포를 계산합니다.</div>
+          ) : (
+            <>
+              <div className="dist">
+                {(() => {
+                  // 5구간 요약 분포 — 최악 / VaR / 기대 / 상위 / 최고
+                  const marks: [string, number, string][] = [
+                    ['최악', stoch.worst_won ?? 0, 'var(--crit)'],
+                    ['CVaR 5%', stoch.cvar5_won ?? 0, 'var(--crit)'],
+                    ['VaR 5%', stoch.var5_won ?? 0, 'var(--warn)'],
+                    ['기대', stoch.expected_won ?? 0, 'var(--ok)'],
+                    ['최고', stoch.best_won ?? 0, 'var(--acc)'],
+                  ];
+                  const lo = Math.min(...marks.map((m) => m[1]), 0);
+                  const hi = Math.max(...marks.map((m) => m[1]), 1);
+                  const span = hi - lo || 1;
+                  const zero = ((0 - lo) / span) * 100;
+                  return marks.map(([label, v, c]) => {
+                    const x = ((v - lo) / span) * 100;
+                    const left = Math.min(x, zero);
+                    const width = Math.abs(x - zero);
+                    return (
+                      <div className="dist-row" key={label}>
+                        <span className="lb">{label}</span>
+                        <div className="track">
+                          <i className="zero" style={{ left: `${zero}%` }} />
+                          <b style={{ left: `${left}%`, width: `${Math.max(width, 0.8)}%`, background: c }} />
+                        </div>
+                        <span className="vl" style={{ color: v < 0 ? 'var(--crit)' : 'var(--tx-1)' }}>{signed(v)}</span>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+              <div className="kv-grid" style={{ marginTop: 8, gridTemplateColumns: 'repeat(3, 1fr)' }}>
+                <div><span>손실 확률</span><b style={{ color: (stoch.loss_prob ?? 0) > 0.2 ? 'var(--warn)' : 'var(--ok)' }}>
+                  {Math.round((stoch.loss_prob ?? 0) * 100)}%
+                </b></div>
+                <div><span>응찰 구간</span><b>{stoch.active_hours ?? 0}</b></div>
+                <div><span>시나리오</span><b>{stoch.scenarios ?? 0}</b></div>
+              </div>
+              <div className="desk-note">
+                기대이익만 보지 않고 하위 5% 꼬리(CVaR)가 허용선 아래로 내려가지 않도록 제약을 건 해입니다.
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* ── 실시간시장 헤지 ── */}
+        <section className="desk-card">
+          <h4>실시간시장 헤지 <span>RT HEDGE</span></h4>
+          <div className="hedge-ctl">
+            <span>급전 시점 가용 에너지</span>
+            <input
+              type="range" min={0.2} max={1} step={0.1} value={availRatio}
+              onChange={(e) => setAvailRatio(Number(e.target.value))}
+              onMouseUp={() => runHedge()}
+            />
+            <b>{Math.round(availRatio * 100)}%</b>
+          </div>
+          {!hedge || (hedge.decisions ?? []).length === 0 ? (
+            <div className="desk-empty">[RT 헤지 계획]을 누르면 부족 구간별로 매수 커버 여부를 판단합니다.</div>
+          ) : (
+            <>
+              <div className="hedge-sum">
+                <div><span>인도 의무</span><b>{hedge.summary.obligation_kwh ?? 0} kWh</b></div>
+                <div><span>부족분</span><b style={{ color: 'var(--warn)' }}>{hedge.summary.shortfall_kwh ?? 0} kWh</b></div>
+                <div><span>RT 매수</span><b style={{ color: 'var(--acc)' }}>{hedge.summary.hedged_kwh ?? 0} kWh</b></div>
+                <div><span>위약 회피</span><b style={{ color: 'var(--ok)' }}>₩{won(hedge.summary.penalty_avoided_won)}</b></div>
+                <div><span>커버리지</span><b>{hedge.summary.coverage_after ?? '—'}</b></div>
+              </div>
+              <table className="dg">
+                <thead>
+                  <tr><th className="num">구간</th><th className="num">부족 kW</th><th className="num">RT가</th>
+                    <th className="num">위약단가</th><th>판단</th></tr>
+                </thead>
+                <tbody>
+                  {hedge.decisions.filter((d) => d.shortfall_kw > 0).map((d) => (
+                    <tr key={d.hour}>
+                      <td className="num">{String(d.hour).padStart(2, '0')}시</td>
+                      <td className="num" style={{ color: 'var(--warn)' }}>{d.shortfall_kw}</td>
+                      <td className="num">{d.rt_price}</td>
+                      <td className="num" style={{ color: 'var(--crit)' }}>{d.penalty_price}</td>
+                      <td style={{ color: d.action === 'hedge' ? 'var(--ok)' : 'var(--crit)' }}>
+                        {d.action === 'hedge' ? 'RT 매수 커버' : '위약금 수용'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {hedge.comparison && (
+                <div className="hedge-cmp">
+                  헤지 없음 <b style={{ color: 'var(--crit)' }}>{signed(hedge.comparison.without_hedge_won)}</b>
+                  <span>→</span>
+                  헤지 적용 <b style={{ color: 'var(--ok)' }}>{signed(hedge.comparison.with_hedge_won)}</b>
+                  <em>개선 {signed(hedge.comparison.improvement_won)}</em>
+                </div>
+              )}
+              <div className="desk-note">
+                무조건 헤지하지 않습니다. RT 매수비용이 위약금(MCP×1.2)보다 쌀 때만 커버합니다.
+              </div>
+            </>
+          )}
+        </section>
+
+
+        {/* ── 정산 검증 ── */}
+        <section className="desk-card">
+          <h4>정산 검증 <span>SHADOW SETTLEMENT</span></h4>
+          <div className="hedge-ctl">
+            <span>정산서 오류 시나리오</span>
+            <select
+              value={errMode}
+              onChange={(e) => { setErrMode(e.target.value); runSettlement(e.target.value); }}
+              className="sel"
+            >
+              <option value="none">정상</option>
+              <option value="underpay">에너지 정산금 누락</option>
+              <option value="penalty_over">위약금 과다 부과</option>
+              <option value="capacity_miss">용량요금 미지급</option>
+            </select>
+          </div>
+          {!settle ? (
+            <div className="desk-empty">[정산 검증]을 누르면 거래소 정산서와 자체 계산을 대조합니다.</div>
+          ) : (
+            <>
+              <div
+                className="desk-verdict"
+                style={{ color: settle.status === 'dispute' ? 'var(--crit)' : settle.status === 'minor' ? 'var(--warn)' : 'var(--ok)' }}
+              >
+                {settle.summary}
+              </div>
+              <table className="dg">
+                <thead>
+                  <tr><th>항목</th><th className="num">자체 계산</th><th className="num">정산서</th>
+                    <th className="num">차이</th><th className="num">%</th><th>판정</th></tr>
+                </thead>
+                <tbody>
+                  {settle.checks.map((l) => (
+                    <tr key={l.item}>
+                      <td>{l.label}</td>
+                      <td className="num">{won(l.ours_won)}</td>
+                      <td className="num">{won(l.theirs_won)}</td>
+                      <td className="num" style={{ color: l.diff_won < 0 ? 'var(--crit)' : l.diff_won > 0 ? 'var(--warn)' : 'var(--tx-3)' }}>
+                        {l.diff_won === 0 ? '—' : signed(l.diff_won)}
+                      </td>
+                      <td className="num" style={{ color: 'var(--tx-3)' }}>{l.diff_pct}</td>
+                      <td style={{ color: l.verdict === 'dispute' ? 'var(--crit)' : l.verdict === 'minor' ? 'var(--warn)' : 'var(--ok)' }}>
+                        {l.verdict === 'dispute' ? '이의신청' : l.verdict === 'minor' ? '경미' : '일치'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="desk-note">
+                허용오차(계량·반올림) 0.5% 이내는 일치로 봅니다. 2% 이상 어긋나면 소액이라도
+                계통적 오류로 판단해 이의신청 대상으로 표시합니다.
+              </div>
+            </>
+          )}
+        </section>
+
+        {/* ── 과최적화 진단 ── */}
+        <section className="desk-card">
+          <h4>과최적화 진단 <span>DSR · PBO</span></h4>
+          {!ofit?.deflated_sharpe ? (
+            <div className="desk-empty">[과최적화 진단]을 누르면 시행 횟수를 보정한 유의성을 계산합니다.</div>
+          ) : (
+            <>
+              <div className="kv-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+                <div><span>관측 Sharpe</span><b>{ofit.deflated_sharpe.observed_sharpe_annual}</b></div>
+                <div><span>우연 기대 최대</span><b style={{ color: 'var(--tx-3)' }}>{ofit.deflated_sharpe.expected_max_sharpe_annual}</b></div>
+                <div><span>DSR</span><b style={{ color: ofit.deflated_sharpe.significant ? 'var(--ok)' : 'var(--warn)' }}>
+                  {ofit.deflated_sharpe.deflated_sharpe_prob}
+                </b></div>
+                <div><span>PBO</span><b style={{ color: (ofit.pbo?.pbo ?? 0) < 0.25 ? 'var(--ok)' : 'var(--crit)' }}>
+                  {ofit.pbo?.pbo}
+                </b></div>
+              </div>
+              <div className="ofit-verdicts">
+                <div>
+                  <b>Deflated Sharpe</b>
+                  <span>{ofit.deflated_sharpe.verdict}</span>
+                  <em>전략 {ofit.deflated_sharpe.trials}개를 시험했다는 사실을 보정한 결과</em>
+                </div>
+                <div>
+                  <b>PBO</b>
+                  <span>{ofit.pbo?.verdict}</span>
+                  <em>{ofit.pbo?.combinations}개 조합에서 학습 1등이 검증에서 중앙값 아래로 떨어진 비율</em>
+                </div>
+              </div>
+              <div className="desk-note">
+                최고 전략 <b>{ofit.best_strategy}</b> · 검증 {ofit.test_days}일 ·
+                왜도 {ofit.deflated_sharpe.skew} / 첨도 {ofit.deflated_sharpe.kurtosis}
+              </div>
+            </>
+          )}
         </section>
 
         {/* ── 블로터 ── */}

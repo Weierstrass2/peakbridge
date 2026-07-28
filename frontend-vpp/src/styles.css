@@ -573,3 +573,38 @@ body {
 .kv-grid b { font-size: 13px; font-family: var(--font-num); font-variant-numeric: tabular-nums; color: var(--tx-1); }
 
 @media (max-width: 1200px) { .desk-grid { grid-template-columns: 1fr; } }
+
+/* 확률 분포 막대 */
+.dist { display: flex; flex-direction: column; gap: 5px; }
+.dist-row { display: grid; grid-template-columns: 56px 1fr 86px; align-items: center; gap: 8px; font-size: 11px; }
+.dist-row .lb { color: var(--tx-2); }
+.dist-row .track { position: relative; height: 10px; background: var(--bg-3); border-radius: 2px; }
+.dist-row .track i.zero { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-2); }
+.dist-row .track b { position: absolute; top: 2px; bottom: 2px; border-radius: 1px; }
+.dist-row .vl { text-align: right; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+
+/* 헤지 패널 */
+.hedge-ctl { display: flex; align-items: center; gap: 9px; font-size: 10px; color: var(--tx-3); margin-bottom: 8px; }
+.hedge-ctl input { flex: 1; accent-color: var(--acc); }
+.hedge-ctl b { font-family: var(--font-num); color: var(--tx-1); font-size: 11px; min-width: 34px; text-align: right; }
+.hedge-sum { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px; }
+.hedge-sum div { display: flex; flex-direction: column; gap: 2px; }
+.hedge-sum span { font-size: 9px; color: var(--tx-3); letter-spacing: 0.06em; }
+.hedge-sum b { font-size: 12px; font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.hedge-cmp {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px; padding: 7px 10px;
+  background: var(--bg-2); border-radius: 3px; font-size: 11px; color: var(--tx-2);
+}
+.hedge-cmp b { font-family: var(--font-num); }
+.hedge-cmp em { font-style: normal; margin-left: auto; color: var(--ok); font-family: var(--font-num); }
+
+/* 정산 검증 · 과최적화 진단 */
+.sel {
+  background: var(--bg-3); color: var(--tx-1); border: 1px solid var(--line-1);
+  border-radius: 3px; padding: 3px 7px; font-size: 10px; font-family: inherit;
+}
+.ofit-verdicts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+.ofit-verdicts div { background: var(--bg-2); border-radius: 3px; padding: 8px 10px; display: flex; flex-direction: column; gap: 3px; }
+.ofit-verdicts b { font-size: 10px; letter-spacing: 0.08em; color: var(--tx-3); font-weight: 600; }
+.ofit-verdicts span { font-size: 12px; color: var(--tx-1); }
+.ofit-verdicts em { font-style: normal; font-size: 9.5px; color: var(--tx-3); line-height: 1.45; }
