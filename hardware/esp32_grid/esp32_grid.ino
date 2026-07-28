@@ -19,7 +19,10 @@ const int CT_PIN = 34;
 const float CT_CALIBRATION = 30;
 const int LED_PIN = 2;
 
-float PEAK_THRESHOLD = 15.0;
+// 서버 폴링 실패 시 폴백 임계치 — 실측 스케일(CT ~0.08A)에 맞춘 값.
+// 정상 경로에서는 부팅 시 서버값(/settings)으로 덮어써진다.
+const float FALLBACK_THRESHOLD = 0.1;
+float PEAK_THRESHOLD = FALLBACK_THRESHOLD;
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -40,13 +43,13 @@ float getThresholdFromServer() {
   HTTPClient http;
   http.begin(secureClient, "https://peakbridge-production.up.railway.app/api/v1/control/building-A/settings");
   int httpCode = http.GET();
-  float threshold = 15.0;
+  float threshold = FALLBACK_THRESHOLD;
   if (httpCode == 200) {
     String payload = http.getString();
     StaticJsonDocument<512> doc;
     if (deserializeJson(doc, payload) == DeserializationError::Ok) {
       // 응답 봉투: {"success": true, "data": {"threshold": ..., "auto_mode": ...}}
-      threshold = doc["data"]["threshold"] | 15.0;
+      threshold = doc["data"]["threshold"] | FALLBACK_THRESHOLD;
     }
   }
   http.end();
@@ -82,6 +85,8 @@ void setupWiFi() {
 
 void reconnect() {
   while (!client.connected()) {
+    // Wi-Fi가 죽어 있으면 MQTT 재시도는 무의미 — loop()의 Wi-Fi 복구로 반환
+    if (WiFi.status() != WL_CONNECTED) return;
     if (client.connect(DEVICE_ID)) {
       Serial.println("MQTT 연결 완료");
       client.subscribe(MQTT_CONFIG_TOPIC);
@@ -106,6 +111,10 @@ void setup() {
 }
 
 void loop() {
+  // Wi-Fi가 운영 중 끊기면 MQTT 재연결만으로는 복구 불가 — Wi-Fi부터 재수립
+  if (WiFi.status() != WL_CONNECTED) {
+    setupWiFi();
+  }
   if (!client.connected()) {
     reconnect();
   }

@@ -41,9 +41,17 @@ void setLEDs(String mode) {
 }
 
 void setupWiFi() {
+  int attempts = 0;
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED && attempts < 10) {
+    Serial.println("Wi-Fi 연결 중...");
     delay(500);
+    attempts++;
+  }
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("Wi-Fi 연결 실패, ESP32 재시작...");
+    ESP.restart();
   }
 }
 
@@ -67,7 +75,10 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 void reconnect() {
   while (!client.connected()) {
+    // Wi-Fi가 죽어 있으면 MQTT 재시도는 무의미 — loop()의 Wi-Fi 복구로 반환
+    if (WiFi.status() != WL_CONNECTED) return;
     if (client.connect(DEVICE_ID)) {
+      Serial.println("MQTT 연결 완료");
       client.subscribe(MQTT_SUB_TOPIC);
     } else {
       delay(5000);
@@ -76,6 +87,7 @@ void reconnect() {
 }
 
 void setup() {
+  Serial.begin(115200);
   pinMode(RED_LED_PIN, OUTPUT);
   pinMode(BLUE_LED_PIN, OUTPUT);
   pinMode(GREEN_LED_PIN, OUTPUT);
@@ -89,6 +101,10 @@ void setup() {
 }
 
 void loop() {
+  // Wi-Fi가 운영 중 끊기면 MQTT 재연결만으로는 복구 불가 — Wi-Fi부터 재수립
+  if (WiFi.status() != WL_CONNECTED) {
+    setupWiFi();
+  }
   if (!client.connected()) {
     reconnect();
   }
