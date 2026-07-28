@@ -146,6 +146,23 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
 - **환경**: `shain1912/esp32-skills` 스킬 저장소 최신화 —
   `xiao-esp32s3-mqtt-dashboard`(멀티보드 MQTT 대시보드) 신규 설치, 기존 4종은 동일.
 
+### 10차 세션 후반 — 파트너 실증 데모 병합분 전체 검수 (`e950ef21`~)
+- **파트너 작업 검수 완료**: `hardware/server`(FastAPI :8010 + SQLite + MQTT 게이트웨이
+  + 구성B 어댑터 + 클라우드 브리지) + `hardware/dashboard`(React :5181) + 문서 3종
+  (README_LOCAL_DEMO / FIRMWARE_MQTT_SPEC / HARDWARE_BUILD_PLAN). 코드 품질 양호,
+  기존 backend/frontend 무수정 원칙 준수 확인.
+- **자동 검증 5종 재현 통과 (42/42)**: verify_local 13 / verify_mqtt 4 / verify_legacy 8
+  / verify_ina 8 / verify_bridge 9. 대시보드 tsc+vite 빌드, 서버 py 컴파일,
+  frontend 디자인 변경분 tsc 전부 통과.
+- **⚠️ Windows 개발환경 주의**: 이 노트북에서 `python` 명령은 MS Store 스텁(무동작) —
+  반드시 `py` 런처 사용. verify 스크립트는 한글 출력 때문에 `PYTHONUTF8=1` 필요:
+  `PYTHONUTF8=1 py verify_local.py`
+- **프로덕션 임계치 참고**: `/control/building-A/settings`가 10.0을 반환 중이었음 —
+  과거 슬라이더 설정의 in-memory 잔존값. 재배포 시 env(`PEAK_THRESHOLD_A=0.08`)로
+  초기화되므로 정상. **시연 직전 이 값이 0.08인지 반드시 확인할 것.**
+- 대시보드 `package-lock.json` 커밋(재현 빌드), `*.tsbuildinfo` ignore 추가,
+  `AI_BENCHMARK_REPORT.md`(모델 3종 벤치마크) 저장소에 편입.
+
 ## 남은 백로그 (의도적 미구현 — 필요성 낮음)
 - C2 WebSocket 전환 (3초 폴링으로 시연 충분)
 - 정식 JWT 콘솔 로그인 (시연 마찰 증가)
