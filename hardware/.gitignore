@@ -3,6 +3,7 @@
 *.db-shm
 node_modules/
 dist/
+*.tsbuildinfo
 wifi_secrets*
 __pycache__/
 *.pyc
