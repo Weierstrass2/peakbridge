@@ -1,6 +1,6 @@
-#include &lt;WiFi.h&gt;
-#include &lt;PubSubClient.h&gt;
-#include &lt;ArduinoJson.h&gt;
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
 
 const char* WIFI_SSID = "여기에_와이파이_이름";
 const char* WIFI_PASSWORD = "여기에_와이파이_비밀번호";
@@ -48,13 +48,13 @@ void setupWiFi() {
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
-  StaticJsonDocument&lt;256&gt; doc;
+  StaticJsonDocument<256> doc;
   deserializeJson(doc, payload, length);
 
   String action = doc["action"];
   setLEDs(action);
 
-  StaticJsonDocument&lt;256&gt; ackDoc;
+  StaticJsonDocument<256> ackDoc;
   ackDoc["status"] = "ok";
   ackDoc["action"] = action;
   ackDoc["device_id"] = DEVICE_ID;

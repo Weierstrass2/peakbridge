@@ -4,7 +4,7 @@ sudo apt-get update
 sudo apt-get install -y mosquitto mosquitto-clients
 
 # 설정 파일
-sudo bash -c 'cat &gt; /etc/mosquitto/mosquitto.conf &lt;&lt; EOF
+sudo bash -c 'cat > /etc/mosquitto/mosquitto.conf << EOF
 listener 1883
 allow_anonymous true
 log_dest file /var/log/mosquitto/mosquitto.log

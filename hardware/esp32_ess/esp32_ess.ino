@@ -1,7 +1,7 @@
-#include &lt;WiFi.h&gt;
-#include &lt;PubSubClient.h&gt;
-#include &lt;ArduinoJson.h&gt;
-#include &lt;Adafruit_INA219.h&gt;
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
+#include <Adafruit_INA219.h>
 
 const char* WIFI_SSID = "여기에_와이파이_이름";
 const char* WIFI_PASSWORD = "여기에_와이파이_비밀번호";
@@ -35,9 +35,9 @@ void reconnect() {
 }
 
 float calculateSOC(float voltage) {
-  if (voltage &gt;= VOLTAGE_MAX) {
+  if (voltage >= VOLTAGE_MAX) {
     return 100.0;
-  } else if (voltage &lt;= VOLTAGE_MIN) {
+  } else if (voltage <= VOLTAGE_MIN) {
     return 0.0;
   } else {
     return ((voltage - VOLTAGE_MIN) / (VOLTAGE_MAX - VOLTAGE_MIN)) * 100.0;
@@ -60,7 +60,7 @@ void loop() {
   float current = ina219.getCurrent_mA() / 1000.0;
   float soc = calculateSOC(voltage);
 
-  StaticJsonDocument&lt;256&gt; doc;
+  StaticJsonDocument<256> doc;
   doc["value"] = soc;
   doc["unit"] = "%";
   doc["voltage"] = voltage;

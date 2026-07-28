@@ -1,4 +1,4 @@
-// peak_shaving_core.ino
+// esp32_peak_shaving.ino
 // 목적: CT 센서(한전 인입 전류) + INA226(배터리->인버터 전류)을 함께 이용해
 //       릴레이를 자동으로 절체하는 최종 로직.
 //

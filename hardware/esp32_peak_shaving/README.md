@@ -75,7 +75,8 @@ INA226의 `getBusVoltage_V()`가 배선·통신 모두 정상인데도 항상 0�
 ## 파일 구성
 
 ### 최종 통합 코드
-- **`peak_shaving_core.ino`** — CT+INA226+배터리 전압+충전 LED가 모두 통합된 최종 버전. 실제 시연에 사용할 코드.
+- **`esp32_peak_shaving.ino`** — CT+INA226+배터리 전압+충전 LED가 모두 통합된 최종 버전. 실제 시연에 사용할 코드.
+  (구 `peak_shaving_core.ino` — 아두이노 규칙상 폴더명과 파일명이 같아야 해서 개명)
 
 ### 백업/대안 버전
 - **`peak_shaving_probe.ino`** — INA226 없이 CT만으로 동작하는 이전 버전 (15초 시험 절체 방식)

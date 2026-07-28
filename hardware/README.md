@@ -9,10 +9,11 @@ peakbridge/
 ├── backend/      ← 백엔드 (건드리지 마)
 ├── frontend/     ← 프론트 (건드리지 마)
 └── hardware/     ← 여기가 내 작업 폴더
-    ├── esp32_grid/       ← ESP32 #1 (그리드 전류)
-    ├── esp32_ess/        ← ESP32 #2 (ESS SOC)
-    ├── esp32_relay/      ← ESP32 #3 (릴레이 제어)
-    ├── raspberry_pi/     ← 라즈베리파이 설정
+    ├── esp32_grid/          ← ESP32 #1 (그리드 전류)
+    ├── esp32_ess/           ← ESP32 #2 (ESS SOC)
+    ├── esp32_relay/         ← ESP32 #3 (릴레이 제어)
+    ├── esp32_peak_shaving/  ← CT+INA226 통합 피크 셰이빙 (독립 데모)
+    ├── raspberry_pi/        ← 라즈베리파이 설정
     └── README.md
 ```
 
@@ -37,6 +38,12 @@ MQTT 설정:
 - 포트: 1883
 - 토픽: peakbridge/building-A/grid/current
 - 형식: `{"value": 18.4, "unit": "A", "device_id": "esp32-grid-01", "building_id": "building-A"}`
+
+임계치 동기화 (양방향):
+- 부팅 시: GET `https://peakbridge-production.up.railway.app/api/v1/control/building-A/settings`
+  → 응답 `{"success": true, "data": {"threshold": 0.5, "auto_mode": true}}`의 `data.threshold` 사용
+- 운영 중: `peakbridge/building-A/config` 토픽 구독 — 대시보드에서 임계치 변경 시
+  백엔드가 `{"threshold": 값}` 발행 (PUT /control/{id}/threshold가 자동 전파)
 
 필요한 라이브러리:
 - PubSubClient (MQTT)
