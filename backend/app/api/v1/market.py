@@ -10,6 +10,7 @@ from app.schemas.response import success_response
 from app.services.market_service import market_service
 from app.services.ops_service import ops_service
 from app.services.bid_ai import ai_bids
+from app.services.strategy_service import strategy_service
 
 logger = structlog.get_logger(__name__)
 
@@ -92,6 +93,58 @@ async def get_ai_bids() -> dict:
         return success_response(ai_bids(forecast))
     except Exception as exc:
         logger.error("market_ai_bids_failed", error=str(exc))
+        return success_response({"bids": []})
+
+
+# ── 전략 라이브러리 · 백테스트 리더보드 ─────────────────────
+
+@router.get("/strategies")
+async def list_strategies() -> dict:
+    """자동매매 전략 목록 + 백테스트 성과 (활성 전략 표시)."""
+    try:
+        return success_response({
+            "active": strategy_service.active,
+            "strategies": strategy_service.catalog(),
+        })
+    except Exception as exc:
+        logger.error("strategy_list_failed", error=str(exc))
+        return success_response({"active": None, "strategies": []})
+
+
+@router.get("/strategies/leaderboard")
+async def strategy_leaderboard() -> dict:
+    """백테스트 리더보드 원본 (scripts/benchmark_strategies.py 산출물)."""
+    try:
+        return success_response(strategy_service.leaderboard())
+    except Exception as exc:
+        logger.error("strategy_leaderboard_failed", error=str(exc))
+        return success_response({"leaderboard": []})
+
+
+class StrategySelect(BaseModel):
+    name: str = Field(description="활성화할 전략 이름")
+
+
+@router.post("/strategies/activate")
+async def activate_strategy(body: StrategySelect) -> dict:
+    """운영 입찰에 사용할 전략 교체 (in-memory — 재시작 시 기본값 복귀)."""
+    try:
+        return success_response(strategy_service.set_active(body.name))
+    except ValueError as exc:
+        return success_response({"error": str(exc)})
+
+
+@router.get("/strategy-bids")
+async def get_strategy_bids(strategy: str | None = None) -> dict:
+    """활성(또는 지정) 전략의 추천 입찰 곡선.
+
+    /ai-bids 가 학습 정책 전용이라면, 이쪽은 전략 라이브러리 전체를 대상으로 한다.
+    """
+    try:
+        forecast = market_service.mcp_forecast()
+        return success_response(strategy_service.build_bids(forecast, strategy=strategy))
+    except Exception as exc:
+        logger.error("strategy_bids_failed", error=str(exc))
         return success_response({"bids": []})
 
 
