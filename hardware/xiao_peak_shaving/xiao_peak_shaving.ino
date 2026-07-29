@@ -39,6 +39,7 @@ const int   MQTT_PORT     = 1883;
 const char* DEVICE_ID     = "ess-demo-01";        // 스펙 고정값
 const char* TOPIC_PUB     = "peakbridge/demo/telemetry";
 const char* TOPIC_SUB     = "peakbridge/demo/config";
+const char* TOPIC_CMD     = "peakbridge/demo/command";  // 1회성 명령(비retained) — SOC 리셋 등
 
 // ---------- CT 센서 ----------
 const int CT_PIN = 1;                 // XIAO ESP32S3: D0 (GPIO1)
@@ -99,11 +100,36 @@ unsigned long lastMqttAttemptMillis = 0;
 const unsigned long WIFI_RETRY_MS = 15000;   // Wi-Fi 재시도 간격
 const unsigned long MQTT_RETRY_MS = 5000;    // MQTT 재시도 간격
 
+// 1회성 명령 (비retained) — 현재는 soc_set(쿨롱 카운터 기준값 보정)만 지원.
+// 릴레이 제어 명령은 의도적으로 없다: 절체 판단은 항상 로컬 히스테리시스가 한다.
+void onCommand(JsonDocument& doc) {
+  const char* action = doc["action"] | "";
+  if (strcmp(action, "soc_set") == 0) {
+    float p = doc["percent"] | -1.0;
+    if (p < 0.0 || p > 100.0) {
+      Serial.println("command 거부: percent 범위 위반");
+      return;
+    }
+    gSocPercent = p;
+    lastSocMillis = millis();   // 적분 구간도 리셋 — 폴링 공백만큼의 오차 방지
+    Serial.print("command 적용: SOC ");
+    Serial.print(p, 0);
+    Serial.println("%로 리셋 (쿨롱 카운터 기준값 보정)");
+  } else {
+    Serial.print("command 무시: 알 수 없는 action ");
+    Serial.println(action);
+  }
+}
+
 // 서버가 내려주는 config (retained) — 펌웨어 자체 검증 후에만 적용, 불합격이면 기존 값 유지
 void onConfig(char* topic, byte* payload, unsigned int len) {
   StaticJsonDocument<256> doc;
   if (deserializeJson(doc, payload, len)) {
     Serial.println("config 거부: JSON 파싱 실패");
+    return;
+  }
+  if (strcmp(topic, TOPIC_CMD) == 0) {
+    onCommand(doc);
     return;
   }
   float high   = doc["threshold_high_a"] | gThresholdHigh;
@@ -142,7 +168,8 @@ void maintainNetwork() {
       lastMqttAttemptMillis = millis();
       if (mqtt.connect(DEVICE_ID)) {
         mqtt.subscribe(TOPIC_SUB, 1);   // QoS1 — retained config 즉시 수신
-        Serial.println("[통신] MQTT 연결 완료, config 구독");
+        mqtt.subscribe(TOPIC_CMD, 1);   // QoS1 — 1회성 명령(SOC 리셋 등)
+        Serial.println("[통신] MQTT 연결 완료, config·command 구독");
       } else {
         Serial.println("[통신] MQTT 연결 실패 (판단은 계속 동작)");
       }

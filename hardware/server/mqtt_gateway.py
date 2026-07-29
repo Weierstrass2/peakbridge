@@ -22,6 +22,9 @@ logger = logging.getLogger("mqtt_gateway")
 
 TOPIC_TELEMETRY = "peakbridge/demo/telemetry"
 TOPIC_CONFIG = "peakbridge/demo/config"
+# 1회성 명령(SOC 리셋 등) — config와 달리 retained 금지: 재부팅한 보드가
+# 과거 명령을 다시 받아 실행하면 안 된다.
+TOPIC_COMMAND = "peakbridge/demo/command"
 
 # 구성 B(팀원A 3-노드) 흡수 — 기본 ON. 끄려면 LEGACY_ADAPTER=0
 LEGACY_ENABLED = os.environ.get("LEGACY_ADAPTER", "1") != "0"
@@ -126,6 +129,19 @@ def publish_config(cfg: dict[str, Any]) -> None:
         logger.info("config retained 발행: %s", cfg)
     except Exception as exc:  # noqa: BLE001
         logger.warning("config 발행 실패: %s", exc)
+
+
+def publish_command(cmd: dict[str, Any]) -> bool:
+    """1회성 명령을 QoS1·비retained로 발행. 발행 시도 성공 여부 반환."""
+    if not (_enabled and _client):
+        return False
+    try:
+        _client.publish(TOPIC_COMMAND, json.dumps(cmd, ensure_ascii=False), qos=1, retain=False)
+        logger.info("command 발행: %s", cmd)
+        return True
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("command 발행 실패: %s", exc)
+        return False
 
 
 def stop() -> None:

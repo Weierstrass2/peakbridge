@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import type { ReactNode } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import type { DashboardData } from '../../types';
+import { controlApi } from '../../services/controlApi';
 import { MetricSkeleton } from '../common/LoadingSkeleton';
 
 interface TopMetricsProps {
@@ -37,6 +40,23 @@ function KPICard({
 }
 
 export default function TopMetrics({ data, loading }: TopMetricsProps) {
+  const qc = useQueryClient();
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetFailed, setResetFailed] = useState(false);
+
+  const resetEssSoc = async () => {
+    setResetBusy(true);
+    setResetFailed(false);
+    try {
+      await controlApi.resetEssSoc();
+      await qc.invalidateQueries({ queryKey: ['dashboard'] });
+    } catch {
+      setResetFailed(true); // 관리자 로그인 안 됐거나 서버 오류
+    } finally {
+      setResetBusy(false);
+    }
+  };
+
   if (loading || !data) {
     return (
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
@@ -78,6 +98,17 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
             style={{ width: `${data.ess_soc ?? 0}%` }}
           />
         </div>
+        <button
+          onClick={resetEssSoc}
+          disabled={resetBusy}
+          title="쿨롱 카운팅 기준값을 만충(100%)으로 보정합니다 — 배터리 교체·재충전 후 사용"
+          className="mt-3 w-full rounded-md bg-[#222933] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#303947] disabled:opacity-40"
+        >
+          {resetBusy ? '리셋 중…' : '100%로 리셋'}
+        </button>
+        {resetFailed && (
+          <p className="mt-1 text-[11px] text-[#E5484D]">리셋 실패 — 관리자 로그인 필요</p>
+        )}
       </KPICard>
       <KPICard
         label="CO2 절감"

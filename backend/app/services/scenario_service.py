@@ -41,6 +41,33 @@ _demo_now_utc: datetime | None = None
 # ESS 런타임(하드웨어 브리지가 올린 잔여 가동시간·SOC). in-memory, 신선도 체크용 시각 포함.
 _ess_runtime_state: dict[str, dict] = {}
 
+# ESS SOC 수동 리셋 요청 (in-memory). 대시보드 버튼 → 하드웨어 브리지가 폴링해
+# MQTT command로 펌웨어 쿨롱 카운터를 리셋한다. 릴레이 직접 제어가 아니라
+# SOC 기준값만 보정하는 경로 — 통신이 끊겨도 하드웨어 판단에는 영향 없다.
+_soc_reset_state: dict[str, dict] = {}
+
+
+def request_soc_reset(building_id: str, percent: float = 100.0) -> dict:
+    """SOC 리셋 요청 등록. id(ms 타임스탬프)로 브리지가 신규 여부를 판별한다."""
+    req = {
+        "id": int(datetime.now(timezone.utc).timestamp() * 1000),
+        "percent": percent,
+    }
+    _soc_reset_state[building_id] = req
+    logger.info("soc_reset_requested", building_id=building_id, percent=percent)
+    return req
+
+
+def get_soc_reset(building_id: str, max_age_s: float = 120.0) -> dict | None:
+    """대기 중인 SOC 리셋 요청 (기본 120초 이내만 유효 — 늦게 뜬 브리지가
+    수 시간 전 요청을 뒤늦게 실행하는 것 방지)."""
+    req = _soc_reset_state.get(building_id)
+    if not req:
+        return None
+    if datetime.now(timezone.utc).timestamp() * 1000 - req["id"] > max_age_s * 1000:
+        return None
+    return req
+
 
 def set_ess_runtime(building_id: str, remain_hours: float, soc: float | None) -> None:
     """하드웨어 브리지가 올린 ESS 잔여 가동시간(h)·SOC(%) 저장."""

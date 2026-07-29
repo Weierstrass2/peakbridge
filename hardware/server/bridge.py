@@ -89,6 +89,8 @@ def init() -> None:
     _enabled = True
     _worker = threading.Thread(target=_run, daemon=True)
     _worker.start()
+    # 클라우드 → 하드웨어 역방향: SOC 리셋 요청 폴러 (버튼 → 펌웨어 쿨롱카운터 리셋)
+    threading.Thread(target=_poll_soc_reset, daemon=True).start()
     logger.info(
         "클라우드 브리지 활성: %s (건물 %s, 디바이스 %s, 스케일 ×%s)",
         _url, _building_id, _device_id, _scale,
@@ -171,6 +173,44 @@ def relay(payload: dict[str, Any]) -> None:
         _queue.put_nowait(payload)
     except queue.Full:
         logger.debug("브리지 큐 가득참 — 1건 폐기")
+
+
+def _poll_soc_reset() -> None:
+    """클라우드의 SOC 리셋 요청을 3초 주기로 폴링해 MQTT command로 1회 전파.
+
+    아파트 대시보드의 [100% 리셋] 버튼 → Railway in-memory 요청(120초 유효) →
+    여기서 id 신규 여부로 중복 실행을 막고 펌웨어에 soc_set 명령을 보낸다.
+    오토파일럿과 달리 임계치엔 손대지 않는다 — SOC 표시 기준값 보정 전용.
+    """
+    import time
+
+    import requests
+
+    import mqtt_gateway
+
+    session = requests.Session()
+    endpoint = f"{_url}/api/v1/control/{_building_id}/soc-reset"
+    last_id: int | None = None
+    while True:
+        try:
+            resp = session.get(endpoint, timeout=3)
+            pending = resp.json().get("data", {}).get("pending")
+            if pending and pending.get("id") != last_id:
+                last_id = pending.get("id")
+                sent = mqtt_gateway.publish_command(
+                    {
+                        "action": "soc_set",
+                        "percent": float(pending.get("percent", 100.0)),
+                        "request_id": last_id,
+                    }
+                )
+                logger.info(
+                    "SOC 리셋 요청 수신(id=%s) → MQTT command %s",
+                    last_id, "발행" if sent else "미발행(MQTT 비활성)",
+                )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("SOC 리셋 폴링 예외: %s", exc)
+        time.sleep(3)
 
 
 def _run() -> None:

@@ -57,10 +57,11 @@ export default function EnergyFlowDiagram({ data, loading }: EnergyFlowDiagramPr
             <line x1="170" y1="97" x2="230" y2="97" stroke={isPeakActive ? "#222933" : "#4C8DFF"} strokeWidth="3" strokeDasharray={isPeakActive ? "5,5" : "0"} />
             {!isPeakActive && (
               <g>
+                {/* cy는 정적 속성으로 고정 — animate로 주면 1사이클 뒤 기본값(0)으로
+                    리셋돼 점이 화면 밖으로 사라진다 (repeatCount 없는 SMIL fill=remove) */}
                 {[0,1,2,3,4].map(i => (
-                  <circle key={i} r="4" fill="#4C8DFF" opacity="0.8">
+                  <circle key={i} r="4" cx="-10" cy="97" fill="#4C8DFF" opacity="0">
                     <animate attributeName="cx" from="175" to="225" dur="1.5s" repeatCount="indefinite" begin={`${i*0.3}s`} />
-                    <animate attributeName="cy" values="97;97;97" dur="1.5s" />
                     <animate attributeName="opacity" values="0;1;0" dur="1.5s" repeatCount="indefinite" begin={`${i*0.3}s`} />
                   </circle>
                 ))}
@@ -80,9 +81,8 @@ export default function EnergyFlowDiagram({ data, loading }: EnergyFlowDiagramPr
             <line x1="330" y1="97" x2="390" y2="97" stroke={isPeakActive ? "#E8A33D" : "#4C8DFF"} strokeWidth="3" />
             <g>
               {[0,1,2,3,4].map(i => (
-                <circle key={i} r="4" fill={isPeakActive ? "#E8A33D" : "#4C8DFF"} opacity="0.9">
+                <circle key={i} r="4" cx="-10" cy="97" fill={isPeakActive ? "#E8A33D" : "#4C8DFF"} opacity="0">
                   <animate attributeName="cx" from="335" to="385" dur="1.3s" repeatCount="indefinite" begin={`${i*0.26}s`} />
-                  <animate attributeName="cy" values="97;97;97" dur="1.3s" />
                   <animate attributeName="opacity" values="0;1;0" dur="1.3s" repeatCount="indefinite" begin={`${i*0.26}s`} />
                 </circle>
               ))}
@@ -101,7 +101,7 @@ export default function EnergyFlowDiagram({ data, loading }: EnergyFlowDiagramPr
           <g className="cursor-pointer" filter={isPeakActive ? "url(#glow-orange)" : ""}>
             <rect x="205" y="215" width="150" height="100" rx="16" fill="#0E1116" stroke={isPeakActive ? "#E8A33D" : "#2EBD85"} strokeWidth="2.5" />
             <text x="280" y="252" textAnchor="middle" fill="#E8ECF1" fontSize="17" fontWeight="600">ESS 배터리</text>
-            <text x="280" y="286" textAnchor="middle" fill={isPeakActive ? "#E8A33D" : "#2EBD85"} fontSize="26" fontWeight="700">{data.ess_soc ?? 0}%</text>
+            <text x="280" y="286" textAnchor="middle" fill={isPeakActive ? "#E8A33D" : "#2EBD85"} fontSize="26" fontWeight="700">{(data.ess_soc ?? 0).toFixed(1)}%</text>
             {isPeakActive && <text x="280" y="306" textAnchor="middle" fill="#E8A33D" fontSize="13">방전 중 {(data.ess_discharge ?? 0).toFixed(2)}A</text>}
           </g>
 
@@ -112,9 +112,8 @@ export default function EnergyFlowDiagram({ data, loading }: EnergyFlowDiagramPr
             {isPeakActive && (
               <g>
                 {[0,1,2].map(i => (
-                  <circle key={i} r="4" fill="#E8A33D" opacity="0.9">
+                  <circle key={i} r="4" cx="280" cy="-10" fill="#E8A33D" opacity="0">
                     <animate attributeName="cy" from="210" to="155" dur="1s" repeatCount="indefinite" begin={`${i*0.33}s`} />
-                    <animate attributeName="cx" values="280;280;280" dur="1s" />
                     <animate attributeName="opacity" values="0;1;0" dur="1s" repeatCount="indefinite" begin={`${i*0.33}s`} />
                   </circle>
                 ))}

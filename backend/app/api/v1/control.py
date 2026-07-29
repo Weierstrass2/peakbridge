@@ -26,6 +26,8 @@ from app.services.scenario_service import (
     set_demo_time,
     get_demo_time,
     set_ess_runtime,
+    request_soc_reset,
+    get_soc_reset,
 )
 
 
@@ -218,6 +220,58 @@ async def set_ess_runtime_endpoint(
     """
     set_ess_runtime(building_id, body.remain_hours, body.soc)
     return success_response({"building_id": building_id, "remain_hours": body.remain_hours})
+
+
+@router.post("/{building_id}/ess-soc-reset")
+async def reset_ess_soc(
+    session: DbSession,
+    building_id: str,
+    user: AdminOrManager,
+) -> dict:
+    """ESS 잔량(SOC) 수동 100% 리셋 — 대시보드 버튼용.
+
+    두 가지를 동시에 한다:
+    1) 클라우드 DB에 ess_soc=100 측정값을 즉시 기록 → 대시보드가 다음 폴링(3초)에 반영.
+       하드웨어 미연결 상태에서도 이것만으로 동작한다.
+    2) in-memory 리셋 요청 등록 → 하드웨어 브리지가 GET /soc-reset 폴링으로 발견,
+       MQTT command로 펌웨어 쿨롱 카운터를 100%로 보정 (안 하면 다음 텔레메트리가
+       실측 SOC로 되덮는다). 릴레이 제어가 아니라 기준값 보정만 하는 안전한 경로.
+    """
+    from app.models.sensor_reading import SensorReading
+
+    device_repo = DeviceRepository(session)
+    sensor_repo = SensorRepository(session)
+
+    # 기존 ESS 디바이스가 있으면 그것, 없으면 브리지 기본 ID로 생성
+    ess_devices = await device_repo.list_by_building(building_id, "ess")
+    if ess_devices:
+        ess_device = ess_devices[0]
+    else:
+        ess_device = await device_repo.get_or_create(
+            device_id="ESS-01", name="ESS-01", device_type="ess", building_id=building_id
+        )
+
+    await sensor_repo.create(
+        SensorReading(
+            device_id=ess_device.device_id,
+            sensor_type="ess_soc",
+            value=100.0,
+            unit="%",
+        )
+    )
+    req = request_soc_reset(building_id, 100.0)
+    return success_response(
+        {"building_id": building_id, "soc": 100.0, "request_id": req["id"]}
+    )
+
+
+@router.get("/{building_id}/soc-reset")
+async def get_soc_reset_endpoint(building_id: str) -> dict:
+    """하드웨어 브리지 폴링용 — 대기 중 SOC 리셋 요청 (무인증, 조회성 정책 동일).
+
+    pending이 None이 아니면 브리지가 id 신규 여부를 보고 1회만 MQTT로 전파한다.
+    """
+    return success_response({"pending": get_soc_reset(building_id)})
 
 
 @router.get("/{building_id}/auto-mode")

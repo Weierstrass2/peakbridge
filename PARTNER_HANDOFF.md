@@ -269,6 +269,27 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
 **정직 포인트**: XGBoost는 합성 학습이라 지금은 시간대 배율로 예측 구성 — 이 하드웨어로
 실데이터가 쌓이면 실측 재학습이 다음 단계 (과장 없이 이렇게 답하면 방어력이 높음).
 
+## 13차 세션 (2026-07-29) — 아파트 대시보드: ESS SOC 수동 리셋 + 에너지 흐름 애니메이션 수정
+
+- **ESS 잔량 [100%로 리셋] 버튼** (대시보드 ESS 카드): SOC 원천이 펌웨어 쿨롱 카운터라
+  UI만 고치면 브리지가 3초 내 실측값으로 되덮음 → 전 구간 체인으로 구현.
+  - `POST /control/{id}/ess-soc-reset` (관리자 인증): ① ess_soc=100 측정값 즉시 기록
+    (하드웨어 미연결 상태에서도 단독 동작) + ② in-memory 리셋 요청 등록(120초 유효)
+  - `GET /control/{id}/soc-reset` (무인증): 브리지 폴링용 대기 요청 조회
+  - `hardware/server/bridge.py`: 3초 주기 폴러 신설 — id 신규 여부로 중복 실행 방지,
+    `mqtt_gateway.publish_command`로 `peakbridge/demo/command` 토픽(QoS1, **비retained**
+    — 재부팅 보드가 과거 명령 재실행 금지) 발행. 모의 서버 통합 테스트로 1회-실행 검증.
+  - 펌웨어(`xiao_peak_shaving.ino`): command 토픽 구독, `soc_set` 처리(0~100 검증,
+    쿨롱 카운터 기준값 보정 + 적분 구간 리셋). **릴레이 제어 명령은 의도적으로 없음** —
+    절체 판단은 항상 로컬. 컴파일 통과(XIAO_ESP32S3). ⚠️ 시연 전 재플래시 필요.
+- **에너지 흐름 애니메이션 버그 수정**: 흐름 점(dot)의 더미 `<animate cy(cx)>`에
+  repeatCount가 없어 1사이클(1~1.5초) 후 SMIL fill=remove로 좌표가 기본값 0으로
+  리셋돼 점이 화면 밖으로 사라지던 것 — 좌표를 정적 속성으로 고정하고 더미 제거.
+  이제 흐름이 계속 이어짐. ESS 노드 SOC 표기도 소수 1자리로 정리.
+- 프론트 재빌드(`--base=/app/`, PowerShell) → `backend/static/app` 반영.
+  tsc는 `tsconfig.app.json` 기준 통과 (루트 tsc -b는 @types/node 미설치로 기존부터
+  vite.config.ts에서 실패 — 배포 경로엔 무영향, 파트너 참고).
+
 ## 남은 백로그 (의도적 미구현 — 필요성 낮음)
 - C2 WebSocket 전환 (3초 폴링으로 시연 충분)
 - 정식 JWT 콘솔 로그인 (시연 마찰 증가)

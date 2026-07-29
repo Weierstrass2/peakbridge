@@ -31,6 +31,11 @@ export const controlApi = {
     await api.post(`${V1}/control/${BUILDING_ID}/demo-time`, { hour });
   },
 
+  // ESS 잔량 수동 100% 리셋 — 클라우드 즉시 반영 + 하드웨어 쿨롱 카운터 리셋 전파
+  resetEssSoc: async (): Promise<void> => {
+    await api.post(`${V1}/control/${BUILDING_ID}/ess-soc-reset`, {});
+  },
+
   getAutoMode: async (): Promise<boolean> => {
     const { data } = await api.get<Wrapped<{ enabled: boolean }>>(
       `${V1}/control/${BUILDING_ID}/auto-mode`,
