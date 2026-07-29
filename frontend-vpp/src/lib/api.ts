@@ -497,6 +497,52 @@ export interface PeakReservation {
   contract_kw: number;
 }
 
+/* ── 제주 플러스 DR (실측 기반) ─────────────────────────── */
+
+export interface PlusDrRow {
+  strategy: string;
+  label: string;
+  description: string;
+  events: number;
+  cleared_mwh: number;
+  delivered_mwh: number;
+  delivery_rate: number;
+  net_won: number;
+}
+
+export interface PlusDrReport {
+  market: string;
+  facts: {
+    clearing_rate: number;
+    delivery_rate: number;
+    delivery_pct_median: number;
+    full_delivery_share: number;
+    smp_mean: number;
+    smp_min: number;
+    event_days_per_year: number;
+    curtail_days_per_year: number;
+    event_hours: number[];
+    avg_cleared_per_event_mwh: number;
+    _loaded: boolean;
+    _records?: number;
+    _years?: string[];
+  };
+  assumption: {
+    incentive_won_per_kwh: number;
+    tou_peak_won: number;
+    tou_off_won: number;
+    base_rate_won_per_kw: number;
+    breakeven_managed: number;
+    breakeven_unmanaged: number;
+    note: string;
+  };
+  fleet: { sites: number; power_mw: number; usable_mwh: number };
+  leaderboard: PlusDrRow[];
+  edge: { baseline_delivery: number; ours_delivery: number; gap: number | null };
+  thesis: string;
+  disclaimer: string;
+}
+
 export const consoleApi = {
   base: BASE,
   stream: () => get<StreamSnapshot>('/vpp/stream'),
@@ -571,6 +617,9 @@ export const consoleApi = {
   marketProfile: (key?: string) =>
     get<MarketProfile>(`/market/profile${key ? `?key=${encodeURIComponent(key)}` : ''}`),
   dataSource: () => get<DataSource>('/market/data-source', 12000),
+
+  jejuPlusDr: (incentive = 120, sites = 100) =>
+    get<PlusDrReport>(`/market/jeju/plusdr?incentive=${incentive}&sites=${sites}`, 20000),
 
   jejuSiteCompare: (days = 120) =>
     get<JejuSiteCompare>(`/market/jeju/site-compare?days=${days}`, 30000),

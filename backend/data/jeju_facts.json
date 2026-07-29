@@ -1,0 +1,151 @@
+{
+ "source": "한국전력거래소 공공데이터 (출력제어·플러스DR·신재생예측·수급실적)",
+ "curtailment": {
+  "event_days": 344,
+  "years": [
+   "2021",
+   "2022",
+   "2023",
+   "2024"
+  ],
+  "days_per_year": 86.0,
+  "day_share": 0.236,
+  "total_mwh": 73224,
+  "mwh_per_event_day": 212.9,
+  "by_year_days": {
+   "2021": 63,
+   "2022": 105,
+   "2023": 120,
+   "2024": 56
+  },
+  "top_hours": [
+   13,
+   14,
+   12,
+   15,
+   11,
+   16
+  ],
+  "hour_hist": {
+   "2": 1,
+   "3": 2,
+   "4": 4,
+   "5": 4,
+   "6": 3,
+   "7": 1,
+   "8": 4,
+   "9": 20,
+   "10": 100,
+   "11": 205,
+   "12": 354,
+   "13": 426,
+   "14": 422,
+   "15": 334,
+   "16": 158,
+   "17": 46,
+   "18": 4
+  },
+  "month_hist": {
+   "01": 86,
+   "02": 155,
+   "03": 357,
+   "04": 509,
+   "05": 447,
+   "06": 63,
+   "07": 3,
+   "08": 3,
+   "09": 44,
+   "10": 315,
+   "11": 84,
+   "12": 22
+  }
+ },
+ "plus_dr": {
+  "records": 272,
+  "event_days": 90,
+  "years": [
+   "2021",
+   "2022",
+   "2023"
+  ],
+  "bid_mwh": 1444.5,
+  "cleared_mwh": 1444.5,
+  "delivered_mwh": 602.0,
+  "clearing_rate": 1.0,
+  "delivery_rate": 0.4168,
+  "delivery_pct_mean": 26.2,
+  "delivery_pct_median": 15.8,
+  "full_delivery_share": 0.04,
+  "smp_mean": 173.2,
+  "smp_min": 65.6,
+  "smp_max": 281.3,
+  "smp_below_60_share": 0.0,
+  "hour_hist": {
+   "10": 1,
+   "11": 23,
+   "12": 61,
+   "13": 85,
+   "14": 70,
+   "15": 28,
+   "16": 4
+  },
+  "by_year": {
+   "2021": {
+    "bid": 24.3,
+    "cleared": 24.3,
+    "delivered": 19.5,
+    "events": 29
+   },
+   "2022": {
+    "bid": 809.6,
+    "cleared": 809.6,
+    "delivered": 152.3,
+    "events": 84
+   },
+   "2023": {
+    "bid": 610.6,
+    "cleared": 610.6,
+    "delivered": 430.2,
+    "events": 159
+   }
+  }
+ },
+ "re_forecast": {
+  "태양광": {
+   "peak_forecast_mw": 309.0,
+   "peak_actual_mw": 251.0,
+   "peak_error": -0.1877,
+   "mean_forecast_mw": 52.0,
+   "mean_actual_mw": 39.0,
+   "mean_error": -0.25
+  },
+  "풍력": {
+   "peak_forecast_mw": 274.0,
+   "peak_actual_mw": 238.0,
+   "peak_error": -0.1314,
+   "mean_forecast_mw": 63.0,
+   "mean_actual_mw": 61.0,
+   "mean_error": -0.0317
+  },
+  "_implied_forecast_error": 0.1595
+ },
+ "supply": {
+  "months": [
+   "2026-05"
+  ],
+  "samples": 31,
+  "capacity_mw": 2162.8,
+  "supply_mw_mean": 1187.4,
+  "peak_mw_mean": 751.2,
+  "peak_mw_max": 814.8,
+  "peak_mw_min": 712.9
+ },
+ "headline": {
+  "curtail_days_per_year": 86.0,
+  "curtail_day_share": 0.236,
+  "clearing_rate": 1.0,
+  "delivery_rate": 0.4168,
+  "smp_at_event_mean": 173.2,
+  "note": "출력제어 시각에도 제주 SMP는 평균 173.2원이다. 남는 전력을 싸게 사는 메커니즘은 없다. 대신 플러스 DR이 별도 인센티브로 수요를 끌어올린다. 낙찰률 100% — 경쟁이 없고, 이행률 42% — 낙찰자도 지키지 못한다. 배터리는 지킬 수 있다. 그 격차가 사업 기회다."
+ }
+}

@@ -255,6 +255,46 @@ async def market_profile(key: str | None = None) -> dict:
         return success_response({})
 
 
+@router.get("/jeju/plusdr")
+async def jeju_plusdr(incentive: float = 120.0, sites: int = 100) -> dict:
+    """제주 플러스 DR 참여 분석 — 실측 기반.
+
+    이 화면이 말하는 것:
+      1. 출력제어 시각에도 SMP는 173원이다 (공짜 전기는 없다)
+      2. 그래서 정부가 별도 인센티브로 수요를 끌어올린다 = 플러스 DR
+      3. 낙찰률 100% — 경쟁이 없다
+      4. 이행률 41.7% — 낙찰자도 못 지킨다. **이행하면 손해기 때문이다**
+      5. 이벤트가 최대부하 시간대라 충전이 기본요금을 밀어 올린다
+      6. 피크 예약 엔진이 있으면 이행하면서 기본요금도 안 올린다 ← 우리 자리
+    """
+    try:
+        from app.services.strategies.plusdr import Fleet, compare
+
+        return success_response(compare(Fleet(sites=sites), incentive))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("jeju_plusdr_failed", error=str(exc))
+        return success_response({"leaderboard": []})
+
+
+@router.get("/jeju/facts")
+async def jeju_facts() -> dict:
+    """제주 실측 통계 원본 — 출력제어·플러스DR·예측정확도·수급."""
+    try:
+        import json
+        from pathlib import Path
+
+        p = Path(__file__).resolve().parents[3] / "data" / "jeju_facts.json"
+        if not p.exists():
+            return success_response({"loaded": False,
+                                     "hint": "python scripts/ingest_jeju_real.py 실행 필요"})
+        d = json.loads(p.read_text(encoding="utf-8"))
+        d["loaded"] = True
+        return success_response(d)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("jeju_facts_failed", error=str(exc))
+        return success_response({"loaded": False})
+
+
 @router.get("/jeju/leaderboard")
 async def jeju_leaderboard(days: int = 180, spread_scale: float = 0.41,
                            behind_meter: bool = False) -> dict:

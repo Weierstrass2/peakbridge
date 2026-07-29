@@ -6,6 +6,7 @@ import SettleTable from './components/SettleTable';
 import BiddingDesk from './components/BiddingDesk';
 import TradingDesk from './components/TradingDesk';
 import JejuPanel from './components/JejuPanel';
+import PlusDrPanel from './components/PlusDrPanel';
 import ProfilePanel from './components/ProfilePanel';
 import PeakReserve from './components/PeakReserve';
 import SourceBadge from './components/SourceBadge';
@@ -131,7 +132,7 @@ const NAV = [
   { id: 'market', label: '시장·가격' },
   { id: 'bidding', label: '입찰 데스크' },
   { id: 'trading', label: '트레이딩 데스크' },
-  { id: 'jeju', label: '제주 실시간시장' },
+  { id: 'jeju', label: '제주 플러스 DR' },
   { id: 'profile', label: '시장 구조' },
   { id: 'dispatch', label: '급전 이행' },
   { id: 'assets', label: '자원 관제' },
@@ -342,14 +343,24 @@ export default function App() {
               </Panel>
             )}
             {view === 'jeju' && (
-              <Panel
-                title="제주 실시간시장 — 출력제어 흡수 전략"
-                sub="NET-LOAD MODEL / 15min × 96"
-                span="span 12"
-                tall
-              >
-                <JejuPanel onLog={pushLog} />
-              </Panel>
+              <>
+                <Panel
+                  title="제주 플러스 DR — 전력거래소 실측"
+                  sub="272건 / 2021~2023 · 낙찰률 100% · 이행률 41.7%"
+                  span="span 12"
+                  tall
+                >
+                  <PlusDrPanel onLog={pushLog} />
+                </Panel>
+                <Panel
+                  title="참고 — 순부하 모델 (초기 가설)"
+                  sub="실측으로 전제가 반증된 모델 · 기록 보존용"
+                  span="span 12"
+                  tall
+                >
+                  <JejuPanel onLog={pushLog} />
+                </Panel>
+              </>
             )}
             {view === 'profile' && (
               <Panel
