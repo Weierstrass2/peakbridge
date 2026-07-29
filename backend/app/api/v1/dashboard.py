@@ -61,11 +61,27 @@ async def get_dashboard(session: DbSession, building_id: str) -> dict:
         forecast = []
     peak_active = await alert_repo.has_active_peak(building_id)
 
+    threshold = get_threshold(building_id)
+    actual_current = grid.value if grid else 0.0
+
+    # 실측 스케일 정렬: XGBoost 모델은 합성 데이터(수~십 A) 스케일로 학습돼 있어,
+    # 실증 하드웨어의 실측 전류(0.0x A)와 나란히 보이도록 최근 실측값 기준 비율로
+    # 환산한다. 모델 원출력 자체는 유지 — 실데이터 축적 후 재학습 전까지의 표시용 정렬.
+    if forecast and actual_current > 0:
+        base = sum(p["predicted_current"] for p in forecast) / len(forecast)
+        if base > 0:
+            ratio = actual_current / base
+            for p in forecast:
+                p["predicted_current"] = round(p["predicted_current"] * ratio, 4)
+                p["lower"] = round(p["lower"] * ratio, 4)
+                p["upper"] = round(p["upper"] * ratio, 4)
+                p["will_exceed"] = p["predicted_current"] > threshold
+
     data = {
-        "grid_current": grid.value if grid else 0.0,
+        "grid_current": actual_current,
         "ess_soc": ess.value if ess else 0.0,
         "peak_active": peak_active,
-        "peak_threshold": get_threshold(building_id),
+        "peak_threshold": threshold,
         "chargers": charger_data,
         "forecast": forecast,
         "today_saved_won": today.saved_won if today else 0.0,

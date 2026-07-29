@@ -9,7 +9,7 @@ export function usePeakAlert() {
       return {
         isActive: false,
         gridCurrent: 0,
-        threshold: 15,
+        threshold: 0.095,
         overBy: 0,
         message: '',
       };
@@ -23,8 +23,8 @@ export function usePeakAlert() {
       threshold: dashboard.peak_threshold,
       overBy,
       message: dashboard.peak_active
-        ? `Grid ${dashboard.grid_current.toFixed(1)}A exceeds threshold ${dashboard.peak_threshold.toFixed(1)}A`
-        : 'Operating within normal limits',
+        ? `그리드 ${dashboard.grid_current.toFixed(3)}A — 임계치 ${dashboard.peak_threshold.toFixed(3)}A 초과`
+        : '정상 범위 내 운전 중',
     };
   }, [dashboard]);
 }

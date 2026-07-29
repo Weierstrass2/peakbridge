@@ -31,7 +31,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-2">
           <RealtimeChart
             data={chartData}
-            threshold={dashboard?.peak_threshold ?? 15}
+            threshold={dashboard?.peak_threshold ?? 0.095}
             loading={isChartLoading}
           />
         </div>
@@ -65,7 +65,7 @@ export default function DashboardPage() {
                 <p className={`text-lg font-bold tabular-nums mt-1 ${
                   point.will_exceed ? 'text-[#E8A33D]' : 'text-[#2EBD85]'
                 }`}>
-                  {(point.predicted ?? 0).toFixed(1)}A
+                  {(point.predicted_current ?? 0).toFixed(3)}A
                 </p>
               </div>
             ))}

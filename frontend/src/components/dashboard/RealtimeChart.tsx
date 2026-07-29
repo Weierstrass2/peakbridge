@@ -25,10 +25,10 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
     return <ChartSkeleton />;
   }
 
-  // Add AI prediction data (mock)
+  // AI 예측선 (표시용): 실측 스케일에 비례해 생성 — 고정 A값 하드코딩 금지
   const chartData = data.map((d, i) => ({
     ...d,
-    prediction: Math.max(d.grid_current - 2 + (Math.random() * 4), 5),
+    prediction: d.grid_current * (0.9 + Math.random() * 0.25),
     peakShading: i > data.length * 0.6 ? d.grid_current : null,
   }));
 
@@ -49,8 +49,8 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
               tick={{ fill: '#98A2B3', fontSize: 12 }}
               tickLine={false}
               axisLine={false}
-              domain={[0, 30]}
-              tickFormatter={(v) => `${v}A`}
+              domain={[0, (dataMax: number) => Math.max(dataMax * 1.2, threshold * 1.3)]}
+              tickFormatter={(v) => `${Number(v.toPrecision(2))}A`}
             />
             <Tooltip
               contentStyle={{

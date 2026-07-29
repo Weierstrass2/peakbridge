@@ -6,9 +6,10 @@ export interface Charger {
   status: ChargerStatus;
 }
 
+// 백엔드 필드명은 predicted_current — 과거 'predicted'로 읽어 항상 0으로 보이던 버그 수정
 export interface ForecastPoint {
   time: string;
-  predicted: number;
+  predicted_current: number;
   will_exceed: boolean;
 }
 

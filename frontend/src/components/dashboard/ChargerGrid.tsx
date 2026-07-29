@@ -40,7 +40,7 @@ export default function ChargerGrid({ chargers }: ChargerGridProps) {
                     (charger.current ?? 0) > 0 ? 'text-[#9B8AFB]' : 'text-[#98A2B3]'
                   }`}
                 >
-                  {(charger.current ?? 0).toFixed(1)}A
+                  {(charger.current ?? 0).toFixed(2)}A
                 </p>
               </div>
             </div>

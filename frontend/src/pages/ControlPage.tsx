@@ -17,7 +17,7 @@ export default function ControlPage() {
     refetchInterval: 10_000,
     retry: false,
   });
-  const [threshold, setThreshold] = useState(dashboard?.peak_threshold ?? 15);
+  const [threshold, setThreshold] = useState(dashboard?.peak_threshold ?? 0.095);
   const [autoControl, setAutoControl] = useState(true);
 
   useEffect(() => {
@@ -81,15 +81,15 @@ export default function ControlPage() {
         <Card title="피크 임계치" subtitle="그리드 전류 제한">
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-[#98A2B3]">10A</span>
-              <span className="text-2xl font-bold text-[#E8A33D]">{threshold.toFixed(1)}A</span>
-              <span className="text-sm text-[#98A2B3]">30A</span>
+              <span className="text-sm text-[#98A2B3]">0.02A</span>
+              <span className="text-2xl font-bold text-[#E8A33D]">{threshold.toFixed(3)}A</span>
+              <span className="text-sm text-[#98A2B3]">0.20A</span>
             </div>
             <input
               type="range"
-              min={10}
-              max={30}
-              step={0.5}
+              min={0.02}
+              max={0.2}
+              step={0.005}
               value={threshold}
               onChange={(e) => setThreshold(parseFloat(e.target.value))}
               className="w-full accent-[#E8A33D]"
@@ -100,7 +100,7 @@ export default function ControlPage() {
                 setLoading('threshold');
                 try {
                   await controlApi.setThreshold(threshold);
-                  setMessage(`임계치 ${threshold.toFixed(1)}A 적용됨`);
+                  setMessage(`임계치 ${threshold.toFixed(3)}A 적용됨`);
                   qc.invalidateQueries({ queryKey: ['dashboard'] });
                 } catch {
                   setMessage('❌ 임계치 적용 실패 (로그인 확인)');
