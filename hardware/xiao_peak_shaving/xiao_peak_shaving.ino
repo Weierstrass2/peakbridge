@@ -53,6 +53,30 @@ const int RELAY_PIN = 2;              // XIAO ESP32S3: D1 (GPIO2)
 // ---------- INA219 ----------
 Adafruit_INA219 ina219;               // 기본 주소 0x40
 
+// ---------- 배터리 SOC (쿨롱 카운팅) ----------
+// LiFePO4 4S 12.8V 12Ah. INA219가 이미 배터리→인버터 전류를 재므로, 전류를
+// 시간 적분해 사용 용량을 누적한다(하드웨어 무변경). LiFePO4는 전압 곡선이
+// 평평해 전압 단독 SOC는 부정확 — 쿨롱 카운팅이 정석. 시작 SOC만 전압으로 추정.
+const float BATTERY_CAPACITY_MAH = 12000.0;   // 12Ah
+float gSocPercent = 100.0;                     // 현재 SOC(%) — setup에서 전압으로 초기화
+float gBatteryV = 0.0;                         // INA219 버스 전압(읽히면)
+float gRemainHours = 0.0;                      // 현재 방전율 기준 잔여 가동시간
+unsigned long lastSocMillis = 0;
+
+// LiFePO4 4S 무부하 전압(V) → SOC(%) 대략 룩업 (시작 초기화용, 평평 구간은 근사)
+float socFromVoltage(float v) {
+  if (v >= 13.4) return 100.0;
+  if (v >= 13.3) return 90.0;
+  if (v >= 13.2) return 75.0;
+  if (v >= 13.1) return 55.0;
+  if (v >= 13.0) return 35.0;
+  if (v >= 12.9) return 20.0;
+  if (v >= 12.8) return 13.0;
+  if (v >= 12.0) return 8.0;
+  if (v >= 10.0) return 3.0;
+  return 0.0;
+}
+
 // ---------- 임계값 (서버 config로 갱신 가능한 전역 — 기본값은 실측 확정값) ----------
 float gThresholdHigh = 0.090;         // 절체 임계(A). 실측: 부하1·2=0.073 / 트리거=0.108
 float gInaLowMa      = 850.0;         // 복귀 임계(mA). 실측: 대기 690 / 공급 1320의 사이값
@@ -131,7 +155,7 @@ void maintainNetwork() {
 // 텔레메트리 발행 (FIRMWARE_MQTT_SPEC.md 페이로드 그대로)
 void publishTelemetry(float ct, float inaMa) {
   if (!mqtt.connected()) return;   // 전송 실패가 판단을 막지 않는다
-  StaticJsonDocument<320> doc;
+  StaticJsonDocument<384> doc;
   doc["device_id"]        = DEVICE_ID;
   doc["timestamp"]        = 0;               // NTP 미동기 — 스펙대로 0 그대로
   doc["grid_current_a"]   = ct;
@@ -140,8 +164,11 @@ void publishTelemetry(float ct, float inaMa) {
   doc["threshold_low_a"]  = THRESHOLD_LOW_A;
   doc["hold_remaining_s"] = 0;               // 최소 유지시간 미사용 — 항상 0
   doc["ina_current_ma"]   = inaMa;
+  doc["battery_soc"]      = gSocPercent;     // 쿨롱 카운팅 SOC(%)
+  doc["battery_voltage_v"] = gBatteryV;      // INA219 버스 전압(읽히면)
+  doc["remain_hours"]     = gRemainHours;    // 현재 방전율 기준 잔여 가동시간
 
-  char buf[320];
+  char buf[384];
   size_t n = serializeJson(doc, buf);
   mqtt.publish(TOPIC_PUB, (uint8_t*)buf, n, false);
 }
@@ -165,6 +192,18 @@ void setup() {
   }
   ina219.setCalibration_32V_2A();     // 기본 보정값: 최대 32V / 2A 범위
 
+  // 시작 SOC 초기화: 무부하 전압으로 추정(읽히면). 전압 0/비정상이면 만충 가정.
+  gBatteryV = ina219.getBusVoltage_V();
+  if (gBatteryV >= 10.0 && gBatteryV <= 15.0) {
+    gSocPercent = socFromVoltage(gBatteryV);
+    Serial.print("초기 SOC(전압 "); Serial.print(gBatteryV, 2);
+    Serial.print("V 추정): "); Serial.print(gSocPercent, 0); Serial.println("%");
+  } else {
+    gSocPercent = 100.0;
+    Serial.println("초기 SOC: 전압 미확보 → 만충(100%) 가정, 이후 쿨롱 카운팅");
+  }
+  lastSocMillis = millis();
+
   // Wi-Fi: 부팅 시 최대 8초만 대기 — 실패해도 판단 루프는 그대로 시작 (폐쇄망 단독 데모 보장)
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
@@ -179,6 +218,9 @@ void setup() {
   mqtt.setCallback(onConfig);
   mqtt.setSocketTimeout(3);   // 연결 실패 시 블로킹을 3초로 제한 (판단 루프 보호)
   mqtt.setKeepAlive(15);
+  // PubSubClient 기본 버퍼 256B — SOC 필드 추가로 telemetry가 이를 넘어
+  // publish가 조용히 실패했다. 여유 있게 512B로 확대.
+  mqtt.setBufferSize(512);
 
   delay(500);
   lastSwitchMillis = millis() - STABILIZE_MS;   // 부팅 직후에는 유예 없이 바로 판단
@@ -238,10 +280,32 @@ void loop() {
   float ctCurrent = readCTCurrent();
   float inaCurrent_mA = readInaAveraged_mA();
 
+  // ── 쿨롱 카운팅 SOC 갱신 ──────────────────────────
+  // 방전(공급, +) → SOC 감소 / 충전(-) → SOC 증가. 인버터 대기전류도 배터리
+  // 소비이므로 그대로 반영된다. dt는 실제 경과시간(ms)으로 적분.
+  unsigned long nowMs = millis();
+  float dtHours = (nowMs - lastSocMillis) / 3600000.0;
+  lastSocMillis = nowMs;
+  gSocPercent -= (inaCurrent_mA * dtHours) / BATTERY_CAPACITY_MAH * 100.0;
+  if (gSocPercent > 100.0) gSocPercent = 100.0;
+  if (gSocPercent < 0.0) gSocPercent = 0.0;
+  gBatteryV = ina219.getBusVoltage_V();
+  // 잔여 가동시간: 방전 중일 때만 의미 (남은 용량 / 현재 전류)
+  float remainMah = gSocPercent / 100.0 * BATTERY_CAPACITY_MAH;
+  gRemainHours = (inaCurrent_mA > 50.0) ? (remainMah / inaCurrent_mA) : 0.0;
+
   Serial.print("CT(A): ");
   Serial.print(ctCurrent, 4);
   Serial.print("   INA219(mA): ");
   Serial.print(inaCurrent_mA, 1);
+  Serial.print("   SOC: ");
+  Serial.print(gSocPercent, 1);
+  Serial.print("%");
+  if (gRemainHours > 0) {
+    Serial.print(" (잔여 ");
+    Serial.print(gRemainHours, 1);
+    Serial.print("h)");
+  }
   Serial.print("   상태: ");
   Serial.print(isPeak ? "NO(ESS)" : "NC(한전)");
   Serial.print(mqtt.connected() ? "   [MQTT O]" : "   [MQTT X]");

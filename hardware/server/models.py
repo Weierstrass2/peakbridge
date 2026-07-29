@@ -40,6 +40,12 @@ class TelemetryIn(BaseModel):
     # 연속 2회 떨어질 때 일어난다 (CT만으로는 '부하3 꺼짐'과 '부하3 ESS 이관'을 구분할 수 없음).
     ina_current_ma: float | None = None
 
+    # v4 (옵셔널 — XIAO 펌웨어의 쿨롱 카운팅 SOC)
+    # 펌웨어가 INA219 전류를 시간 적분해 계산한 SOC(%)와 잔여 가동시간(h).
+    # 전압 단독 SOC보다 정확(LiFePO4 평평 구간 대응). 브리지가 아파트 대시보드로 전달.
+    battery_soc: float | None = None
+    remain_hours: float | None = None
+
 
 class ConfigModel(BaseModel):
     threshold_high_a: float
@@ -82,6 +88,8 @@ class TelemetryRecord(BaseModel):
     ess_current_a: float | None = None
     ess_power_w: float | None = None
     ina_current_ma: float | None = None
+    battery_soc: float | None = None
+    remain_hours: float | None = None
 
 
 class EventRecord(BaseModel):

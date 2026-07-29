@@ -126,13 +126,18 @@ def build_readings(payload: dict[str, Any]) -> list[dict[str, Any]]:
         }
     ]
 
-    soc = soc_from_voltage(payload.get("battery_voltage_v"))
+    # SOC: 펌웨어의 쿨롱 카운팅 값(battery_soc)을 최우선으로 쓴다.
+    # LiFePO4는 전압 곡선이 평평해 전압 환산(soc_from_voltage)은 부정확하므로,
+    # 펌웨어가 전류 적분으로 계산해 보낸 SOC가 있으면 그것을 그대로 전달한다.
+    soc = payload.get("battery_soc")
+    if soc is None:
+        soc = soc_from_voltage(payload.get("battery_voltage_v"))
     if soc is not None:
         readings.append(
             {
                 "device_id": _ess_device_id,
                 "sensor_type": "ess_soc",
-                "value": soc,
+                "value": round(float(soc), 1),
                 "unit": "%",
                 "building_id": _building_id,
             }

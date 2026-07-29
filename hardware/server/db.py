@@ -96,6 +96,9 @@ def init_db() -> None:
             # 마이그레이션: 실기 펌웨어(INA226 복귀 판단) 대응 컬럼을 나중에 추가했다.
             _add_column_if_missing(conn, "telemetry", "ina_current_ma", "REAL")
             _add_column_if_missing(conn, "config", "ina_low_ma", f"REAL NOT NULL DEFAULT {SEED_INA_LOW_MA}")
+            # 마이그레이션: XIAO 쿨롱 카운팅 SOC(%)·잔여 가동시간(h)
+            _add_column_if_missing(conn, "telemetry", "battery_soc", "REAL")
+            _add_column_if_missing(conn, "telemetry", "remain_hours", "REAL")
 
             conn.execute(
                 """
@@ -177,8 +180,9 @@ def save_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
                 INSERT INTO telemetry (
                     device_id, timestamp, received_at, grid_current_a, relay_state,
                     threshold_high_a, threshold_low_a, hold_remaining_s,
-                    battery_voltage_v, ess_current_a, ess_power_w, ina_current_ma
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    battery_voltage_v, ess_current_a, ess_power_w, ina_current_ma,
+                    battery_soc, remain_hours
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     device_id,
@@ -193,6 +197,8 @@ def save_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
                     payload.get("ess_current_a"),
                     payload.get("ess_power_w"),
                     payload.get("ina_current_ma"),
+                    payload.get("battery_soc"),
+                    payload.get("remain_hours"),
                 ),
             )
             telemetry_id = cur.lastrowid
