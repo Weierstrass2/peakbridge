@@ -7,6 +7,7 @@ import BiddingDesk from './components/BiddingDesk';
 import TradingDesk from './components/TradingDesk';
 import JejuPanel from './components/JejuPanel';
 import PlusDrPanel from './components/PlusDrPanel';
+import JejuOps from './components/JejuOps';
 import ProfilePanel from './components/ProfilePanel';
 import PeakReserve from './components/PeakReserve';
 import SourceBadge from './components/SourceBadge';
@@ -132,6 +133,7 @@ const NAV = [
   { id: 'market', label: '시장·가격' },
   { id: 'bidding', label: '입찰 데스크' },
   { id: 'trading', label: '트레이딩 데스크' },
+  { id: 'jejuops', label: '제주 운영 시뮬레이터' },
   { id: 'jeju', label: '제주 플러스 DR' },
   { id: 'profile', label: '시장 구조' },
   { id: 'dispatch', label: '급전 이행' },
@@ -340,6 +342,16 @@ export default function App() {
             {view === 'trading' && (
               <Panel title="트레이딩 데스크 — 리스크 · 손익분해 · 블로터" sub="PRE-TRADE / TCA / VaR" span="span 12" tall>
                 <TradingDesk onLog={pushLog} />
+              </Panel>
+            )}
+            {view === 'jejuops' && (
+              <Panel
+                title="제주 운영 시뮬레이터 — 플러스DR 대응"
+                sub="발령 → 배분 → 이행 → 정산"
+                span="span 12"
+                tall
+              >
+                <JejuOps onLog={pushLog} />
               </Panel>
             )}
             {view === 'jeju' && (

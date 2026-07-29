@@ -905,3 +905,93 @@ body {
 .pb-item.good { border-color: var(--ok); }
 .pb-item.good b { color: var(--ok); }
 .pb-d { font-size: 9px; color: var(--tx-3); }
+
+/* ── 제주 운영 시뮬레이터 ───────────────────────────────── */
+.jops { display: flex; flex-direction: column; gap: 11px; padding: 10px 12px 14px; overflow-y: auto; }
+
+.jo-bar {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 4px; padding: 8px 10px;
+}
+.jo-inc { margin-left: auto; display: inline-flex; align-items: center; gap: 5px;
+  font-size: 10px; color: var(--tx-3); }
+.jo-inc input {
+  background: var(--bg-0); border: 1px solid var(--line-1); border-radius: 3px;
+  color: var(--tx-1); font: inherit; font-size: 10px; padding: 3px 6px; width: 62px;
+  font-family: var(--font-num);
+}
+
+.jo-kpis {
+  display: flex; gap: 1px; flex-wrap: wrap;
+  background: var(--line-0); border: 1px solid var(--line-1); border-radius: 4px; overflow: hidden;
+}
+
+/* 발령 배너 */
+.jo-event {
+  background: var(--bg-1); border: 1px solid var(--line-1); border-left: 3px solid var(--acc);
+  border-radius: 4px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;
+}
+.jo-event.hot { border-left-color: var(--crit); }
+.je-l { display: flex; align-items: baseline; gap: 10px; }
+.je-l .k { font-size: 10px; letter-spacing: 0.08em; color: var(--tx-3); font-weight: 700; }
+.je-l b { font-size: 17px; color: var(--tx-1); }
+.je-m { display: flex; gap: 16px; font-size: 11px; color: var(--tx-2); flex-wrap: wrap; }
+.je-m b { color: var(--tx-1); font-family: var(--font-num); }
+.je-warn { font-size: 11px; color: var(--crit); font-weight: 600; margin-top: 2px; }
+.jo-idle {
+  background: var(--bg-1); border: 1px dashed var(--line-1); border-radius: 4px;
+  padding: 16px; text-align: center; font-size: 12px; color: var(--tx-3);
+}
+
+.jo-sect { background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 4px; padding: 10px 12px; }
+
+/* 배분 방식 대조 */
+.jo-cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.jc-col {
+  background: var(--bg-0); border: 1px solid var(--line-1); border-radius: 4px; padding: 10px 12px;
+}
+.jc-col.win { border-color: var(--ok); }
+.jc-h { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; }
+.jc-h b { font-size: 13px; color: var(--tx-1); }
+.jc-h span { font-size: 10px; color: var(--tx-3); }
+.jc-net {
+  font-size: 30px; font-family: var(--font-num); font-weight: 700;
+  line-height: 1; margin-bottom: 10px;
+}
+.jc-net small { font-size: 13px; margin-left: 3px; }
+.jc-rows { display: flex; flex-direction: column; gap: 3px; }
+.jc-r { display: flex; justify-content: space-between; font-size: 11px; color: var(--tx-3); }
+.jc-r b { font-size: 11.5px; }
+.jc-over {
+  margin-top: 9px; font-size: 11px; font-weight: 700; padding: 4px 9px;
+  border-radius: 3px; text-align: center;
+}
+.jc-over.bad { background: rgba(229, 72, 77, 0.14); color: var(--crit); }
+.jc-over.good { background: rgba(46, 189, 133, 0.14); color: var(--ok); }
+
+/* 단지 카드 */
+.jo-sites { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.jo-site {
+  background: var(--bg-0); border: 1px solid var(--line-1); border-radius: 3px; padding: 8px 10px;
+}
+.jo-site.off { opacity: 0.45; }
+.jo-sh { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.jo-sh b { font-size: 11.5px; color: var(--tx-1); }
+.jo-sh span { font-size: 9px; color: var(--tx-3); }
+.jo-bar-wrap {
+  display: flex; height: 7px; background: var(--line-0); border-radius: 2px; overflow: hidden;
+}
+.jo-bar-wrap i { display: block; height: 100%; }
+.jo-bar-wrap .lo { background: var(--acc); }
+.jo-bar-wrap .hd { background: rgba(46, 189, 133, 0.45); }
+.jo-sm {
+  display: flex; justify-content: space-between; font-size: 9.5px;
+  color: var(--tx-3); margin-top: 4px;
+}
+.jo-sm b { color: var(--tx-2); }
+.jo-cap {
+  margin-top: 6px; font-size: 10px; font-weight: 600; text-align: center;
+  padding: 3px 0; border-radius: 2px;
+}
+.jo-cap.ok { background: rgba(46, 189, 133, 0.12); color: var(--ok); }
+.jo-cap.no { background: rgba(136, 145, 158, 0.12); color: var(--tx-3); }

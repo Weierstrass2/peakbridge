@@ -13,6 +13,7 @@ from app.api.v1 import (
     dr,
     energy,
     grid,
+    jeju_ops,
     kepco,
     market,
     ops,
@@ -47,4 +48,5 @@ api_v1_router.include_router(market.router)
 api_v1_router.include_router(dispatch.router)
 api_v1_router.include_router(ops.router)
 api_v1_router.include_router(desk.router)
+api_v1_router.include_router(jeju_ops.router)
 api_v1_router.include_router(simulation.router, prefix="/simulation", tags=["simulation"])

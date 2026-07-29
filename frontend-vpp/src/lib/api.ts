@@ -543,6 +543,58 @@ export interface PlusDrReport {
   disclaimer: string;
 }
 
+/* ── 제주 운영 시뮬레이터 ───────────────────────────────── */
+
+export interface JejuSite {
+  id: string; name: string;
+  contract_kw: number; capacity_kwh: number; soc: number;
+  room_kwh: number; base_load_kw: number;
+  today_peak_kw: number; month_peak_kw: number;
+  headroom_kw: number; max_charge_kw: number; online: boolean;
+}
+
+export interface JejuEvent {
+  ts: string; hour: number;
+  request_mwh: number; request_kwh: number;
+  curtail_mw: number; duration_min: number;
+  status: string; tou_won: number; is_peak_hour: boolean;
+}
+
+export interface JejuOpsState {
+  facts: {
+    clearing_rate: number; market_delivery: number;
+    delivery_median: number; avg_cleared_mwh: number;
+    event_hours: number[]; curtail_days_per_year: number; loaded: boolean;
+  };
+  sites: JejuSite[];
+  event: JejuEvent | null;
+  fleet: { count: number; online: number; room_kwh: number; safe_charge_kw: number; avg_soc: number };
+  log: { ts: string; level: string; msg: string }[];
+  history: { ts: string; hour: number; mode: string; delivery_rate: number; net_won: number; peak_penalty_won: number }[];
+}
+
+export interface JejuResult {
+  mode?: string;
+  rows: {
+    site: string; name: string;
+    ordered_kw: number; delivered_kw: number; rate: number;
+    load_before_kw: number; load_after_kw: number; guard_kw: number;
+    peak_over_kw: number; peak_penalty_won: number;
+  }[];
+  ordered_kwh: number; delivered_kwh: number; delivery_rate: number;
+  incentive_won: number; energy_cost_won: number; recovery_won: number;
+  degradation_won: number; peak_penalty_won: number; net_won: number;
+  sites_over_peak: number; coverage: number;
+  need_kwh?: number; incentive_assumed?: number; market_delivery_rate?: number;
+}
+
+export interface JejuCompare {
+  need_kwh: number; hour: number; is_peak_hour: boolean;
+  incentive_assumed: number;
+  even: JejuResult; peak: JejuResult;
+  gap_won: number; verdict: string;
+}
+
 export const consoleApi = {
   base: BASE,
   stream: () => get<StreamSnapshot>('/vpp/stream'),
@@ -611,6 +663,17 @@ export const consoleApi = {
       `/market/peak-reservation?contract_kw=${contractKw}` +
         `&month_peak_kw=${monthPeakKw}&lookback_months=${lookbackMonths}`, 15000,
     ),
+
+  // ── 제주 운영 시뮬레이터 ──
+  jejuOpsState: () => get<JejuOpsState>('/jeju-ops/state'),
+  jejuOpsEvent: (hour?: number) =>
+    post<JejuOpsState>('/jeju-ops/event', hour === undefined ? {} : { hour }),
+  jejuOpsCompare: (incentive = 120) =>
+    get<JejuCompare>(`/jeju-ops/compare?incentive=${incentive}`, 15000),
+  jejuOpsDispatch: (mode: 'peak' | 'even', incentive = 120) =>
+    post<JejuResult>('/jeju-ops/dispatch', { mode, incentive }),
+  jejuOpsAdvance: () => post<JejuOpsState>('/jeju-ops/advance', {}),
+  jejuOpsReset: (sites = 12) => post<JejuOpsState>(`/jeju-ops/reset?sites=${sites}`, {}),
 
   // ── 시장 프로파일 · 데이터 출처 ──
   marketProfiles: () => get<MarketProfileCompare>('/market/profiles'),
