@@ -1,8 +1,9 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import type { TooltipProps } from 'recharts';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { useQuery } from '@tanstack/react-query';
-import { mockReports, formatKRW } from '../mock/mockData';
+import { mockReports } from '../mock/mockData';
 import { fetchReports } from '../services/reportApi';
 import { api } from '../services/api';
 import { BUILDING_ID, isMockMode } from '../config/env';
@@ -19,6 +20,35 @@ const fallbackDaily = Array.from({ length: 30 }, (_, i) => {
     isToday: i === 29,
   };
 });
+
+interface DailyPoint {
+  day: string;
+  savings: number;
+  peakCount: number;
+  isToday: boolean;
+}
+
+// 커스텀 툴팁 — recharts 기본 툴팁은 라벨이 검정색이라 어두운 배경에서 안 보이고,
+// formatter의 name 인자는 dataKey가 아닌 표시명이라 분기가 어긋났었다.
+function DailyTooltip({ active, payload, label }: TooltipProps<number, string>) {
+  if (!active || !payload || payload.length === 0) return null;
+  const point = payload[0].payload as DailyPoint;
+  return (
+    <div
+      style={{
+        backgroundColor: '#0E1116',
+        border: '1px solid #222933',
+        borderRadius: 12,
+        padding: '10px 14px',
+        fontSize: 13,
+      }}
+    >
+      <p style={{ color: '#E8ECF1', fontWeight: 600, marginBottom: 6 }}>{label}</p>
+      <p style={{ color: '#4C8DFF' }}>절감액 {formatWon(point.savings)}</p>
+      <p style={{ color: '#E8A33D', marginTop: 2 }}>피크쉐이빙 {point.peakCount}회</p>
+    </div>
+  );
+}
 
 // 다중 단지 확장 예시 데이터 (전시용)
 const buildingData = [
@@ -141,19 +171,7 @@ export default function ReportPage() {
                 axisLine={false}
                 tickFormatter={yTickWon}
               />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#0E1116',
-                  border: '1px solid #222933',
-                  borderRadius: 12,
-                  fontSize: 13,
-                  color: '#E8ECF1',
-                }}
-                formatter={(value: number, name: string) => [
-                  name === 'savings' ? `${formatKRW(value)}` : `${value}회`,
-                  name === 'savings' ? '절감액' : '피크 횟수',
-                ]}
-              />
+              <Tooltip content={<DailyTooltip />} cursor={{ fill: '#222933', opacity: 0.4 }} />
               <Legend wrapperStyle={{ fontSize: 13, color: '#98A2B3' }} />
               <Bar dataKey="savings" name="절감액" radius={[8, 8, 0, 0]} barSize={30}>
                 {dailySavingsData.map((entry, index) => (
