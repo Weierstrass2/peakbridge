@@ -2,13 +2,16 @@
 한전 전력거래소 API 기반 서비스
 """
 
+import time as _time
 import xml.etree.ElementTree as ET
+from urllib.parse import unquote
 
 import httpx
 from datetime import datetime
 from typing import Dict
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.services.kpx_feed import KpxFeed
 
 
 def _now_kst():
@@ -19,12 +22,43 @@ def _now_kst():
 
 logger = get_logger(__name__)
 
+# SMP 인메모리 캐시 (모듈 레벨 — 요청마다 KepcoService가 새로 생겨도 공유됨).
+# KPX API가 죽어 있으면 요청당 타임아웃을 그대로 태워 /kepco/status·/ai/scenarios가
+# 프론트 axios 타임아웃(10초)을 넘겨버리므로, 성공이든 실패든 결과를 캐시한다.
+# value=None 은 "API 전멸" 표시 — TTL 동안 재시도하지 않되, 추정값은 시간대
+# 요금이 바뀔 수 있어 캐시하지 않고 매번 새로 계산한다.
+_smp_cache: Dict = {"ts": 0.0, "value": None, "live": False}
+_SMP_TTL_S = 600
+# KPX 호출 요청별 타임아웃. 2개 API 직렬 최악이라도 프론트 10초 안에 끝나야 한다.
+_SMP_FETCH_TIMEOUT_S = 3.5
+
+
+class _LandSmpFeed(KpxFeed):
+    """시간별 SMP CSV(backend/data/kpx_smp.csv)를 **육지** 컬럼으로 읽는 리더.
+
+    Railway는 해외 IP라 KPX API 호출이 막힌다 — VPP OS와 동일하게
+    PC에서 내려받은 공공데이터포털 파일데이터를 서버가 읽는 우회를 쓴다.
+    VPP 시장(kpx_feed 싱글톤, KPX_REGION 기본 jeju)과 캐시를 섞지 않도록
+    별도 인스턴스 + 육지 고정. 파서·더미 데이터 방어는 그대로 상속.
+    """
+
+    @property
+    def region(self) -> str:  # noqa: D102 — env 무시, 아파트 관제는 육지 기준
+        return "inland"
+
+
+_land_smp_feed = _LandSmpFeed()
+
 
 class KepcoService:
     """한전 API 연동 서비스"""
     
     def __init__(self):
-        self.api_key = settings.KEPCO_API_KEY
+        # data.go.kr 서비스키는 인코딩/디코딩 두 버전이 발급되는데, 인코딩 버전을
+        # 그대로 params에 넣으면 httpx가 한 번 더 인코딩해 인증이 깨진다.
+        # '%'가 들어 있으면 인코딩 버전으로 보고 디코딩해 저장한다.
+        raw_key = settings.KEPCO_API_KEY or ""
+        self.api_key = unquote(raw_key) if "%" in raw_key else raw_key
         self.client = httpx.AsyncClient(timeout=10.0)
     
     def get_current_tariff_info(self) -> tuple:
@@ -64,35 +98,58 @@ class KepcoService:
         k = (self.api_key or "").strip()
         return len(k) >= 20 and "여기에" not in k and k.lower() not in ("none", "changeme")
 
-    async def get_current_smp(self) -> float:
-        """현재 SMP 가격 반환 (원/kWh).
+    def _smp_from_csv(self) -> float | None:
+        """시간별 SMP CSV(육지)에서 현재 시각 값. 파일 없으면 None."""
+        curve = _land_smp_feed.smp_from_csv()
+        if not curve:
+            return None
+        return curve[_now_kst().hour]
+
+    async def get_smp_info(self) -> tuple[float, str]:
+        """(SMP 원/kWh, 출처) 반환. 출처: "api" | "csv" | "estimate". 결과는 10분 캐시.
 
         전날 KPX가 결정한 실제 시간별 SMP를 두 공공데이터 API로 시도한다.
           1) getSmp1hToday — 육지 계통한계가격 시간별(스펙 명확, XML)
           2) SmpWithForecastDemand — 계통한계가격+수요예측(신규 권장, JSON)
-        키가 없거나 둘 다 실패하면 요금표 기반 추정으로 폴백한다.
+        API 실패 시(Railway는 해외 IP라 한국 공공 API가 막힌다) PC에서 내려받아
+        둔 시간별 SMP CSV(실데이터) → 그것도 없으면 요금표 추정으로 폴백.
+        실패도 캐시해 TTL 동안 재호출로 응답을 지연시키지 않는다.
         """
-        if not self._has_valid_key():
-            logger.info("smp_no_api_key_using_tariff_fallback")
-            return self.estimate_smp_from_tariff()
+        if self._has_valid_key():
+            cached_age = _time.time() - _smp_cache["ts"]
+            if cached_age < _SMP_TTL_S:
+                if _smp_cache["value"] is not None:
+                    return _smp_cache["value"], "api"
+                # TTL 내 "API 전멸" 기록 — 재시도 없이 CSV/추정으로
+            else:
+                hour = _now_kst().hour
+                smp = await self._fetch_smp1h_today(hour)
+                if smp is None:
+                    smp = await self._fetch_smp_forecast(hour)
+                if smp is not None:
+                    _smp_cache.update(ts=_time.time(), value=smp, live=True)
+                    return smp, "api"
+                logger.warning("smp_all_apis_failed_trying_csv_fallback")
+                _smp_cache.update(ts=_time.time(), value=None, live=False)
+        else:
+            logger.info("smp_no_api_key_trying_csv_fallback")
 
-        hour = _now_kst().hour
-        smp = await self._fetch_smp1h_today(hour)
-        if smp is not None:
-            return smp
-        smp = await self._fetch_smp_forecast(hour)
-        if smp is not None:
-            return smp
+        csv_smp = self._smp_from_csv()
+        if csv_smp is not None:
+            return csv_smp, "csv"
+        return self.estimate_smp_from_tariff(), "estimate"
 
-        logger.warning("smp_all_apis_failed_using_tariff_fallback")
-        return self.estimate_smp_from_tariff()
+    async def get_current_smp(self) -> float:
+        """현재 SMP 가격만 필요할 때 (원/kWh). 캐시 포함 — get_smp_info 참조."""
+        smp, _ = await self.get_smp_info()
+        return smp
 
     async def _fetch_smp1h_today(self, hour: int) -> float | None:
         """getSmp1hToday (XML). 응답 item들에서 tradHour == 현재시각의 smp를 찾는다."""
         try:
             url = "https://openapi.kpx.or.kr/openapi/smp1hToday/getSmp1hToday"
             params = {"ServiceKey": self.api_key, "areaCd": 1}
-            resp = await self.client.get(url, params=params)
+            resp = await self.client.get(url, params=params, timeout=_SMP_FETCH_TIMEOUT_S)
             resp.raise_for_status()
             root = ET.fromstring(resp.text)
             latest = None
@@ -123,7 +180,7 @@ class KepcoService:
                 "areaCd": 1,
                 "yymmdd": today,
             }
-            resp = await self.client.get(url, params=params)
+            resp = await self.client.get(url, params=params, timeout=_SMP_FETCH_TIMEOUT_S)
             resp.raise_for_status()
             data = resp.json()
             items = data.get("response", {}).get("body", {}).get("items", {}).get("item", [])
@@ -172,20 +229,24 @@ class KepcoService:
     
     async def get_kepco_summary(self) -> Dict:
         """대시보드용 전체 요약"""
-        smp = await self.get_current_smp()
+        smp, smp_source = await self.get_smp_info()
         reserve = await self.get_power_reserve()
         is_emergency = await self.is_power_emergency()
         period, tariff = self.get_current_tariff_info()
 
-        # SMP가 요금표 값과 정확히 같으면 폴백 중(실 API 미연동) — 화면에서 정직하게 구분
-        is_fallback = abs(smp - tariff) < 0.01
+        source_label = {
+            "api": "한전 공공데이터 API (실시간 SMP)",
+            "csv": "KPX 시간별 SMP 실데이터 (파일데이터 — 전일 확정가)",
+            "estimate": "요금표 기반 추정 (SMP 실데이터 미연동 — kpx_smp.csv 배치 시 실데이터)",
+        }[smp_source]
         return {
             "smp_price": smp,
-            "smp_is_live": not is_fallback,
+            # 실데이터 여부 — API든 CSV든 KPX가 결정한 실제 가격이면 true
+            "smp_is_live": smp_source != "estimate",
+            "smp_source": smp_source,
             "power_reserve": reserve,
             "is_emergency": is_emergency,
             "current_tariff": tariff,
             "tariff_period": period,
-            "source": "한전 공공데이터 API (실시간 SMP)" if not is_fallback
-            else "요금표 기반 추정 (SMP API 미연동 — KEPCO_API_KEY 설정 시 실 SMP 연동)",
+            "source": source_label,
         }

@@ -44,8 +44,17 @@ interface ScenarioItem {
 interface KepcoStatus {
   smp_price: number;
   smp_is_live?: boolean;
+  smp_source?: 'api' | 'csv' | 'estimate';
   tariff_period: string;
   source: string;
+}
+
+/** SMP 출처를 짧은 배지 문구로 (구버전 백엔드는 smp_source가 없어 smp_is_live로 폴백) */
+function smpSourceLabel(smp: KepcoStatus): string {
+  const source = smp.smp_source ?? (smp.smp_is_live ? 'api' : 'estimate');
+  if (source === 'api') return '전력거래소 실시간';
+  if (source === 'csv') return 'KPX 실데이터 (전일 확정가)';
+  return '요금표 추정 (실데이터 미연동)';
 }
 
 type BarEntry = { hour: number; rate: number; type: 'light' | 'medium' | 'heavy' };
@@ -258,13 +267,7 @@ export default function EnergyTradingPage() {
         <KPICard
           label="SMP (시장가)"
           value={smp ? `${smp.smp_price.toFixed(1)}원/kWh` : '연결 대기'}
-          sub={
-            smp
-              ? smp.smp_is_live
-                ? '전력거래소 실시간'
-                : '요금표 추정 (SMP API 미연동)'
-              : 'KPX 전날 결정가'
-          }
+          sub={smp ? smpSourceLabel(smp) : 'KPX 전날 결정가'}
           accent="text-[#9B8AFB]"
         />
         <KPICard
