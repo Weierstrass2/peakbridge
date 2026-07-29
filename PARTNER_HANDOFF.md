@@ -163,6 +163,31 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
 - 대시보드 `package-lock.json` 커밋(재현 빌드), `*.tsbuildinfo` ignore 추가,
   `AI_BENCHMARK_REPORT.md`(모델 3종 벤치마크) 저장소에 편입.
 
+## 11차 세션 추가 완료 (2026-07-29) — 실기 하드웨어 벤치 검증 (XIAO ESP32S3 리그)
+- **리그 전환**: ESP32 DevKitC+INA226 → **XIAO ESP32S3 + INA219** 구성으로 실기 조립.
+  신규 스케치 `hardware/xiao_peak_shaving/xiao_peak_shaving.ino` (기존 esp32_peak_shaving은
+  DevKitC용으로 보존). 핀: CT=D0(GPIO1), 릴레이=D1(GPIO2), I2C SDA=D4(GPIO5)/SCL=D5(GPIO6).
+- **전체 시나리오 실기 검증 통과**: 부하1·2(CT 0.073A, NC 유지) → 부하3 ON(0.108A →
+  절체 NC→NO, 절체 후 CT 0.073A로 하락 = 물리 이관 증거) → 공급 안정(오판 복귀 0회)
+  → 부하3 OFF(INA 1302→667mA → 복귀 NO→NC) → NC 안정 유지(재절체 왕복 없음).
+  CT 노이즈 스파이크 1회를 연속 2회 조건이 정확히 걸러내는 것까지 확인.
+- **실측 확정값 (INA219 리그)**: 노이즈 플로어 CT 0.008A / 부하1·2 0.073A /
+  인버터 대기 ~690mA(650~733) / ESS 공급 ~1320mA(1260~1384).
+  임계값 확정: I_HIGH=0.090A(절체), **INA_LOW=850mA(복귀)** — 양쪽 여유 117/410mA.
+- **해결한 하드웨어 이슈 4건**:
+  1. INA219 리플 ±300mA → 읽기당 25회×8ms 평균으로 안정화 (INA226의 하드웨어 평균 대체)
+  2. 절체 직후 인버터 램프(2~3초 저전류)를 "부하3 꺼짐"으로 오판 → 절체/복귀 후
+     10초 안정화 유예(STABILIZE_MS) 도입
+  3. **릴레이 역결선으로 인버터→한전 역류** (부하 전부 OFF인데 CT 0.1A대·INA 요동
+     — COM/NC/NO 재결선으로 해결. 결선: COM=부하3, NC=한전, NO=인버터)
+  4. XIAO 시리얼 읽기 후 보드가 리셋에 갇히는 문제 — 포트 열 때 DTR만 assert(RTS 금지),
+     닫기 전 esptool식 리셋 시퀀스 필요 (스크립트로 해결, 증상: ROM 배너만 출력)
+- **XIAO 개발 참고**: FQBN `esp32:esp32:XIAO_ESP32S3`, 포트 COM11(ESP32 Family Device로
+  표시), 네이티브 USB CDC라 `Serial.begin` 후 3초 대기 없으면 초기 출력 유실.
+- **남은 것**: 서버 연동(MQTT 전송 계층, FIRMWARE_MQTT_SPEC.md 스펙 준수) — 판단 로직이
+  실증됐으므로 통신 계층만 얹으면 됨. 배터리 전압 분배회로(1000Ω+100Ω, 배율 11.0)와
+  충전 LED는 DevKitC판(esp32_peak_shaving)에 구현돼 있음 — XIAO판에 필요 시 이식.
+
 ## 남은 백로그 (의도적 미구현 — 필요성 낮음)
 - C2 WebSocket 전환 (3초 폴링으로 시연 충분)
 - 정식 JWT 콘솔 로그인 (시연 마찰 증가)
