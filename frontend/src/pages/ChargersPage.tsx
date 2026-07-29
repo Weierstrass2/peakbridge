@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import ChargerGrid from '../components/dashboard/ChargerGrid';
+import DriverFlexPanel from '../components/dashboard/DriverFlexPanel';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
 import { CardSkeleton } from '../components/common/LoadingSkeleton';
@@ -137,6 +138,9 @@ export default function ChargersPage() {
         </div>
         {message && <p className="text-sm text-[#E8ECF1] self-end pb-2">{message}</p>}
       </div>
+
+      {/* 차주 예약 · 유연성 재고 (폰 /drive 에서 들어온 실데이터) */}
+      <DriverFlexPanel />
 
       {/* Charger Grid (filtered) */}
       <ChargerGrid chargers={chargers.filter((c) =>

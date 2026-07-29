@@ -32,9 +32,9 @@
 #include <Adafruit_INA219.h>
 
 // ---------- 네트워크 (합숙 1일차에 확정 — 실제 비밀번호는 git에 절대 커밋 금지) ----------
-const char* WIFI_SSID     = "여기에_와이파이_이름";
-const char* WIFI_PASSWORD = "여기에_와이파이_비밀번호";
-const char* MQTT_SERVER   = "여기에_브로커_IP";   // 라즈베리파이(또는 서버 노트북) IP
+const char* WIFI_SSID     = "Galaxy A90 5G0201";
+const char* WIFI_PASSWORD = "2580kkjo";
+const char* MQTT_SERVER   = "10.36.50.248";   // 라즈베리파이(또는 서버 노트북) IP
 const int   MQTT_PORT     = 1883;
 const char* DEVICE_ID     = "ess-demo-01";        // 스펙 고정값
 const char* TOPIC_PUB     = "peakbridge/demo/telemetry";

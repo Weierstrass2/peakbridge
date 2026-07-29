@@ -195,6 +195,20 @@ def create_app() -> FastAPI:
     except Exception as exc:
         logger.warning("console_mount_failed", error=str(exc))
 
+    # 차주 모바일 화면 정적 서빙 (/drive) — QR 접속 대상
+    try:
+        from pathlib import Path
+
+        from fastapi.staticfiles import StaticFiles
+
+        drive_dir = Path(__file__).resolve().parents[1] / "static" / "drive"
+        if drive_dir.exists():
+            app.mount(
+                "/drive", StaticFiles(directory=str(drive_dir), html=True), name="drive"
+            )
+    except Exception as exc:
+        logger.warning("drive_mount_failed", error=str(exc))
+
     # 아파트 관제 대시보드 정적 서빙 (/app) — React Router SPA
     try:
         from pathlib import Path

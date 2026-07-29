@@ -1,0 +1,5 @@
+# 의존성·빌드 산출물은 커밋하지 않는다.
+# (배포에 쓰이는 빌드본은 backend/static/drive 에만 둔다 — /console, /app 과 동일 규칙)
+node_modules/
+dist/
+*.tsbuildinfo
