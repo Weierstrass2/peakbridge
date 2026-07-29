@@ -34,6 +34,26 @@ logger = structlog.get_logger(__name__)
 _auto_mode_state: dict[str, bool] = {}
 # 건물별 임계치 상태 (in-memory)
 _threshold_state: dict[str, float] = {}
+# 시연용 가상 시각 오버라이드 (in-memory). 예측 파이프라인에만 영향 —
+# 실제 피크 판정·제어는 항상 실제 시각을 쓴다(안전). None이면 실시간.
+_demo_now_utc: datetime | None = None
+
+
+def set_demo_time(dt_utc: datetime | None) -> None:
+    """시연용 가상 시각 설정. None이면 실시간 복원."""
+    global _demo_now_utc
+    _demo_now_utc = dt_utc
+    logger.info("demo_time_set", value=dt_utc.isoformat() if dt_utc else None)
+
+
+def get_demo_time() -> datetime | None:
+    """설정된 가상 시각 (없으면 None)."""
+    return _demo_now_utc
+
+
+def effective_now_utc() -> datetime:
+    """예측용 유효 시각 — 데모 오버라이드가 있으면 그것, 없으면 실제 UTC now."""
+    return _demo_now_utc or datetime.now(timezone.utc)
 
 
 def get_auto_mode(building_id: str) -> bool:

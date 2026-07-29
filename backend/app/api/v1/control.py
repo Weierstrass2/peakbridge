@@ -23,15 +23,23 @@ from app.services.scenario_service import (
     set_auto_mode,
     get_threshold,
     set_threshold,
+    set_demo_time,
+    get_demo_time,
 )
 
 
 class ThresholdRequest(BaseModel):
-    value: float = Field(..., ge=0.1, le=100.0)
+    # 실측 하드웨어 스케일(0.0x A)부터 대형 건물(수십 A)까지 수용
+    value: float = Field(..., ge=0.01, le=100.0)
 
 
 class AutoModeRequest(BaseModel):
     enabled: bool
+
+
+class DemoTimeRequest(BaseModel):
+    # 시연용 가상 시각(KST 0~23시). None이면 실시간 복원
+    hour: Optional[int] = Field(None, ge=0, le=23)
 
 
 class ChargerControlRequest(BaseModel):
@@ -165,6 +173,31 @@ async def update_threshold(
             "mqtt_sent": mqtt_sent,
         }
     )
+
+
+@router.post("/{building_id}/demo-time")
+async def set_demo_time_endpoint(
+    building_id: str,
+    request: DemoTimeRequest,
+    user: AdminOrManager,
+) -> dict:
+    """시연용 가상 시각 설정 (KST hour). hour=None이면 실시간 복원.
+
+    예측 파이프라인에만 영향 — 피크 시간대(18~21시)로 옮기면 AI 예측선이
+    상승해 '다음 피크 예상'이 뜬다. 실제 피크 판정·제어는 실제 시각 유지.
+    """
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+
+    if request.hour is None:
+        set_demo_time(None)
+        return success_response({"demo_time": None, "hour": None})
+
+    # 오늘(KST) 그 시각을 UTC로 환산해 저장
+    kst_now = _dt.utcnow() + _td(hours=9)
+    kst_target = kst_now.replace(hour=request.hour, minute=0, second=0, microsecond=0)
+    utc_target = (kst_target - _td(hours=9)).replace(tzinfo=_tz.utc)
+    set_demo_time(utc_target)
+    return success_response({"demo_time": utc_target.isoformat(), "hour": request.hour})
 
 
 @router.get("/{building_id}/auto-mode")

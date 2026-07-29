@@ -13,6 +13,12 @@ export interface ForecastPoint {
   will_exceed: boolean;
 }
 
+export interface NextPeak {
+  time: string;
+  predicted_current: number;
+  minutes_ahead: number;
+}
+
 export interface DashboardData {
   grid_current: number;
   ess_soc: number;
@@ -22,6 +28,8 @@ export interface DashboardData {
   peak_reduction_pct: number;
   chargers: Charger[];
   forecast: ForecastPoint[];
+  next_peak?: NextPeak | null;
+  demo_time?: string | null;
   today_saved_won: number;
   month_saved_won: number;
   co2_reduced_kg: number;

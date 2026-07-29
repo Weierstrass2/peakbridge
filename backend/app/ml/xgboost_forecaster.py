@@ -186,12 +186,18 @@ class XGBoostForecaster:
         except Exception:
             return False
 
-    def predict_next_hour(self, current_df: pd.DataFrame = None) -> List[Dict]:
-        """향후 60분, 5분 간격 예측"""
+    def predict_next_hour(
+        self, current_df: pd.DataFrame = None, now_override: datetime = None
+    ) -> List[Dict]:
+        """향후 60분, 5분 간격 예측.
+
+        now_override: 시연용 가상 시각. 지정하면 그 시각 기준의 시간대 패턴으로
+        예측한다(피크 시간대로 옮기면 예측이 상승). 미지정이면 실제 UTC now.
+        """
         if self.model is None and not self.load():
             return []
 
-        now = datetime.now(timezone.utc)
+        now = now_override or datetime.now(timezone.utc)
         predictions = []
 
         # 현재 데이터가 없으면 기본값으로 처리

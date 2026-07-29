@@ -51,13 +51,22 @@ class ForecastService:
             logger.error("forecast_train_failed", building_id=building_id, error=str(exc))
             return False
 
-    async def predict(self, building_id: str) -> list[dict]:
-        """향후 60분 예측값 반환."""
+    async def predict(
+        self, building_id: str, now_override: datetime | None = None
+    ) -> list[dict]:
+        """향후 60분 예측값 반환.
+
+        now_override: 명시하면 그 시각 기준으로 예측. 미지정이면 데모 오버라이드
+        (effective_now_utc)를 따른다.
+        """
         try:
+            from app.services.scenario_service import effective_now_utc
+
+            eff = now_override or effective_now_utc()
             forecaster = self._get_forecaster(building_id)
             if not forecaster.load() and not forecaster._model:
                 await self.train(building_id)
-            predictions = forecaster.predict_next_hour()
+            predictions = forecaster.predict_next_hour(now_override=eff)
             return [
                 {
                     "time": p["time"].isoformat()

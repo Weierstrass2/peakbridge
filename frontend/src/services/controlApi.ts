@@ -26,6 +26,11 @@ export const controlApi = {
     await api.put(`${V1}/control/${BUILDING_ID}/threshold`, { value });
   },
 
+  // 시연용 가상 시각 설정 (KST 0~23시). null이면 실시간 복원
+  setDemoTime: async (hour: number | null): Promise<void> => {
+    await api.post(`${V1}/control/${BUILDING_ID}/demo-time`, { hour });
+  },
+
   getAutoMode: async (): Promise<boolean> => {
     const { data } = await api.get<Wrapped<{ enabled: boolean }>>(
       `${V1}/control/${BUILDING_ID}/auto-mode`,

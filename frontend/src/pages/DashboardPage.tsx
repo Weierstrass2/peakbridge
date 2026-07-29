@@ -1,4 +1,5 @@
 import TopMetrics from '../components/dashboard/TopMetrics';
+import AiForecastPanel from '../components/dashboard/AiForecastPanel';
 import RealtimeChart from '../components/dashboard/RealtimeChart';
 import EnergyFlowDiagram from '../components/dashboard/EnergyFlowDiagram';
 import ChargerGrid from '../components/dashboard/ChargerGrid';
@@ -25,6 +26,9 @@ export default function DashboardPage() {
     <div className="space-y-6">
       {/* Top Metrics */}
       <TopMetrics data={dashboard} loading={isLoading} />
+
+      {/* AI 피크 예측 + 시연 시각 조정 */}
+      <AiForecastPanel data={dashboard} />
 
       {/* Energy Flow + Chart */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

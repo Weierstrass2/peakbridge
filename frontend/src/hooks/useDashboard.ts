@@ -9,8 +9,8 @@ export function useDashboard() {
   const dashboardQuery = useQuery({
     queryKey: ['dashboard'],
     queryFn: fetchDashboard,
-    refetchInterval: 30_000,
-    staleTime: 10_000,
+    refetchInterval: 3_000,   // 실물 시연 반응성 — 부하/시각 조정이 3초 내 반영
+    staleTime: 1_000,
   });
 
   const chartQuery = useQuery({

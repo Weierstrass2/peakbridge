@@ -16,6 +16,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+import autopilot
 import bridge
 import db
 import mqtt_gateway
@@ -51,6 +52,8 @@ async def lifespan(app: FastAPI):
     bridge.init()
     # MQTT_BROKER가 설정된 경우에만 접속 시도. 미설정이면 HTTP-only 모드로 완전 동작.
     mqtt_gateway.start(ingest, db.get_config)
+    # AUTOPILOT=1 + BRIDGE_URL 설정 시에만: Railway AI 예측 → 선제 임계치 조정
+    autopilot.init()
     yield
     mqtt_gateway.stop()
 
@@ -72,6 +75,7 @@ def health():
         "ok": True,
         "mqtt": mqtt_gateway.status(),
         "bridge": bridge.status(),
+        "autopilot": autopilot.status(),
         "legacy_adapter": mqtt_gateway.LEGACY_ENABLED,
     }
 

@@ -119,12 +119,15 @@ class PowerForecaster:
             logger.warning("model_load_failed", building=self.building_id)
             return False
 
-    def predict_next_hour(self) -> List[Dict]:
-        """향후 60분, 5분 간격 예측 (XGBoost 최우선)"""
+    def predict_next_hour(self, now_override: datetime | None = None) -> List[Dict]:
+        """향후 60분, 5분 간격 예측 (XGBoost 최우선).
+
+        now_override: 시연용 가상 시각 (피크 시간대 재현용).
+        """
         # 1. XGBoost 모델 시도
         if self.xgb_forecaster and self.xgb_forecaster.model is not None:
             try:
-                predictions = self.xgb_forecaster.predict_next_hour()
+                predictions = self.xgb_forecaster.predict_next_hour(now_override=now_override)
                 if predictions:
                     logger.info("XGBoost 모델로 예측 성공", building=self.building_id)
                     return predictions
@@ -142,11 +145,11 @@ class PowerForecaster:
             )
 
         if self._model is None:
-            return self._fallback_predictions()
+            return self._fallback_predictions(now_override)
 
         if self._model.get("type") == "prophet":
             return self._predict_prophet(self._model["model"])
-        return self._predict_sklearn(self._model["model"])
+        return self._predict_sklearn(self._model["model"], now_override)
 
     def _predict_prophet(self, model: Any) -> list[dict]:
         future = model.make_future_dataframe(periods=12, freq="5min")
@@ -159,8 +162,10 @@ class PowerForecaster:
             tail["yhat_upper"].tolist(),
         )
 
-    def _predict_sklearn(self, model: LinearRegression) -> list[dict]:
-        now = datetime.now(timezone.utc)
+    def _predict_sklearn(
+        self, model: LinearRegression, now_override: datetime | None = None
+    ) -> list[dict]:
+        now = now_override or datetime.now(timezone.utc)
         times, preds = [], []
         for i in range(1, 13):
             ts = now + timedelta(minutes=5 * i)
@@ -227,15 +232,27 @@ class PowerForecaster:
                 rows.append({"ds": pd.Timestamp(ts), "y": float(val)})
         return pd.DataFrame(rows)
 
-    def _fallback_predictions(self) -> list[dict]:
-        now = datetime.now(timezone.utc)
-        return [
-            {
-                "time": now + timedelta(minutes=5 * i),
-                "predicted": 10.0,
-                "lower": 8.0,
-                "upper": 12.0,
+    def _fallback_predictions(self, now_override: datetime | None = None) -> list[dict]:
+        # 모델이 전혀 없을 때도 시간대 패턴을 흉내내 데모 시각에 반응하게 한다
+        # (심야는 낮게, 저녁 피크시간대는 높게). 스케일은 대시보드에서 실측으로 앵커.
+        now = now_override or datetime.now(timezone.utc)
+        results = []
+        for i in range(1, 13):
+            t = now + timedelta(minutes=5 * i)
+            kst_hour = (t.hour + 9) % 24
+            if 18 <= kst_hour <= 21:
+                base = 15.0
+            elif 11 <= kst_hour <= 13 or 17 == kst_hour:
+                base = 12.0
+            elif 23 <= kst_hour or kst_hour < 7:
+                base = 6.0
+            else:
+                base = 10.0
+            results.append({
+                "time": t,
+                "predicted": round(base, 2),
+                "lower": round(base * 0.85, 2),
+                "upper": round(base * 1.15, 2),
                 "will_exceed": False,
-            }
-            for i in range(1, 13)
-        ]
+            })
+        return results
