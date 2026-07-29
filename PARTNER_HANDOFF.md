@@ -304,6 +304,57 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
 - 숫자 방어 각본: 절감액·CO2는 실측 초과전류 × 물리식(220V·5분·250원/kWh·0.45kg)
   — 프로덕션 값 검산 일치. 예시/전시용 데이터는 전부 화면에 라벨 표기.
 
+## 14차 세션 (2026-07-29) — 에너지 거래 탭 버그·미연동 정리 + SMP 실데이터 개통
+
+**배경**: 에너지 거래현황 탭 점검 요청. 라이브 프로덕션 호출로 증상 재현 후 수정.
+
+### SMP 실데이터 연동 + 응답 지연 해결 (`ba83872d`, `03923c88`, `5017919b`)
+- **근본 원인**: Railway가 **해외 IP**라 한국 공공 API(KPX·data.go.kr)가 응답을 안 줘
+  요청당 타임아웃 10초를 다 태움 → 프론트 axios 10초 초과로 SMP·AI시나리오 카드가
+  늘 "연결 대기"/폴백. (한국 IP인 이 PC에선 즉시 응답 오는 것으로 원인 확정.)
+- **kepco_service 견고화**: SMP 10분 캐시(실패도 캐시), KPX 호출 타임아웃 3.5초,
+  `get_smp_info() → (값, 출처)` 명시 플래그. data.go.kr 서비스키 이중 인코딩 방어.
+- **폴백 체인**: `API → inject(당일) → CSV(전일) → 요금표 추정`. 출처를 화면에 정직 표기.
+- **CSV 우회** (VPP OS와 동일 원칙): KPX 육지 SMP 웹페이지(키·로그인 불필요, 최근 7일
+  ×24h 표)를 파싱해 `backend/data/kpx_smp.csv`로 저장. `scripts/fetch_kpx_smp_today.py`
+  — 시연 전날/당일 실행 1번이면 갱신. ⚠️ **Dockerfile에 data/가 COPY 안 돼 있어**
+  프로덕션에 CSV·제주보정·모델이 아예 없던 것 발견 → 작은 런타임 파일만 이미지에 포함
+  (제주 보정·`/jeju/*`·예측 모델도 함께 살아남).
+- **inject 자동 중계** (`hardware/server/smp_relay.py`, 우회 일원화): 시연 때 켜는
+  로컬 서버가 KPX 웹(육지·제주)을 6시간 주기로 긁어 기존 `POST /market/smp-api/inject`
+  로 주입 → 아파트 관제 SMP·VPP 콘솔 SMP 둘 다 **당일 확정가** 자동 반영, 커밋 불필요.
+  `BRIDGE_URL` 게이트, 데몬 스레드(시연 방해 금지). `kpx_smp_api`에 육지곡선 저장
+  (`smp_land_today`, 당일만) + demand 보존(피크 예약 입력 안 지워짐).
+- **실기 검증**: 중계기 실행 → 프로덕션 `smp_source:"inject"`, 154원대 당일 확정가,
+  응답 0.5초(기존 11초), VPP `cached_date:20260729` 동시 확인.
+
+### 임계치 스케일·계절 요금·정직 라벨 (`b7f1b02c`)
+- **`/recommendation` 임계치**: `threshold=10.0` 하드코딩 → `get_threshold(building_id)`.
+  실측 스케일(0.0x A)에서 방전 권고·urgency가 영구히 죽던 것 복구.
+- **PPO 임계치**: 관측·판정을 슬라이더값으로 전달. `max(0.1,...)` 클램프 제거
+  (의도된 0.08A 왜곡) → `1e-6`만 방어. reason 전류 `.1f→.3f`(0.073A가 "0.1A"로 뭉개짐).
+- **계절 분기 버그**: `11<=month<=2`(항상 거짓) → `month>=11 or month<=2`. 겨울이
+  봄가을로 새던 것. `SEASON_TARIFFS`로 통일 — SMP 폴백 추정과 "현재 요금" KPI가
+  계절마다 모순되던 것 해소. **12개월×3구간 전수 검증 통과.**
+- **정직 라벨**: `/arbitrage`에 `is_example`·`charged/discharged_kwh` 명시 →
+  프론트 "실시간 계산"을 "요금표 기반 예시 시나리오"로 정정. VPP 예상 수익도 "산정 예시".
+
+### ⚠️ 하드웨어상 가능한데 미연동 (다음 단계 백로그)
+- **실측 차익**: XIAO 텔레메트리에 `ina_current_ma`·`battery_voltage_v`가 오는데
+  브리지가 버림. 이걸 적산하면 `/arbitrage`의 고정 kWh(5.0/4.5)를 실측 방전전력
+  기반으로 교체 가능 → "예시 시나리오" 라벨을 사실로. **선행: 백엔드 sensor_type
+  Literal이 grid_current/ess_soc/charger_current 3종뿐 → 스키마 확장 필요.**
+- **릴레이 상태 배지**: 텔레메트리 `relay_state`(NC/NO)가 클라우드에 안 올라감.
+- **HW 적용 임계**: `threshold_high_a`(오토파일럿 선제 하향값)를 클라우드 탭에 표시하면
+  AI 폐루프 증거가 클라우드에서 완결.
+
+### 운영 노트 (14차)
+- 시연 SMP: `hardware/server`(BRIDGE_URL 설정)만 켜면 자동 당일 확정가. 안 켜면
+  CSV(마지막 갱신일) → 추정으로 정직하게 강등. **Railway 재배포 직후엔 inject 캐시가
+  비어 잠깐 CSV로 내려갔다 중계기 다음 주기에 복구** (시연 직전 재배포 시 로컬 서버
+  재시작 1번으로 즉시 주입).
+- SMP CSV 갱신: `py backend/scripts/fetch_kpx_smp_today.py` → 커밋·푸시.
+
 ## 남은 백로그 (의도적 미구현 — 필요성 낮음)
 - C2 WebSocket 전환 (3초 폴링으로 시연 충분)
 - 정식 JWT 콘솔 로그인 (시연 마찰 증가)
