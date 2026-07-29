@@ -426,6 +426,26 @@ async def smp_api_refresh(force: bool = False) -> dict:
         return success_response({"ok": False})
 
 
+@router.post("/smp-api/inject")
+async def smp_api_inject(payload: dict) -> dict:
+    """국내에서 받아 온 KPX 응답을 그대로 주입한다.
+
+    data.go.kr은 해외 IP에서 접속이 막히는 경우가 있어, 해외에 있는 배포 서버가
+    직접 호출하지 못한다(ConnectTimeout). 그럴 때 국내 PC에서 받은 원본 JSON을
+    이 경로로 밀어 넣으면 **직접 호출과 동일한 파서·캐시**를 타므로 결과는 같다.
+
+    사용:
+        scripts/fetch_smp_local.py 실행 (국내 PC)
+    """
+    try:
+        from app.services.kpx_smp_api import smp_api
+
+        return success_response(smp_api.inject(payload))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("smp_api_inject_failed", error=str(exc))
+        return success_response({"ok": False, "error": str(exc)[:200]})
+
+
 @router.get("/smp-api/status")
 async def smp_api_status() -> dict:
     """호출 잔여량·캐시 상태 (호출 없음)."""

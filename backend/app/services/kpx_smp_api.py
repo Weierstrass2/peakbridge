@@ -40,7 +40,10 @@ PATH = "getSmpWithForecastDemand"
 
 CACHE = Path(__file__).resolve().parents[2] / "data" / "kpx_smp_api_cache.json"
 DEFAULT_QUOTA = 90          # 100에서 여유를 남긴다
-TIMEOUT_S = 8.0
+# data.go.kr은 해외 IP에서 접속이 매우 느리거나 막힌다.
+# Railway 서버가 해외에 있으면 ConnectTimeout이 난다 — 그때는
+# 국내에서 받아 온 곡선을 POST /smp-api/inject 로 밀어 넣는 경로를 쓴다.
+TIMEOUT_S = 25.0
 
 
 class SmpForecastApi:
@@ -155,19 +158,51 @@ class SmpForecastApi:
                         continue
         return None
 
-    def _to_curve(self, rows: list[dict]) -> dict:
-        """행 목록 → 24시간 SMP·수요 곡선."""
+    def _to_curve(self, rows: list[dict], region: str | None = None,
+                  day: str | None = None) -> dict:
+        """행 목록 → 24시간 SMP·수요 곡선.
+
+        실제 응답 스키마 (확인됨):
+            date "20260729" · hour 1~24 · areaName "육지"|"제주" · smp
+            slfd 계통 전체 부하예측 · mlfd 육지 부하예측 · jlfd 제주 부하예측
+
+        **지역과 날짜로 반드시 걸러야 한다.** 응답에는 여러 날·두 지역이 섞여 있어
+        그냥 훑으면 뒤 행이 앞 행을 덮어써 곡선이 뒤섞인다.
+        """
+        want = (region or os.environ.get("KPX_REGION", "jeju")).strip().lower()
+        area_kr = "제주" if want == "jeju" else "육지"
+        # 제주면 jlfd, 육지면 mlfd 를 수요로 쓴다
+        load_key = "jlfd" if want == "jeju" else "mlfd"
+
+        # 날짜 미지정이면 응답에서 가장 최근 날짜를 고른다
+        if day is None:
+            days = {str(r.get("date") or "").strip() for r in rows}
+            days.discard("")
+            day = max(days) if days else None
+
         smp: dict[int, float] = {}
         dem: dict[int, float] = {}
         for r in rows:
+            if day and str(r.get("date") or "").strip() != day:
+                continue
+            area = str(r.get("areaName") or "").strip()
+            if area and area_kr not in area:
+                continue
             h = self._pick(r, "hour", "시간", "hh", "time")
             if h is None:
                 continue
-            idx = int(h) - 1 if int(h) >= 1 and int(h) <= 24 else int(h)
+            idx = int(h) - 1 if 1 <= int(h) <= 24 else int(h)
             if not 0 <= idx <= 23:
                 continue
             s = self._pick(r, "smp", "계통한계", "price")
-            d = self._pick(r, "demand", "수요", "load")
+            d = r.get(load_key)
+            if d is None:
+                d = self._pick(r, "demand", "수요", "load")
+            else:
+                try:
+                    d = float(str(d).replace(",", ""))
+                except (TypeError, ValueError):
+                    d = None
             if s is not None:
                 smp[idx] = s
             if d is not None:
@@ -256,6 +291,28 @@ class SmpForecastApi:
             self._save_cache(cache)
             logger.warning("kpx_smp_api_failed", error=cache["last_error"])
             return cur
+
+    def inject(self, payload: Any) -> dict:
+        """국내에서 받아 온 원본 응답을 그대로 밀어 넣는다.
+
+        data.go.kr은 해외 IP에서 막히는 경우가 있어 Railway 서버가 직접 못 부른다.
+        그럴 때는 **한국에서 받은 응답을 이 경로로 주입**한다.
+        파싱·캐시 규칙은 직접 호출과 완전히 동일하므로 결과물의 신뢰도는 같다.
+        """
+        curve = self._to_curve(self._rows(payload))
+        if not curve.get("smp"):
+            return {"ok": False, "error": f"SMP 파싱 실패 — 응답: {str(payload)[:300]}"}
+        cache = self._load_cache()
+        curve.update({
+            "date": self._today(),
+            "fetched_at": datetime.now(KST).isoformat(timespec="seconds"),
+            "via": "inject",          # 출처를 남긴다 (직접 호출과 구분)
+        })
+        cache["curve"] = curve
+        cache["last_error"] = ""
+        self._save_cache(cache)
+        logger.info("kpx_smp_injected", smp_sample=curve["smp"][:3])
+        return {"ok": True, "smp": curve["smp"], "demand": curve.get("demand")}
 
     def smp_curve(self) -> list[float] | None:
         """캐시된 24시간 SMP. **스트림 경로는 이것만 쓴다.**"""
