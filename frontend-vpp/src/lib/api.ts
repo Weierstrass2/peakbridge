@@ -409,6 +409,94 @@ export interface JejuSensitivity {
   verdict: string;
 }
 
+export interface JejuSiteCompare {
+  sites: {
+    site: string;
+    behind_meter: boolean;
+    price_basis: string;
+    rows: {
+      strategy: string;
+      label: string;
+      annual_won: number;
+      margin_per_kwh: number | null;
+      free_share: number;
+      hit_rate: number;
+    }[];
+  }[];
+  insight: string;
+}
+
+/* ── 시장 프로파일 · 데이터 출처 ────────────────────────── */
+
+export interface RevenueStream {
+  key: string;
+  label: string;
+  available: boolean;
+  basis: string;
+  note: string;
+}
+
+export interface MarketProfile {
+  key: string;
+  name: string;
+  region: string;
+  role: string;
+  bidding: string;
+  price_use: string;
+  settlement: string;
+  penalty: string;
+  status: string;
+  streams: RevenueStream[];
+  available_streams: string[];
+}
+
+export interface MarketProfileCompare {
+  profiles: MarketProfile[];
+  comparison: { item: string; inland: string; jeju: string }[];
+  shared_engine: string[];
+  note: string;
+}
+
+export interface DataSource {
+  enabled: boolean;
+  source: string;          // kpx | replay
+  label: string;
+  region: string;
+  csv_exists: boolean;
+  smp_cached: boolean;
+  last_error: string;
+  hint: string;
+  calibration?: string | null;
+  region_scale?: number | null;
+  smp_today?: number[] | null;
+}
+
+/* ── 피크 예약 ──────────────────────────────────────────── */
+
+export interface PeakReservation {
+  reserved_kwh: number;
+  blackout_hours: number[];
+  peak_hours: number[];
+  expected_peak_kw: number;
+  month_peak_kw: number;
+  headroom_kw: number;
+  shave_kw: number;
+  peak_value_won_per_kwh: number;
+  renews_month_peak: boolean;
+  detail: { hour: number; demand_kw: number; over_kw: number; shave_kw: number }[];
+  comparison: {
+    market_won_per_kwh: number;
+    peak_won_per_kwh: number;
+    ratio: number | null;
+    verdict: string;
+  };
+  demand_kw: number[];
+  forecast: number[];
+  usable_kwh: number;
+  sellable_kwh: number;
+  contract_kw: number;
+}
+
 export const consoleApi = {
   base: BASE,
   stream: () => get<StreamSnapshot>('/vpp/stream'),
@@ -467,10 +555,25 @@ export const consoleApi = {
   deskReset: () => post<{ reset: boolean }>('/desk/reset', {}),
 
   // ── 제주 실시간시장 ──
-  jejuLeaderboard: (days = 365, spreadScale = 0.41) =>
+  jejuLeaderboard: (days = 180, spreadScale = 0.41, behindMeter = false) =>
     get<JejuLeaderboard>(
-      `/market/jeju/leaderboard?days=${days}&spread_scale=${spreadScale}`, 30000,
+      `/market/jeju/leaderboard?days=${days}&spread_scale=${spreadScale}` +
+        `&behind_meter=${behindMeter}`, 30000,
     ),
+  peakReservation: (contractKw = 200, monthPeakKw = 0, lookbackMonths = 1) =>
+    get<PeakReservation>(
+      `/market/peak-reservation?contract_kw=${contractKw}` +
+        `&month_peak_kw=${monthPeakKw}&lookback_months=${lookbackMonths}`, 15000,
+    ),
+
+  // ── 시장 프로파일 · 데이터 출처 ──
+  marketProfiles: () => get<MarketProfileCompare>('/market/profiles'),
+  marketProfile: (key?: string) =>
+    get<MarketProfile>(`/market/profile${key ? `?key=${encodeURIComponent(key)}` : ''}`),
+  dataSource: () => get<DataSource>('/market/data-source', 12000),
+
+  jejuSiteCompare: (days = 120) =>
+    get<JejuSiteCompare>(`/market/jeju/site-compare?days=${days}`, 30000),
   jejuSensitivity: (days = 180) =>
     get<JejuSensitivity>(`/market/jeju/sensitivity?days=${days}`, 30000),
 

@@ -4,6 +4,7 @@ import {
   type JejuLeaderboard,
   type JejuRow,
   type JejuSensitivity,
+  type JejuSiteCompare,
 } from '../lib/api';
 
 const won = (n: number | null | undefined) =>
@@ -29,18 +30,22 @@ export default function JejuPanel({
 }) {
   const [lb, setLb] = useState<JejuLeaderboard | null>(null);
   const [sens, setSens] = useState<JejuSensitivity | null>(null);
+  const [cmp, setCmp] = useState<JejuSiteCompare | null>(null);
   const [spread, setSpread] = useState(0.41);
+  const [behindMeter, setBehindMeter] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const load = useCallback(async (sc: number) => {
+  const load = useCallback(async (sc: number, bm: boolean) => {
     setBusy(true);
     try {
-      const [a, b] = await Promise.all([
-        consoleApi.jejuLeaderboard(365, sc),
+      const [a, b, c] = await Promise.all([
+        consoleApi.jejuLeaderboard(180, sc, bm),
         consoleApi.jejuSensitivity(180),
+        consoleApi.jejuSiteCompare(120),
       ]);
       setLb(a.data);
       setSens(b.data);
+      setCmp(c.data);
       const top = a.data.leaderboard?.[0];
       if (top) {
         onLog(
@@ -56,7 +61,7 @@ export default function JejuPanel({
     }
   }, [onLog]);
 
-  useEffect(() => { load(spread); }, [load, spread]);
+  useEffect(() => { load(spread, behindMeter); }, [load, spread, behindMeter]);
 
   const rows: JejuRow[] = lb?.leaderboard ?? [];
   const best = Math.max(1, ...rows.map((r) => Math.abs(r.annual_won)));
@@ -64,6 +69,26 @@ export default function JejuPanel({
 
   return (
     <div className="jeju">
+      {/* ── 자산 위치 스위치 — 이 화면이 어느 사업을 보고 있는지 ── */}
+      <div className="jeju-site">
+        <span className="label-cap">자산 위치</span>
+        {([
+          [false, '발전연계 (계량기 밖)', '시장 실시간가로 거래 · 출력제어 흡수 가능'],
+          [true, '아파트 (계량기 안)', '계시별 요금으로 거래 · 공짜 전력 접근 불가'],
+        ] as [boolean, string, string][]).map(([v, t, d]) => (
+          <button
+            key={t}
+            type="button"
+            className={`jeju-sitebtn ${behindMeter === v ? 'on' : ''}`}
+            disabled={busy}
+            onClick={() => setBehindMeter(v)}
+          >
+            <b>{t}</b>
+            <span>{d}</span>
+          </button>
+        ))}
+      </div>
+
       {/* ── 왜 제주인가 — 변동비 대조 ── */}
       <div className="jeju-thesis">
         <div className="jt-col">
@@ -129,6 +154,36 @@ export default function JejuPanel({
         </table>
         {sens?.verdict && <p className="jeju-verdict">{sens.verdict}</p>}
       </div>
+
+      {/* ── 자산 위치 비교 — 가장 자주 오해되는 지점 ── */}
+      {cmp && cmp.sites.length > 0 && (
+        <div className="jeju-sect">
+          <div className="js-head">
+            <b>자산 위치 비교 — 같은 전략, 다른 결과</b>
+            <span className="js-sub">아파트 배터리로는 출력제어를 흡수할 수 없다</span>
+          </div>
+          <div className="jeju-cmp">
+            {cmp.sites.map((s) => (
+              <div className="jc-col" key={s.site}>
+                <div className="jc-head">
+                  <b>{s.site}</b>
+                  <span>{s.price_basis}</span>
+                </div>
+                {s.rows.map((r) => (
+                  <div className="jc-row" key={r.strategy}>
+                    <span className="jc-k">{r.label}</span>
+                    <span className="num" style={{ color: pos(r.annual_won) }}>
+                      {won(r.annual_won)}
+                    </span>
+                    <span className="jc-free num">공짜 {Math.round(r.free_share * 100)}%</span>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <p className="jeju-verdict">{cmp.insight}</p>
+        </div>
+      )}
 
       {/* ── 전략 리더보드 ── */}
       <div className="jeju-sect">

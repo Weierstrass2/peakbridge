@@ -135,17 +135,93 @@ async def activate_strategy(body: StrategySelect) -> dict:
 
 
 @router.get("/strategy-bids")
-async def get_strategy_bids(strategy: str | None = None) -> dict:
+async def get_strategy_bids(
+    strategy: str | None = None,
+    contract_kw: float = 200.0,
+    month_peak_kw: float = 0.0,
+    lookback_months: int = 1,
+    reserve: bool = True,
+) -> dict:
     """활성(또는 지정) 전략의 추천 입찰 곡선.
 
-    /ai-bids 가 학습 정책 전용이라면, 이쪽은 전략 라이브러리 전체를 대상으로 한다.
+    reserve=True 이면 **피크 예약이 먼저 적용된다.**
+    아파트 수요예측으로 그날 피크 위험 구간을 잡아 배터리를 잠그고,
+    남은 에너지만 시장 입찰에 넘긴다. 기본요금 방어가 시장 판매보다 우선이다.
     """
     try:
         forecast = market_service.mcp_forecast()
-        return success_response(strategy_service.build_bids(forecast, strategy=strategy))
+        demand = _demand_curve() if reserve else None
+        return success_response(strategy_service.build_bids(
+            forecast, strategy=strategy, demand_kw=demand,
+            contract_kw=contract_kw if reserve else 0.0,
+            month_peak_kw=month_peak_kw, lookback_months=lookback_months,
+        ))
     except Exception as exc:
         logger.error("strategy_bids_failed", error=str(exc))
         return success_response({"bids": []})
+
+
+def _demand_curve() -> list[float]:
+    """오늘의 시간대별 예상 부하 (kW).
+
+    실측 수요 이력이 있으면 그 형상을 쓰고, 없으면 아파트 전형 곡선으로 폴백한다.
+    (저녁 피크가 뚜렷한 주거 부하 패턴)
+    """
+    try:
+        from app.services import market_data
+
+        market_data._load_once()
+        from datetime import datetime
+
+        now = datetime.now(_KST)
+        vals = [market_data._dpct.get((now.year, now.month, now.day, h)) for h in range(24)]
+        if all(v is not None for v in vals):
+            # 수요 백분위(0~1) → kW 스케일 (계약전력 200kW 단지 기준 형상)
+            return [round(60.0 + 170.0 * float(v), 1) for v in vals]  # type: ignore[arg-type]
+    except Exception:  # noqa: BLE001
+        pass
+    return [95, 90, 88, 86, 85, 88, 100, 120, 140, 155, 170, 185,
+            195, 205, 215, 225, 220, 210, 195, 180, 165, 140, 120, 105]
+
+
+@router.get("/peak-reservation")
+async def peak_reservation(
+    contract_kw: float = 200.0,
+    month_peak_kw: float = 0.0,
+    lookback_months: int = 1,
+) -> dict:
+    """피크 예약 상세 — 오늘 배터리를 얼마나 잠글 것인가.
+
+    이 사업의 우선순위를 숫자로 드러낸다:
+    **관리비 방어가 먼저이고, 시장 판매는 남는 것으로 한다.**
+    """
+    try:
+        from app.core.resources import ess_resources
+        from app.services.strategies.reservation import compare_uses, plan_reservation
+
+        res = ess_resources()
+        power = sum(r["max_discharge_kw"] for r in res.values())
+        energy = sum(
+            max(0.0, 60.0 - r["soc_min"]) / 100 * r["capacity_kwh"] for r in res.values()
+        )
+        demand = _demand_curve()
+        forecast = market_service.mcp_forecast()
+        plan = plan_reservation(
+            demand_kw=demand, contract_kw=contract_kw, power_kw=power,
+            energy_kwh=energy, month_peak_kw=month_peak_kw,
+            lookback_months=lookback_months,
+        )
+        out = plan.to_dict()
+        out["comparison"] = compare_uses(plan, forecast)
+        out["demand_kw"] = demand
+        out["forecast"] = forecast
+        out["usable_kwh"] = round(energy, 1)
+        out["sellable_kwh"] = round(max(0.0, energy - plan.reserved_kwh), 1)
+        out["contract_kw"] = contract_kw
+        return success_response(out)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("peak_reservation_failed", error=str(exc))
+        return success_response({})
 
 
 @router.get("/profiles")
@@ -180,21 +256,68 @@ async def market_profile(key: str | None = None) -> dict:
 
 
 @router.get("/jeju/leaderboard")
-async def jeju_leaderboard(days: int = 365, spread_scale: float = 0.41) -> dict:
+async def jeju_leaderboard(days: int = 180, spread_scale: float = 0.41,
+                           behind_meter: bool = False) -> dict:
     """제주 실시간시장 전략 리더보드.
 
-    spread_scale — 일중 변동폭 가정 배율. 0.41이면 육지 실측과 같은 수준의
-    스프레드를 가정한 보수적 시나리오다 (제주 RT는 이보다 클 가능성이 높다).
+    spread_scale  — 일중 변동폭 가정 배율. 0.41이면 육지 실측과 같은 수준의
+                    스프레드를 가정한 보수적 시나리오다.
+    behind_meter  — 자산이 계량기 어느 쪽에 있는가.
+                    True(아파트)면 시장가가 아니라 계시별 요금으로 거래하므로
+                    출력제어의 공짜 전력에 접근할 수 없다.
     """
     try:
-        from app.services.strategies.jeju import JejuMarketModel, leaderboard as jlb
+        from app.services.strategies.jeju import Asset, JejuMarketModel, leaderboard as jlb
 
-        return success_response(
-            jlb(days=days, model=JejuMarketModel(spread_scale=spread_scale))
-        )
+        return success_response(jlb(
+            days=days,
+            model=JejuMarketModel(spread_scale=spread_scale),
+            asset=Asset(behind_meter=behind_meter),
+        ))
     except Exception as exc:  # noqa: BLE001
         logger.error("jeju_leaderboard_failed", error=str(exc))
         return success_response({"leaderboard": []})
+
+
+@router.get("/jeju/site-compare")
+async def jeju_site_compare(days: int = 120) -> dict:
+    """자산 위치 비교 — 같은 전략, 계량기 안 vs 밖.
+
+    이 사업에서 가장 자주 오해되는 지점을 숫자로 못박는다:
+    **아파트 배터리로는 제주 출력제어를 흡수할 수 없다.**
+    계량기 안쪽 자산은 도매 시장가가 0원이 되어도 소매 요금을 내기 때문이다.
+    """
+    try:
+        from app.services.strategies.jeju import (
+            Asset, CurtailAbsorb, DayAheadOnly, JejuMarketModel, RollingRT, backtest,
+        )
+
+        model = JejuMarketModel(spread_scale=0.41)
+        out = []
+        for site, bm in [("발전연계 (계량기 밖)", False), ("아파트 (계량기 안)", True)]:
+            asset = Asset(behind_meter=bm)
+            rows = []
+            for strat in (CurtailAbsorb(), DayAheadOnly(model), RollingRT(model)):
+                r = backtest(strat, model, asset, days)
+                rows.append({
+                    "strategy": r["strategy"], "label": r["label"],
+                    "annual_won": r["annual_won"], "margin_per_kwh": r["margin_per_kwh"],
+                    "free_share": r["free_share"], "hit_rate": r["hit_rate"],
+                })
+            out.append({"site": site, "behind_meter": bm,
+                        "price_basis": "계시별 요금(TOU)" if bm else "시장 실시간가",
+                        "rows": rows})
+        return success_response({
+            "sites": out,
+            "insight": (
+                "계량기 안쪽 자산은 공짜 충전 비중이 항상 0%다 — 도매가가 0원이어도 "
+                "소매 요금을 내기 때문이다. 반대로 요금제는 미리 확정돼 있어 "
+                "실시간 재계획의 가치가 거의 없다. 실시간 반응은 시장 자산에서만 값이 나온다."
+            ),
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.error("jeju_site_compare_failed", error=str(exc))
+        return success_response({"sites": []})
 
 
 @router.get("/jeju/sensitivity")

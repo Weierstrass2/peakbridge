@@ -6,6 +6,9 @@ import SettleTable from './components/SettleTable';
 import BiddingDesk from './components/BiddingDesk';
 import TradingDesk from './components/TradingDesk';
 import JejuPanel from './components/JejuPanel';
+import ProfilePanel from './components/ProfilePanel';
+import PeakReserve from './components/PeakReserve';
+import SourceBadge from './components/SourceBadge';
 import DispatchPanel from './components/DispatchPanel';
 import OpsPanel from './components/OpsPanel';
 import MarketPanel from './components/MarketPanel';
@@ -107,6 +110,7 @@ function MarketBar({
             else document.documentElement.requestFullscreen();
           }}
         >FULL</button>
+        <SourceBadge />
         <div className="conn">
           <span className={`dot ${connected ? 'live' : 'err'}`} />
           {connected ? 'LIVE' : 'NO FEED'}
@@ -128,6 +132,7 @@ const NAV = [
   { id: 'bidding', label: '입찰 데스크' },
   { id: 'trading', label: '트레이딩 데스크' },
   { id: 'jeju', label: '제주 실시간시장' },
+  { id: 'profile', label: '시장 구조' },
   { id: 'dispatch', label: '급전 이행' },
   { id: 'assets', label: '자원 관제' },
   { id: 'drops', label: 'DR 운영' },
@@ -318,9 +323,18 @@ export default function App() {
               </Panel>
             )}
             {view === 'bidding' && (
-              <Panel title="입찰 데스크 — 하루 전 시장 (DAM)" sub="KPX 10:00 마감" span="span 12" tall>
-                <BiddingDesk onLog={pushLog} />
-              </Panel>
+              <>
+                <Panel
+                  title="피크 예약 — 입찰 전 본업 확보"
+                  sub="관리비 방어 우선 · 남는 것만 판매"
+                  span="span 12"
+                >
+                  <PeakReserve onLog={pushLog} />
+                </Panel>
+                <Panel title="입찰 데스크 — 하루 전 시장 (DAM)" sub="KPX 10:00 마감" span="span 12" tall>
+                  <BiddingDesk onLog={pushLog} />
+                </Panel>
+              </>
             )}
             {view === 'trading' && (
               <Panel title="트레이딩 데스크 — 리스크 · 손익분해 · 블로터" sub="PRE-TRADE / TCA / VaR" span="span 12" tall>
@@ -335,6 +349,16 @@ export default function App() {
                 tall
               >
                 <JejuPanel onLog={pushLog} />
+              </Panel>
+            )}
+            {view === 'profile' && (
+              <Panel
+                title="시장 구조 — 육지(현행 CBP) vs 제주(시범사업)"
+                sub="참여 문법 · 수익원 · 제도 상태"
+                span="span 12"
+                tall
+              >
+                <ProfilePanel />
               </Panel>
             )}
             {view === 'dispatch' && (

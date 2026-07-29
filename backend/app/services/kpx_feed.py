@@ -175,6 +175,23 @@ class KpxFeed:
                     curve[idx] = v
             if len(curve) < 6:
                 return None
+
+            # ── 가짜 데이터 방어 ────────────────────────────────
+            # 자리만 채워둔 더미 파일(계단·직선)을 실측으로 오인하면
+            # 발표에서 치명적이다. 2차 차분이 0이면 완전한 직선이므로 거부한다.
+            # 실제 SMP는 시간마다 변화폭이 제각각이다. 더미는 일정 간격으로
+            # 오르내리므로 **1차 차분의 절댓값 종류가 극히 적다**(V자·계단 포함).
+            vals = [curve[h] for h in sorted(curve)]
+            if len(vals) >= 8:
+                steps = {round(abs(b - a), 3) for a, b in zip(vals, vals[1:])}
+                steps.discard(0.0)
+                if len(steps) <= 2:
+                    self._last_error = (
+                        f"인위적 패턴 감지(변화폭 {len(steps)}종) — 더미 데이터로 판단해 거부"
+                    )
+                    logger.warning("kpx_smp_csv_rejected", reason=self._last_error,
+                                   file=str(path), steps=sorted(steps)[:5])
+                    return None
             out, last = [], next(iter(curve.values()))
             for h in range(24):
                 last = curve.get(h, last)

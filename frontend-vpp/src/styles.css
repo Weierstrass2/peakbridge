@@ -685,3 +685,174 @@ body {
   border: 1px dashed var(--line-1); border-radius: 4px; padding: 8px 10px;
 }
 .jeju-disc b { color: var(--warn); }
+
+/* 자산 위치 스위치 */
+.jeju-site {
+  display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap;
+  background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 4px; padding: 8px 10px;
+}
+.jeju-site > .label-cap { align-self: center; margin-right: 4px; }
+.jeju-sitebtn {
+  flex: 1; min-width: 190px; text-align: left; cursor: pointer;
+  background: var(--bg-0); border: 1px solid var(--line-1); border-radius: 3px;
+  padding: 7px 11px; display: flex; flex-direction: column; gap: 2px;
+  color: var(--tx-3); font: inherit;
+}
+.jeju-sitebtn b { font-size: 11px; color: var(--tx-2); }
+.jeju-sitebtn span { font-size: 9px; line-height: 1.4; }
+.jeju-sitebtn.on { border-color: var(--acc); background: rgba(76, 141, 255, 0.08); }
+.jeju-sitebtn.on b { color: var(--tx-1); }
+.jeju-sitebtn:disabled { opacity: 0.55; cursor: default; }
+
+/* 자산 위치 비교 */
+.jeju-cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.jc-col { background: var(--bg-0); border: 1px solid var(--line-1); border-radius: 3px; padding: 8px 10px; }
+.jc-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.jc-head b { font-size: 11px; color: var(--tx-1); }
+.jc-head span { font-size: 9px; color: var(--tx-3); }
+.jc-row {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: baseline;
+  padding: 4px 0; border-top: 1px solid var(--line-0); font-size: 11px;
+}
+.jc-k { color: var(--tx-2); min-width: 0; }
+.jc-row .num { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+.jc-free { font-size: 9px; color: var(--tx-3); min-width: 54px; text-align: right; }
+
+/* ── 데이터 출처 배지 ───────────────────────────────────── */
+.srcb-wrap { position: relative; }
+.srcb {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 3px;
+  padding: 4px 9px; font: inherit; font-size: 10px; font-weight: 600;
+  letter-spacing: 0.04em; color: var(--tx-2);
+}
+.srcb-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--tx-3); }
+.srcb.live { border-color: var(--ok); color: var(--ok); }
+.srcb.live .srcb-dot { background: var(--ok); }
+.srcb.model { border-color: var(--warn); color: var(--warn); }
+.srcb.model .srcb-dot { background: var(--warn); }
+
+.srcb-pop {
+  position: absolute; top: calc(100% + 6px); right: 0; z-index: 40; width: 320px;
+  background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 4px;
+  padding: 10px 12px; box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45);
+}
+.srcb-row {
+  display: flex; justify-content: space-between; gap: 10px;
+  font-size: 10px; color: var(--tx-3); padding: 3px 0;
+  border-bottom: 1px solid var(--line-0);
+}
+.srcb-row b { color: var(--tx-1); font-family: var(--font-num); }
+.srcb-err { margin: 6px 0 0; font-size: 10px; color: var(--crit); line-height: 1.5; }
+.srcb-note { margin: 8px 0 0; font-size: 10px; line-height: 1.6; color: var(--tx-2); }
+.srcb-note b { color: var(--tx-1); }
+.srcb-note.dim { color: var(--tx-3); }
+
+/* ── 시장 구조 패널 ─────────────────────────────────────── */
+.prof { display: flex; flex-direction: column; gap: 12px; padding: 10px 12px 14px; overflow-y: auto; }
+.prof-load { font-size: 11px; color: var(--tx-3); }
+
+.prof-alert {
+  background: rgba(232, 163, 61, 0.08); border-left: 3px solid var(--warn);
+  border-radius: 3px; padding: 9px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.prof-alert > b { font-size: 12px; color: var(--warn); }
+.prof-alert > span { font-size: 10px; line-height: 1.65; color: var(--tx-2); }
+.prof-alert b b { color: var(--tx-1); }
+
+.prof-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.prof-card {
+  text-align: left; cursor: pointer; font: inherit; min-width: 0;
+  background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 4px; padding: 10px 12px;
+}
+.prof-card.on { border-color: var(--acc); background: rgba(76, 141, 255, 0.06); }
+.pc-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+.pc-head b { font-size: 12px; color: var(--tx-1); }
+.pc-st {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.06em; padding: 1px 6px;
+  border-radius: 2px; margin-left: auto;
+}
+.pc-st.live { background: rgba(46, 189, 133, 0.15); color: var(--ok); }
+.pc-st.pilot { background: rgba(155, 138, 251, 0.15); color: var(--vio); }
+
+.pc-dl { margin: 0; display: grid; grid-template-columns: 84px 1fr; gap: 4px 10px; }
+.pc-dl dt { font-size: 9px; letter-spacing: 0.06em; color: var(--tx-3); font-weight: 600; }
+.pc-dl dd { margin: 0; font-size: 10px; line-height: 1.55; color: var(--tx-2); }
+
+.prof-sect { background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 4px; padding: 10px 12px; }
+.pc-note { font-size: 9px; color: var(--tx-3); margin-top: 2px; line-height: 1.45; }
+.pc-flag { font-size: 9px; font-weight: 700; padding: 1px 7px; border-radius: 2px; }
+.pc-flag.yes { background: rgba(46, 189, 133, 0.15); color: var(--ok); }
+.pc-flag.no { background: rgba(136, 145, 158, 0.15); color: var(--tx-3); }
+
+.prof-eng { display: flex; flex-wrap: wrap; gap: 6px; }
+.pe-chip {
+  font-size: 10px; color: var(--tx-2); background: var(--bg-0);
+  border: 1px solid var(--line-1); border-radius: 12px; padding: 3px 10px;
+}
+
+/* ── 피크 예약 ──────────────────────────────────────────── */
+.pkr { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px 12px; }
+
+.pkr-banner {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  border-radius: 3px; padding: 8px 12px;
+}
+.pkr-banner b { font-size: 12px; }
+.pkr-banner span { font-size: 10px; color: var(--tx-2); line-height: 1.5; }
+.pkr-banner.lock { background: rgba(232, 163, 61, 0.1); border-left: 3px solid var(--warn); }
+.pkr-banner.lock b { color: var(--warn); }
+.pkr-banner.free { background: rgba(46, 189, 133, 0.08); border-left: 3px solid var(--ok); }
+.pkr-banner.free b { color: var(--ok); }
+
+.pkr-kpis {
+  display: flex; gap: 1px; flex-wrap: wrap;
+  background: var(--line-0); border: 1px solid var(--line-1); border-radius: 4px; overflow: hidden;
+}
+
+/* 기회비용 대조 */
+.pkr-vs {
+  display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 10px; align-items: center;
+  background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 4px; padding: 10px 12px;
+}
+.pv-side { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pv-side b { font-size: 18px; color: var(--tx-2); }
+.pv-side.win b { color: var(--ok); }
+.pv-u { font-size: 9px; color: var(--tx-3); }
+.pv-mid { font-size: 11px; color: var(--tx-3); font-weight: 700; }
+.pv-ratio {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  border-left: 1px solid var(--line-1); padding-left: 12px;
+}
+.pv-ratio b { font-size: 20px; color: var(--warn); font-family: var(--font-num); }
+.pv-ratio span { font-size: 9px; color: var(--tx-3); }
+
+/* 부하 곡선 */
+.pkr-chart {
+  position: relative; display: flex; align-items: flex-end; gap: 2px; height: 110px;
+  background: var(--bg-1); border: 1px solid var(--line-1); border-radius: 4px;
+  padding: 8px 10px 16px;
+}
+.pk-col { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; position: relative; }
+.pk-bar { width: 100%; display: flex; align-items: flex-end; }
+.pk-bar i { display: block; width: 100%; height: 100%; border-radius: 1px 1px 0 0; }
+.pk-x { position: absolute; bottom: -14px; left: 0; font-size: 8px; color: var(--tx-3); }
+.pk-line {
+  position: absolute; left: 10px; right: 10px; height: 0;
+  border-top: 1px dashed var(--crit); pointer-events: none;
+}
+.pk-line span {
+  position: absolute; right: 0; top: -12px; font-size: 8px; color: var(--crit);
+  background: var(--bg-1); padding: 0 4px;
+}
+
+/* 조건 조정 */
+.pkr-ctl { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; font-size: 10px; color: var(--tx-3); }
+.pkr-ctl label { display: inline-flex; align-items: center; gap: 5px; }
+.pkr-ctl input, .pkr-ctl select {
+  background: var(--bg-0); border: 1px solid var(--line-1); border-radius: 3px;
+  color: var(--tx-1); font: inherit; font-size: 10px; padding: 3px 6px; width: 74px;
+  font-family: var(--font-num);
+}
+.pkr-ctl select { width: auto; }
+.pkr-hint { margin-left: auto; font-size: 9px; color: var(--tx-3); }
