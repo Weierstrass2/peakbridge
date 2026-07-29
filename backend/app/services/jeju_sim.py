@@ -51,6 +51,7 @@ FACTS = Path(__file__).resolve().parents[2] / "data" / "jeju_facts.json"
 TOU_OFF, TOU_MID, TOU_PEAK = 70.0, 110.0, 180.0
 BASE_RATE = 8_320.0        # 기본요금 ₩/kW·월
 DEG = 50.0                 # 배터리 열화 ₩/kWh
+ESS_CAPEX_PER_KWH = 300_000.0   # ESS 설치 단가 가정 ₩/kWh (그릇값)
 EFF_C = 0.95               # 충전 효율
 
 
@@ -447,6 +448,88 @@ class JejuSim:
                 f"균등 배분은 {out['even']['sites_over_peak']}개 단지의 기본요금을 올려 "
                 f"₩{out['even']['peak_penalty_won']:,.0f}을 잃었다."
             ),
+        }
+
+    # ── 자산 방식 대조 (ESS 직접 구매 vs EV 연계) ──
+    def compare_assets(self, incentive: float = 120.0,
+                       ev_discount: float = 40.0) -> dict:
+        """같은 플러스DR 요청을 두 가지 자산으로 흡수했을 때를 대조한다.
+
+        ── 이 화면이 답하는 질문 ──────────────────────────────
+
+            "버려지는 전기가 공짜라면, ESS를 잔뜩 사서 받아두면 되지 않나?"
+
+        답은 '안 된다'이다. 전기는 공짜여도 **그릇이 공짜가 아니기 때문**이다.
+        배터리를 새로 사면 그 값(CAPEX)과 열화비용을 우리가 전부 진다.
+
+        반면 전기차는 **차주가 이미 산 배터리**다. 우리는 그릇을 사지 않고,
+        충전 시점을 위임받는 대가로 요금을 할인해 준다. 열화는 차주 몫이며
+        할인이 그 대가다. 그래서 같은 흡수량이라도 수지가 뒤집힌다.
+
+        ※ 그릇값·할인율은 가정값이다(화면에 표기). 흡수 물리량과
+          기본요금 영향은 동일한 엔진(execute)으로 계산해 조건을 맞춘다.
+        """
+        if self.event is None:
+            return {"error": "발령된 이벤트가 없습니다"}
+
+        need = self.event.request_mwh * 1000
+        hour = self.event.hour
+
+        # 두 방식 모두 '피크 여유 기반'으로 배분해 배분 알고리즘 차이를 제거한다.
+        clone = [Site(**{k: v for k, v in s.__dict__.items()}) for s in self.sites]
+        plans = allocate(clone, need, "peak", hour)
+        base = execute(clone, plans, hour, incentive, random.Random(99))
+        absorbed = base["delivered_kwh"]
+
+        # ── ESS 직접 구매 ────────────────────────────────────
+        # 흡수량을 담으려면 그만큼의 배터리를 사야 한다.
+        # 사이클당 가용 구간(SOC 15~95%)을 고려해 필요한 정격 용량을 잡는다.
+        need_capacity_kwh = absorbed / 0.8 if absorbed > 0 else 0.0
+        capex = need_capacity_kwh * ESS_CAPEX_PER_KWH
+        # 연간 수익: 실측 출력제어 빈도만큼만 이벤트가 반복된다.
+        events_per_year = self.facts.get("curtail_days_per_year", 86.0)
+        ess_year_net = base["net_won"] * events_per_year
+        ess_payback = (capex / ess_year_net) if ess_year_net > 0 else None
+
+        # ── EV 연계 ──────────────────────────────────────────
+        # 그릇값 0. 열화는 차주 부담이며, 그 대가로 요금을 할인한다.
+        discount_cost = absorbed * ev_discount
+        ev_net = (base["net_won"]
+                  + base["degradation_won"]      # 우리가 지지 않는 비용 → 되돌림
+                  - discount_cost)               # 대신 할인을 부담
+        ev_year_net = ev_net * events_per_year
+
+        return {
+            "absorbed_kwh": round(absorbed, 1),
+            "events_per_year": round(events_per_year, 1),
+            "incentive_assumed": incentive,
+            "ev_discount_assumed": ev_discount,
+            "capex_per_kwh_assumed": ESS_CAPEX_PER_KWH,
+            "ess_owned": {
+                "label": "ESS 직접 구매",
+                "capex_won": round(capex),
+                "need_capacity_kwh": round(need_capacity_kwh, 1),
+                "degradation_won": base["degradation_won"],
+                "event_net_won": base["net_won"],
+                "year_net_won": round(ess_year_net),
+                "payback_years": round(ess_payback, 1) if ess_payback else None,
+            },
+            "ev_fleet": {
+                "label": "EV 연계 (차주 배터리)",
+                "capex_won": 0,
+                "need_capacity_kwh": 0.0,
+                "discount_cost_won": round(discount_cost),
+                "event_net_won": round(ev_net),
+                "year_net_won": round(ev_year_net),
+                "payback_years": 0.0,
+            },
+            "verdict": (
+                f"같은 {absorbed:,.0f}kWh를 흡수하는데, ESS를 사면 "
+                f"₩{capex:,.0f}이 먼저 나간다. 회수에 "
+                f"{f'{ess_payback:,.0f}년' if ess_payback else '수익 없음'}. "
+                f"전기차는 그릇값이 0원이라 첫 이벤트부터 흑자다."
+            ),
+            "note": "그릇값·할인율은 가정값 · 흡수 물리량과 기본요금 영향은 동일 엔진 계산",
         }
 
     # ── 초기화 ──

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   consoleApi,
+  type JejuAssetCompare,
   type JejuCompare,
   type JejuOpsState,
   type JejuResult,
@@ -25,6 +26,7 @@ export default function JejuOps({
 }) {
   const [st, setSt] = useState<JejuOpsState | null>(null);
   const [cmp, setCmp] = useState<JejuCompare | null>(null);
+  const [acmp, setAcmp] = useState<JejuAssetCompare | null>(null);
   const [res, setRes] = useState<JejuResult | null>(null);
   const [incentive, setIncentive] = useState(120);
   const [busy, setBusy] = useState(false);
@@ -36,7 +38,7 @@ export default function JejuOps({
   useEffect(() => { load(); }, [load]);
 
   const fire = async () => {
-    setBusy(true); setCmp(null); setRes(null);
+    setBusy(true); setCmp(null); setAcmp(null); setRes(null);
     try {
       const data = await consoleApi.jejuOpsEvent();
       setSt(data);
@@ -60,6 +62,18 @@ export default function JejuOps({
     finally { setBusy(false); }
   };
 
+  const runAssetCompare = async () => {
+    setBusy(true);
+    try {
+      const { data } = await consoleApi.jejuOpsAssetCompare(incentive);
+      setAcmp(data);
+      onLog('ok',
+        `자산 방식 대조 — ESS 구매 회수 ${data.ess_owned.payback_years ?? '—'}년 vs ` +
+        `EV 연계 그릇값 0원`);
+    } catch { onLog('warn', '자산 대조 실패'); }
+    finally { setBusy(false); }
+  };
+
   const run = async (mode: 'peak' | 'even') => {
     setBusy(true);
     try {
@@ -74,7 +88,7 @@ export default function JejuOps({
   };
 
   const step = async (fn: () => Promise<JejuOpsState>) => {
-    setBusy(true); setCmp(null); setRes(null);
+    setBusy(true); setCmp(null); setAcmp(null); setRes(null);
     try { setSt(await fn()); } catch { /* 조용히 */ }
     finally { setBusy(false); }
   };
@@ -94,6 +108,9 @@ export default function JejuOps({
         </button>
         <button className="cbtn tiny" disabled={busy || !ev} onClick={runCompare} type="button">
           <b>배분 방식 대조</b>
+        </button>
+        <button className="cbtn tiny" disabled={busy || !ev} onClick={runAssetCompare} type="button">
+          <b>자산 방식 대조</b>
         </button>
         <button className="cbtn tiny" disabled={busy || !ev} onClick={() => run('peak')} type="button">
           <b>급전 — 피크 여유 기반</b>
@@ -203,6 +220,59 @@ export default function JejuOps({
               })}
           </div>
           <p className="jeju-verdict">{cmp.verdict}</p>
+        </div>
+      )}
+
+      {acmp && !acmp.error && (
+        <div className="jo-sect">
+          <div className="js-head">
+            <b>같은 흡수량, 다른 그릇 — 배터리를 살 것인가 빌릴 것인가</b>
+            <span className="js-sub">
+              버려지는 전기는 공짜지만 담을 배터리는 공짜가 아닙니다
+            </span>
+          </div>
+          <div className="jo-cmp">
+            {([['ess_owned', false], ['ev_fleet', true]] as const).map(([key, win]) => {
+              const a = acmp[key];
+              return (
+                <div className={`jc-col ${win ? 'win' : ''}`} key={key}>
+                  <div className="jc-h">
+                    <b>{a.label}</b>
+                    <span>{win ? '차주가 이미 산 배터리 · 할인이 대가'
+                               : '우리가 사고 우리가 닳는다'}</span>
+                  </div>
+                  <div className="jc-net" style={{ color: a.capex_won > 0 ? 'var(--crit)' : 'var(--ok)' }}>
+                    {won(a.capex_won)}<small>원 그릇값</small>
+                  </div>
+                  <div className="jc-rows">
+                    {([
+                      ['필요 배터리', a.need_capacity_kwh > 0
+                        ? `${won(a.need_capacity_kwh)}kWh` : '없음',
+                        a.need_capacity_kwh > 0 ? 'var(--tx-2)' : 'var(--ok)'],
+                      ['이벤트당 순익', `+${won(a.event_net_won)}`, 'var(--ok)'],
+                      [`연 수익 (${won(acmp.events_per_year)}일)`,
+                        `+${won(a.year_net_won)}`, 'var(--ok)'],
+                      [win ? '충전 할인 부담' : '배터리 열화 부담',
+                        `−${won(win ? a.discount_cost_won : a.degradation_won)}`,
+                        'var(--tx-3)'],
+                    ] as [string, string, string][]).map(([k, v, c]) => (
+                      <div className="jc-r" key={k}>
+                        <span>{k}</span>
+                        <b className="num" style={{ color: c }}>{v}</b>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={`jc-over ${win ? 'good' : 'bad'}`}>
+                    {a.payback_years === null ? '회수 불가'
+                      : a.payback_years === 0 ? '첫 이벤트부터 흑자'
+                      : `투자 회수 ${won(a.payback_years)}년`}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="jeju-verdict">{acmp.verdict}</p>
+          <p className="jo-note">{acmp.note}</p>
         </div>
       )}
 

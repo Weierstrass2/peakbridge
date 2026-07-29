@@ -83,6 +83,20 @@ async def compare(incentive: float = 120.0) -> dict:
         return success_response({"error": str(exc)[:200]})
 
 
+@router.get("/asset-compare")
+async def asset_compare(incentive: float = 120.0, ev_discount: float = 40.0) -> dict:
+    """자산 방식 대조 — ESS를 사서 흡수 vs 전기차(차주 배터리)로 흡수.
+
+    "공짜 전기가 있으면 ESS를 잔뜩 사면 되지 않나"에 대한 답.
+    전기는 공짜여도 그릇(배터리)은 공짜가 아니라는 것을 숫자로 보여준다.
+    """
+    try:
+        return success_response(jeju_sim.compare_assets(incentive, ev_discount))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("jeju_ops_asset_compare_failed", error=str(exc))
+        return success_response({"error": str(exc)[:200]})
+
+
 class DispatchReq(BaseModel):
     mode: str = Field(default="peak", description="peak(피크 여유 기반) | even(균등)")
     incentive: float = Field(default=120.0, ge=0, le=1000,

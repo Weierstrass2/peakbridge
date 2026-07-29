@@ -588,6 +588,30 @@ export interface JejuResult {
   need_kwh?: number; incentive_assumed?: number; market_delivery_rate?: number;
 }
 
+export interface JejuAssetSide {
+  label: string;
+  capex_won: number;
+  need_capacity_kwh: number;
+  degradation_won?: number;
+  discount_cost_won?: number;
+  event_net_won: number;
+  year_net_won: number;
+  payback_years: number | null;
+}
+
+export interface JejuAssetCompare {
+  absorbed_kwh: number;
+  events_per_year: number;
+  incentive_assumed: number;
+  ev_discount_assumed: number;
+  capex_per_kwh_assumed: number;
+  ess_owned: JejuAssetSide;
+  ev_fleet: JejuAssetSide;
+  verdict: string;
+  note: string;
+  error?: string;
+}
+
 export interface JejuCompare {
   need_kwh: number; hour: number; is_peak_hour: boolean;
   incentive_assumed: number;
@@ -668,6 +692,9 @@ export const consoleApi = {
   jejuOpsState: () => get<JejuOpsState>('/jeju-ops/state'),
   jejuOpsEvent: (hour?: number) =>
     post<JejuOpsState>('/jeju-ops/event', hour === undefined ? {} : { hour }),
+  jejuOpsAssetCompare: (incentive = 120, evDiscount = 40) =>
+    get<JejuAssetCompare>(
+      `/jeju-ops/asset-compare?incentive=${incentive}&ev_discount=${evDiscount}`, 15000),
   jejuOpsCompare: (incentive = 120) =>
     get<JejuCompare>(`/jeju-ops/compare?incentive=${incentive}`, 15000),
   jejuOpsDispatch: (mode: 'peak' | 'even', incentive = 120) =>

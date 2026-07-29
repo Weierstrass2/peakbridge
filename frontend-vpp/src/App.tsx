@@ -61,7 +61,7 @@ function MarketBar({
     <div className="marketbar">
       <div className="brand">
         <b>PEAKBRIDGE</b>
-        <span>VPP OS</span>
+        <span>VPP OS · 분산 유연성 집합·거래 플랫폼</span>
       </div>
 
       <div className="tick">
