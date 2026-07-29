@@ -39,6 +39,8 @@ export function mergeChartSeries(
 
   const upsert = (readings: SensorReading[], key: keyof ChartPoint) => {
     for (const r of readings) {
+      // 전류 차트에는 암페어 계열만 — ESS-01 이력은 SOC(%)라 섞이면 축이 %스케일로 튄다
+      if (r.unit && r.unit !== 'A') continue;
       const time = new Date(r.timestamp).toLocaleTimeString('ko-KR', {
         hour: '2-digit',
         minute: '2-digit',

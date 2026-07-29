@@ -45,12 +45,15 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
               axisLine={false}
               interval={3}
             />
+            {/* 실증 하드웨어 스케일 고정(0~0.2A) — 컨트롤 임계치 슬라이더(0.02~0.20A)와 동일 기준 */}
             <YAxis
               tick={{ fill: '#98A2B3', fontSize: 12 }}
               tickLine={false}
               axisLine={false}
-              domain={[0, (dataMax: number) => Math.max(dataMax * 1.2, threshold * 1.3)]}
-              tickFormatter={(v) => `${Number(v.toPrecision(2))}A`}
+              domain={[0, 0.2]}
+              ticks={[0, 0.05, 0.1, 0.15, 0.2]}
+              allowDataOverflow
+              tickFormatter={(v) => `${Number(v).toFixed(2)}A`}
             />
             <Tooltip
               contentStyle={{
