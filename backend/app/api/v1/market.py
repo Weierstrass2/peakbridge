@@ -403,6 +403,44 @@ async def jeju_sensitivity(days: int = 180) -> dict:
         return success_response({"rows": []})
 
 
+@router.post("/smp-api/refresh")
+async def smp_api_refresh(force: bool = False) -> dict:
+    """KPX 하루전 SMP·수요예측 갱신 — **하루 1회만 호출**.
+
+    일일 트래픽이 100회뿐이라 스트림 경로에서는 절대 부르지 않는다.
+    운영자가 아침에 한 번 누르거나 스케줄러가 하루 1회 호출한다.
+    """
+    try:
+        from app.services.kpx_smp_api import smp_api
+
+        curve = await smp_api.refresh(force=force)
+        st = smp_api.status()
+        return success_response({
+            "status": st,
+            "smp": curve.get("smp"),
+            "demand": curve.get("demand"),
+            "ok": bool(curve.get("smp")),
+        })
+    except Exception as exc:  # noqa: BLE001
+        logger.error("smp_api_refresh_failed", error=str(exc))
+        return success_response({"ok": False})
+
+
+@router.get("/smp-api/status")
+async def smp_api_status() -> dict:
+    """호출 잔여량·캐시 상태 (호출 없음)."""
+    try:
+        from app.services.kpx_smp_api import smp_api
+
+        st = smp_api.status()
+        st["smp"] = smp_api.smp_curve()
+        st["demand"] = smp_api.demand_curve()
+        return success_response(st)
+    except Exception as exc:  # noqa: BLE001
+        logger.error("smp_api_status_failed", error=str(exc))
+        return success_response({"enabled": False})
+
+
 @router.get("/data-source")
 async def data_source() -> dict:
     """가격 데이터 출처 — KPX 실데이터 연동 상태."""
