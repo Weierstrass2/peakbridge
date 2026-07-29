@@ -9,21 +9,24 @@ import { api } from '../services/api';
 import { BUILDING_ID, isMockMode } from '../config/env';
 import { formatCo2Kg, formatWon } from '../utils/format';
 
-// 예시 일별 절감 데이터 (오늘 기준 최근 30일, 실데이터 누적 전까지 표시용)
-// 실측 스케일 정렬: 실제 하루 절감이 0.1~0.4원 수준(초과전류 0.02A × 220V × 5분
-// × 피크단가 250원 × 피크 수 회)이므로 예시도 같은 자릿수로 생성한다.
-// 아파트 스케일(만원대) 예시를 쓰면 실측 카드(0.19원)와 모순돼 신뢰를 깎는다.
-const fallbackDaily = Array.from({ length: 30 }, (_, i) => {
-  const d = new Date();
-  d.setDate(d.getDate() - (29 - i));
-  const peakCount = Math.floor(Math.random() * 6);
-  return {
-    day: `${d.getMonth() + 1}/${d.getDate()}`,
-    savings: Number((peakCount * (0.03 + Math.random() * 0.04)).toFixed(3)),
-    peakCount,
-    isToday: i === 29,
-  };
-});
+// 출처 배지 — 측정/추정/시나리오를 화면에서 즉시 구분 (실증 정직성 원칙).
+// '추정' = 실측 전류 입력에 명시된 공식을 적용한 값, '시나리오' = 사업 가정.
+type SourceKind = '실측' | '추정' | '시나리오';
+const BADGE_STYLE: Record<SourceKind, string> = {
+  실측: 'bg-[#2EBD85]/10 text-[#2EBD85] border-[#2EBD85]/30',
+  추정: 'bg-[#E8A33D]/10 text-[#E8A33D] border-[#E8A33D]/30',
+  시나리오: 'bg-[#9B8AFB]/10 text-[#9B8AFB] border-[#9B8AFB]/30',
+};
+
+function SourceTag({ kind }: { kind: SourceKind }) {
+  return (
+    <span
+      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${BADGE_STYLE[kind]}`}
+    >
+      {kind}
+    </span>
+  );
+}
 
 interface DailyPoint {
   day: string;
@@ -125,11 +128,11 @@ export default function ReportPage() {
     refetchInterval: 60_000,
   });
 
-  // 실데이터가 5일 이상 쌓이기 전엔 예시 프로파일 표시 (빈 차트 방지).
+  // 일별 차트는 실데이터가 5일 이상일 때만 표시 — 예시 데이터는 쓰지 않는다.
   // 백엔드 CSV는 값 0인 날도 행으로 주므로 "행 수"가 아니라 "절감액>0인 날 수"로 판정.
   const realDayCount = dailyQ.data?.filter((d) => d.savings > 0).length ?? 0;
   const usingRealDaily = !!dailyQ.data && realDayCount >= 5;
-  const dailySavingsData = usingRealDaily ? dailyQ.data! : fallbackDaily;
+  const dailySavingsData = usingRealDaily ? dailyQ.data! : [];
   const monthSaved = reports?.[0]?.total_saved_won ?? 0;
   const annualProjection = monthSaved * 12;
 
@@ -139,44 +142,76 @@ export default function ReportPage() {
 
   return (
     <div className="space-y-6">
+      {/* ── 섹션 1: 실증 실측 리포트 ── */}
+      <div>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#E8ECF1]">
+            실증 실측 리포트
+          </h2>
+          <SourceTag kind="실측" />
+        </div>
+        <p className="mt-1 text-xs text-[#98A2B3]">
+          실물 하드웨어 CT 측정에서 집계. '추정'은 실측 전류에 공식(초과전류×220V×5분×감축률,
+          250원/kWh, 0.45kgCO₂/kWh)을 적용한 값 — 계량기 정산값이 아님.
+        </p>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Card padding={false}>
           <div className="p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">이번 달 절감</p>
+            <div className="mb-2 flex items-center gap-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">피크쉐이빙 횟수</p>
+              <SourceTag kind="실측" />
+            </div>
+            <p className="text-2xl font-bold text-[#4C8DFF]">{reports?.[0]?.peak_events ?? 0}회</p>
+            <p className="mt-1 text-xs text-[#98A2B3]">임계 초과 이벤트 DB 기록</p>
+          </div>
+        </Card>
+        <Card padding={false}>
+          <div className="p-6">
+            <div className="mb-2 flex items-center gap-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">이번 달 절감</p>
+              <SourceTag kind="추정" />
+            </div>
             <p className="text-2xl font-bold text-[#E8A33D]">{formatWon(reports?.[0]?.total_saved_won)}</p>
           </div>
         </Card>
         <Card padding={false}>
           <div className="p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">피크쉐이빙 횟수</p>
-            <p className="text-2xl font-bold text-[#4C8DFF]">{reports?.[0]?.peak_events ?? 0}회</p>
-          </div>
-        </Card>
-        <Card padding={false}>
-          <div className="p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">CO₂ 절감</p>
+            <div className="mb-2 flex items-center gap-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">CO₂ 절감</p>
+              <SourceTag kind="추정" />
+            </div>
             <p className="text-2xl font-bold text-[#2EBD85]">{formatCo2Kg(reports?.[0]?.co2_reduced_kg)}</p>
           </div>
         </Card>
         <Card padding={false}>
           <div className="p-6">
-            <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">연간 예상 절감</p>
+            <div className="mb-2 flex items-center gap-2">
+              <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3]">연간 예상 절감</p>
+              <SourceTag kind="추정" />
+            </div>
             <p className="text-2xl font-bold text-[#9B8AFB]">{formatWon(annualProjection)}</p>
             <p className="mt-1 text-xs text-[#98A2B3]">이번 달 실적 × 12 기준</p>
           </div>
         </Card>
       </div>
 
-      {/* Daily Savings Chart */}
-      <Card
-        title="일별 절감액"
-        subtitle={
-          usingRealDaily
-            ? '최근 30일 (실데이터)'
-            : '최근 30일 — 예시 프로파일 (실데이터 5일 이상 축적 시 자동 전환)'
-        }
-      >
+      {/* Daily Savings Chart — 실데이터일 때만. 예시 데이터는 표시하지 않는다. */}
+      {!usingRealDaily && (
+        <Card title="일별 절감액" subtitle="실데이터 축적 중">
+          <div className="flex h-40 flex-col items-center justify-center gap-2">
+            <p className="text-sm text-[#98A2B3]">
+              절감 발생일 <span className="font-bold text-[#E8ECF1]">{realDayCount}/5일</span> —
+              5일 이상 쌓이면 실측 차트가 표시됩니다.
+            </p>
+            <p className="text-xs text-[#5A6472]">예시 데이터는 표시하지 않습니다 (실증 정직성 원칙)</p>
+          </div>
+        </Card>
+      )}
+      {usingRealDaily && (
+      <Card title="일별 절감액" subtitle="최근 30일 (실데이터)">
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailySavingsData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -205,6 +240,20 @@ export default function ReportPage() {
           </ResponsiveContainer>
         </div>
       </Card>
+      )}
+
+      {/* ── 섹션 2: 사업 확장 시나리오 (측정 아님) ── */}
+      <div className="border-t border-[#222933] pt-6">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#E8ECF1]">
+            사업 확장 시나리오
+          </h2>
+          <SourceTag kind="시나리오" />
+        </div>
+        <p className="mt-1 text-xs text-[#98A2B3]">
+          아래는 측정값이 아니라 사업 가정 기반 시나리오 — 단지 규모·요금제에 따라 재산출됩니다.
+        </p>
+      </div>
 
       {/* Building Comparison + ROI Calculator */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
