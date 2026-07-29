@@ -25,6 +25,9 @@ interface ArbitrageInfo {
   discharge_savings?: number;
   arbitrage?: number;
   roi?: number;
+  is_example?: boolean;
+  charged_kwh?: number;
+  discharged_kwh?: number;
 }
 
 interface ScheduleItem {
@@ -240,6 +243,12 @@ export default function EnergyTradingPage() {
 
   const tradingStats = arb
     ? [
+        ...(arb.charged_kwh != null
+          ? [{ label: '충전량 (시나리오)', value: `${arb.charged_kwh.toFixed(1)} kWh` }]
+          : []),
+        ...(arb.discharged_kwh != null
+          ? [{ label: '방전량 (시나리오)', value: `${arb.discharged_kwh.toFixed(1)} kWh` }]
+          : []),
         { label: '충전 비용', value: `₩${Math.round(arb.charge_cost ?? 0).toLocaleString()}` },
         { label: '방전 절감액', value: `₩${Math.round(arb.discharge_savings ?? 0).toLocaleString()}` },
         { label: '순 차익', value: `₩${Math.round(arb.arbitrage ?? 0).toLocaleString()}`, highlight: true },
@@ -287,14 +296,14 @@ export default function EnergyTradingPage() {
         <KPICard
           label="오늘 차익"
           value={arb ? `₩${Math.round(arb.arbitrage ?? 0).toLocaleString()}` : '₩7,220'}
-          sub="충전비용 vs 방전절감 차이"
+          sub={arb?.is_example ? '요금표 기반 예시 시나리오' : '충전비용 vs 방전절감 차이'}
           accent="text-[#2EBD85]"
           isHighlight={true}
         />
         <KPICard
           label="VPP 예상 수익"
           value="₩340,000"
-          sub="전력거래소 수요반응 기준"
+          sub="수요반응 참여 시 산정 예시 (월)"
           accent="text-[#E8ECF1]"
         />
       </div>
@@ -359,7 +368,16 @@ export default function EnergyTradingPage() {
       {/* Bottom Section */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Left - Trading Stats */}
-        <Card title="에너지 거래 실적" subtitle={arb ? '실시간 계산' : '예시 데이터'}>
+        <Card
+          title="에너지 거래 실적"
+          subtitle={
+            arb
+              ? arb.is_example
+                ? '요금표 기반 예시 시나리오 (실측 적산 연동 전)'
+                : '실시간 계산'
+              : '예시 데이터'
+          }
+        >
           <div className="divide-y divide-[#222933]">
             {tradingStats.map((stat, index) => (
               <div key={index} className={`flex justify-between py-3 ${stat.highlight ? 'text-[#2EBD85]' : 'text-[#E8ECF1]'}`}>

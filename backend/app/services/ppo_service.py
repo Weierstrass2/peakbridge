@@ -83,6 +83,7 @@ class PPOService:
         ess_soc: float,
         current_temp: float,
         tariff_rate: float,
+        threshold: float,
     ) -> np.ndarray:
         """
         실시간 상태를 학습 환경(PublicPST) 관측 형식으로 근사 매핑.
@@ -92,7 +93,9 @@ class PPOService:
         나머지 슬롯 = 미연결(0).
         """
         now = _now_kst()
-        threshold = max(0.1, settings.PEAK_THRESHOLD_A)
+        # 실측 스케일(0.0x A) 임계치를 그대로 쓴다 — 하한 클램프를 두면
+        # 의도된 0.08A가 왜곡된다. 0 나눗셈만 방어.
+        threshold = max(1e-6, threshold)
 
         obs = np.zeros(OBS_DIM, dtype=np.float32)
         obs[0] = (now.hour * 60 + now.minute) / 1440.0
@@ -124,17 +127,21 @@ class PPOService:
         tariff_rate: float,
     ) -> dict:
         """PPO 모델 기반 추천 반환, 실패 시 fallback."""
+        # 컨트롤 탭 슬라이더가 설정한 건물별 임계치 (없으면 env 기본 0.08A)
+        from app.services.scenario_service import get_threshold
+
+        threshold = max(1e-6, get_threshold(building_id))
+
         if _ppo_model is None:
-            return self._fallback_recommendation(grid_current, ess_soc)
+            return self._fallback_recommendation(grid_current, ess_soc, threshold)
 
         try:
             obs = self._get_observation(
-                grid_current, ess_soc, current_temp, tariff_rate
+                grid_current, ess_soc, current_temp, tariff_rate, threshold
             )
             outputs = _ppo_model.predict(obs)
             rate0, rate_mean = self._interpret(np.asarray(outputs))
 
-            threshold = max(0.1, settings.PEAK_THRESHOLD_A)
             hour = _now_kst().hour
             is_night = hour >= 23 or hour < 9
 
@@ -147,7 +154,7 @@ class PPOService:
                 action = "discharge"
                 reason = (
                     f"PPO 충전 억제 신호(유닛 충전률 {rate0 * 100:.0f}%) "
-                    f"+ 그리드 {grid_current:.1f}A 임계 근접 — ESS 방전 권장"
+                    f"+ 그리드 {grid_current:.3f}A 임계 근접 — ESS 방전 권장"
                 )
                 recommended_rate = round((1.0 - rate0) * 100)
             elif rate0 >= 0.5 and ess_soc < 85:
@@ -170,14 +177,16 @@ class PPOService:
             }
         except Exception as exc:
             logger.error("ppo_predict_failed", error=str(exc))
-            return self._fallback_recommendation(grid_current, ess_soc)
+            return self._fallback_recommendation(grid_current, ess_soc, threshold)
 
-    def _fallback_recommendation(self, grid_current: float, ess_soc: float) -> dict:
+    def _fallback_recommendation(
+        self, grid_current: float, ess_soc: float, threshold: float | None = None
+    ) -> dict:
         """EnergyOptimizer 기반 fallback 추천."""
         rec = self.optimizer.get_realtime_recommendation(
             ess_soc=ess_soc,
             grid_current=grid_current,
-            threshold=settings.PEAK_THRESHOLD_A,
+            threshold=threshold if threshold is not None else settings.PEAK_THRESHOLD_A,
         )
         return {
             "model": "fallback",

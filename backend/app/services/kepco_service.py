@@ -61,32 +61,37 @@ class KepcoService:
         self.api_key = unquote(raw_key) if "%" in raw_key else raw_key
         self.client = httpx.AsyncClient(timeout=10.0)
     
+    # 계절별 요금 (원/kWh) — EnergyOptimizer.RATES와 동일 기준.
+    # 여기가 어긋나면 SMP 폴백 추정과 "현재 요금" KPI가 서로 모순된 값을 보인다.
+    SEASON_TARIFFS = {
+        "여름": {"경부하": 42.5, "중간부하": 84.5, "최대부하": 147.0},
+        "봄가을": {"경부하": 42.5, "중간부하": 62.9, "최대부하": 85.6},
+        "겨울": {"경부하": 42.5, "중간부하": 78.8, "최대부하": 107.2},
+    }
+
     def get_current_tariff_info(self) -> tuple:
         """현재 시간대 요금 정보 반환"""
         now = _now_kst()
         hour = now.hour
         month = now.month
-        
-        # 계절 구분
+
+        # 계절 구분 (기존 `11 <= month <= 2`는 항상 거짓 — 겨울이 봄가을로 새던 버그)
         if 7 <= month <= 8:
             season = "여름"
-        elif 11 <= month <= 2:
+        elif month >= 11 or month <= 2:
             season = "겨울"
         else:
             season = "봄가을"
-        
+
         # 시간대 구분
         if 23 <= hour or hour < 9:
             period = "경부하"
-            tariff = 42.5
         elif (9 <= hour < 11) or (13 <= hour < 17) or (21 <= hour < 23):
             period = "중간부하"
-            tariff = 84.5
         else:
             period = "최대부하"
-            tariff = 147.0
-        
-        return period, tariff
+
+        return period, self.SEASON_TARIFFS[season][period]
     
     def estimate_smp_from_tariff(self) -> float:
         """요금 기반 SMP 추정 (폴백)"""

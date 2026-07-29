@@ -71,8 +71,13 @@ async def get_arbitrage(
     building_id: str,
     db: AsyncSession = Depends(get_db)
 ):
-    """오늘 실제 차익 계산"""
-    # 간단한 예시 계산
+    """오늘 차익 — 요금표 기반 예시 시나리오 계산.
+
+    충방전량(5.0/4.5 kWh)은 고정 시나리오다. 실측 연동은 하드웨어 텔레메트리의
+    INA 전류·전압(방전 전력)을 적산해야 하는데, 백엔드 sensor_type이
+    grid_current/ess_soc/charger_current 3종뿐이라 스키마 확장이 선행돼야 한다.
+    그 전까지 응답에 is_example을 명시해 화면이 '실시간 계산'으로 과장하지 않게 한다.
+    """
     season = optimizer._get_season(_now_kst())
     arbitrage = optimizer.calculate_arbitrage(
         charged_kwh=5.0,
@@ -85,6 +90,9 @@ async def get_arbitrage(
     return {
         "building_id": building_id,
         "date": _now_kst().strftime("%Y-%m-%d"),
+        "is_example": True,
+        "charged_kwh": 5.0,
+        "discharged_kwh": 4.5,
         **arbitrage
     }
 
@@ -104,9 +112,13 @@ async def get_realtime_recommendation(
     ess_device = next((d for d in devices if d.device_type == "ess"), None)
 
     # 현재 상태 조회
+    from app.services.scenario_service import get_threshold
+
     grid_current = 0.0
     ess_soc = 50.0
-    threshold = 10.0
+    # 컨트롤 탭 슬라이더가 설정한 건물별 임계치 (실측 스케일 0.0x A).
+    # 고정값을 쓰면 방전 권고·urgency 판정이 실측 전류에서 영구히 죽는다.
+    threshold = get_threshold(building_id)
 
     if grid_device:
         grid_reading = await sensor_repo.get_latest(grid_device.device_id, "grid_current")
