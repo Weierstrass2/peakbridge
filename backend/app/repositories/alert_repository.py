@@ -1,7 +1,7 @@
 """알림 Repository."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -38,20 +38,33 @@ class AlertRepository:
         )
         return list(result.scalars().all())
 
-    async def list_unresolved(self, building_id: str) -> list[Alert]:
-        """미해결 알림 (peak_detected / peak_shaving_activated)."""
-        result = await self.session.execute(
-            select(Alert).where(
-                Alert.building_id == building_id,
-                Alert.resolved_at.is_(None),
-                Alert.alert_type.in_(["peak_detected", "peak_shaving_activated"]),
-            )
-        )
+    async def list_unresolved(
+        self, building_id: str, within_minutes: int | None = None
+    ) -> list[Alert]:
+        """미해결 알림 (peak_detected / peak_shaving_activated).
+
+        within_minutes: 지정하면 그 시간 안에 생성된 것만 센다.
+            피크 해제 처리는 인메모리 상태(_peak_state)에 의존하는데, 서버가
+            재시작되면 그 상태가 초기화되어 '해제' 분기를 못 타고 DB 알림이
+            영구히 미해결로 남는다. 그 잔재가 대시보드를 계속 '피크 중'으로
+            보이게 하므로, 현재 상태 판정에는 신선도 창을 건다.
+        """
+        conds = [
+            Alert.building_id == building_id,
+            Alert.resolved_at.is_(None),
+            Alert.alert_type.in_(["peak_detected", "peak_shaving_activated"]),
+        ]
+        if within_minutes is not None:
+            cutoff = datetime.now(timezone.utc) - timedelta(minutes=within_minutes)
+            conds.append(Alert.created_at >= cutoff)
+        result = await self.session.execute(select(Alert).where(*conds))
         return list(result.scalars().all())
 
-    async def has_active_peak(self, building_id: str) -> bool:
-        """현재 피크 활성 여부."""
-        unresolved = await self.list_unresolved(building_id)
+    async def has_active_peak(
+        self, building_id: str, within_minutes: int | None = 15
+    ) -> bool:
+        """현재 피크 활성 여부 (기본: 최근 15분 내 미해결 피크 알림)."""
+        unresolved = await self.list_unresolved(building_id, within_minutes)
         return len(unresolved) > 0
 
     async def resolve(self, alert_id: uuid.UUID) -> Alert | None:

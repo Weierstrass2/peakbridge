@@ -291,10 +291,12 @@ export default function JejuOps({
             const headPct = (Math.max(0, guard - s.base_load_kw) / maxLoad) * 100;
             const usable = s.max_charge_kw > 0.5;
             return (
-              <div className={`jo-site ${s.online ? '' : 'off'}`} key={s.id}>
+              <div className={`jo-site ${s.online ? '' : 'off'} ${s.live ? 'islive' : ''}`} key={s.id}>
                 <div className="jo-sh">
                   <b>{s.name}</b>
-                  <span className="num">{s.id}</span>
+                  {s.live
+                    ? <span className="jo-live">LIVE</span>
+                    : <span className="num">{s.id}</span>}
                 </div>
                 <div className="jo-bar-wrap" title={`부하 ${s.base_load_kw}kW / 기준 ${guard}kW`}>
                   <i className="lo" style={{ width: `${loadPct}%` }} />

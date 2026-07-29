@@ -395,6 +395,9 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
   ~0.08A 수준이 흐르므로 실측 스케일로 잡고, 아파트 대시보드에서는 배수 환산으로 실증)
 - frontend-vpp는 npm install 필요 (topojson-client 등)
 - git push 후 Railway 자동배포 2~3분, /docs에서 market·dispatch 태그 확인
-- 하드웨어 미제작 상태 — MQTT 브로커 미연결, ESP32 등 실기기 연동은 추후 작업
+- 하드웨어: **실기 검증 완료** (11~13차) — XIAO ESP32S3 리그로 절체·복귀 전 시나리오 통과,
+  MQTT 엔드투엔드 개통. 단, **프로덕션(Railway) `MQTT_HOST`는 여전히 미설정**이라
+  클라우드 제어 API는 `mqtt_sent:false`로 응답한다(설계상 정상, DB 로그·알림은 동작).
+  시연은 로컬 브로커 + `hardware/server` 구성으로 진행한다.
 - 저장소 루트의 `railway-deploy`는 깨진 git submodule 참조(빈 디렉토리) — 정리 대상,
   실제 배포와 무관

@@ -68,7 +68,11 @@ async def get_dashboard(session: DbSession, building_id: str) -> dict:
         forecast = await forecast_svc.predict(building_id)
     except Exception:
         forecast = []
-    peak_active = await alert_repo.has_active_peak(building_id)
+    # 피크 표시: 인메모리 실시간 상태 우선, 없으면 최근 15분 내 미해결 알림
+    # (재배포로 인메모리가 날아가면 과거 알림이 영구히 '피크 중'으로 보이던 문제)
+    from app.services.peak_service import is_peak_active
+
+    peak_active = is_peak_active(building_id) or await alert_repo.has_active_peak(building_id)
 
     threshold = get_threshold(building_id)
     actual_current = grid.value if grid else 0.0

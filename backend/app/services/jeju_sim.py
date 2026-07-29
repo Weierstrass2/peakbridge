@@ -85,6 +85,7 @@ class Site:
     month_peak_kw: float        # 이번 달 최대수요
     base_load_kw: float         # 지금 이 시각의 기본 부하
     online: bool = True         # 통신 정상 여부
+    live: bool = False          # 실측 자원 여부 (차주 예약 유연성)
 
     # ── 계산 속성 ──
     @property
@@ -120,6 +121,7 @@ class Site:
             "headroom_kw": round(self.peak_headroom_kw(), 1),
             "max_charge_kw": round(self.max_charge_kw(), 1),
             "online": self.online,
+            "live": self.live,
         }
 
 
@@ -323,20 +325,55 @@ class JejuSim:
         self._rng = random.Random(17)
         self._snapshot: list[dict] | None = None
 
+    # ── 실측 자원 (차주 예약 유연성) ──
+    def _live_site(self) -> Site | None:
+        """폰(/drive)에서 실제로 예약된 '알뜰 충전' 유연성을 자원 한 줄로 만든다.
+
+        가상 단지 12곳과 달리 이 자원만 실데이터다. 재고가 0이면 목록에서 빠진다
+        (예약이 없을 때 0kWh 자원이 떠서 화면이 어색해지는 것 방지).
+
+        피크 제약을 따로 두지 않는 이유: 유연성 재고는 이미 '미룰 수 있는 양'으로
+        산정된 값이라, 여기에 또 기본요금 여유를 곱하면 이중 차감이 된다.
+        """
+        try:
+            from app.services.flex_service import flex_service
+
+            flex = flex_service.flexibility("building-A")
+        except Exception:  # noqa: BLE001
+            return None
+
+        kwh = float(flex.get("flex_kwh") or 0.0)
+        if kwh <= 0.1:
+            return None
+        n = max(1, int(flex.get("flex_session_count") or 1))
+        power = 7.0 * n          # 완속 충전기 7kW × 예약 대수
+        return Site(
+            id="LIVE-EV", name="차주 유연성",
+            contract_kw=power, capacity_kwh=kwh / 0.95, power_kw=power,
+            soc=0.0, today_peak_kw=0.0, month_peak_kw=power, base_load_kw=0.0,
+            online=True, live=True,
+        )
+
+    def _all_sites(self) -> list[Site]:
+        """가상 단지 + (있으면) 실측 차주 유연성."""
+        live = self._live_site()
+        return self.sites + ([live] if live else [])
+
     # ── 상태 ──
     def state(self) -> dict:
-        total_room = sum(s.room_kwh for s in self.sites if s.online)
-        total_head = sum(s.max_charge_kw() for s in self.sites if s.online)
+        sites = self._all_sites()
+        total_room = sum(s.room_kwh for s in sites if s.online)
+        total_head = sum(s.max_charge_kw() for s in sites if s.online)
         return {
             "facts": self.facts,
-            "sites": [s.to_dict() for s in self.sites],
+            "sites": [s.to_dict() for s in sites],
             "event": self.event.to_dict() if self.event else None,
             "fleet": {
-                "count": len(self.sites),
-                "online": sum(1 for s in self.sites if s.online),
+                "count": len(sites),
+                "online": sum(1 for s in sites if s.online),
                 "room_kwh": round(total_room, 1),
                 "safe_charge_kw": round(total_head, 1),
-                "avg_soc": round(sum(s.soc for s in self.sites) / max(len(self.sites), 1), 3),
+                "avg_soc": round(sum(s.soc for s in sites) / max(len(sites), 1), 3),
             },
             "log": self.log[:20],
             "history": self.history[-10:],
@@ -364,7 +401,7 @@ class JejuSim:
             ts=datetime.now(KST).strftime("%Y-%m-%d %H:%M"),
             hour=h, request_mwh=req, curtail_mw=curt,
         )
-        self._snapshot = [s.to_dict() for s in self.sites]
+        self._snapshot = [s.to_dict() for s in self._all_sites()]
         self._say("warn",
                   f"플러스DR 발령 — {h}시 · 요청 {req * 1000:,.0f}kWh · "
                   f"출력제어 {curt:.0f}MW · {'최대부하' if is_peak_hour(h) else '경부하'} 시간대")
@@ -375,7 +412,7 @@ class JejuSim:
         if self.event is None:
             return {"error": "발령된 이벤트가 없습니다"}
         need = self.event.request_mwh * 1000
-        plans = allocate(self.sites, need, mode, self.event.hour)
+        plans = allocate(self._all_sites(), need, mode, self.event.hour)
         total = sum(p["charge_kw"] for p in plans)
         return {
             "mode": mode,
@@ -392,8 +429,9 @@ class JejuSim:
             return {"error": "발령된 이벤트가 없습니다"}
 
         need = self.event.request_mwh * 1000
-        plans = allocate(self.sites, need, mode, self.event.hour)
-        result = execute(self.sites, plans, self.event.hour, incentive, self._rng)
+        sites = self._all_sites()
+        plans = allocate(sites, need, mode, self.event.hour)
+        result = execute(sites, plans, self.event.hour, incentive, self._rng)
         result["mode"] = mode
         result["need_kwh"] = round(need)
         result["coverage"] = round(result["delivered_kwh"] / need, 3) if need > 0 else 0.0
@@ -428,7 +466,7 @@ class JejuSim:
         need = self.event.request_mwh * 1000
         out = {}
         for mode in ("even", "peak"):
-            clone = [Site(**{k: v for k, v in s.__dict__.items()}) for s in self.sites]
+            clone = [Site(**{k: v for k, v in s.__dict__.items()}) for s in self._all_sites()]
             plans = allocate(clone, need, mode, self.event.hour)
             r = execute(clone, plans, self.event.hour, incentive, random.Random(99))
             r["coverage"] = round(r["delivered_kwh"] / need, 3) if need > 0 else 0.0
@@ -476,7 +514,7 @@ class JejuSim:
         hour = self.event.hour
 
         # 두 방식 모두 '피크 여유 기반'으로 배분해 배분 알고리즘 차이를 제거한다.
-        clone = [Site(**{k: v for k, v in s.__dict__.items()}) for s in self.sites]
+        clone = [Site(**{k: v for k, v in s.__dict__.items()}) for s in self._all_sites()]
         plans = allocate(clone, need, "peak", hour)
         base = execute(clone, plans, hour, incentive, random.Random(99))
         absorbed = base["delivered_kwh"]

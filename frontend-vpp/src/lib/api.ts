@@ -550,7 +550,7 @@ export interface JejuSite {
   contract_kw: number; capacity_kwh: number; soc: number;
   room_kwh: number; base_load_kw: number;
   today_peak_kw: number; month_peak_kw: number;
-  headroom_kw: number; max_charge_kw: number; online: boolean;
+  headroom_kw: number; max_charge_kw: number; online: boolean; live?: boolean;
 }
 
 export interface JejuEvent {

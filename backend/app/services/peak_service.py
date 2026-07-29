@@ -27,6 +27,12 @@ logger = structlog.get_logger(__name__)
 # 건물별 피크 활성 상태 (in-memory)
 _peak_state: dict[str, bool] = {}
 
+
+def is_peak_active(building_id: str) -> bool:
+    """인메모리 피크 상태 — 서버가 살아 있는 동안에는 이 값이 정답이다.
+    (재시작되면 False로 초기화되므로 DB 알림 신선도와 함께 판정한다.)"""
+    return _peak_state.get(building_id, False)
+
 # CO2 배출 계수 (kg/kWh)
 CO2_FACTOR = 0.45
 

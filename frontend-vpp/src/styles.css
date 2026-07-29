@@ -664,6 +664,10 @@ body {
 .jeju-bar { height: 3px; background: var(--line-0); border-radius: 2px; margin-top: 4px; overflow: hidden; }
 .jeju-bar i { display: block; height: 100%; border-radius: 2px; }
 
+.jo-live { font-size: 8.5px; font-weight: 700; letter-spacing: .08em;
+  color: var(--ok); border: 1px solid var(--ok); border-radius: 3px;
+  padding: 0 4px; font-family: var(--font-num); }
+.jo-site.islive { border-color: var(--ok); background: color-mix(in srgb, var(--ok) 7%, transparent); }
 .jo-note { font-size: 9px; color: var(--tx-3); margin-top: 4px; font-family: var(--font-num); }
 .jeju-verdict {
   margin: 8px 0 0; font-size: 10px; line-height: 1.6; color: var(--warn);
