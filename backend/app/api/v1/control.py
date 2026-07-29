@@ -28,6 +28,8 @@ from app.services.scenario_service import (
     set_ess_runtime,
     request_soc_reset,
     get_soc_reset,
+    set_force_discharge,
+    get_force_discharge,
 )
 
 
@@ -49,6 +51,11 @@ class EssRuntimeRequest(BaseModel):
     # 하드웨어 브리지가 올리는 ESS 잔여 가동시간(h)·SOC(%)
     remain_hours: float = Field(..., ge=0.0)
     soc: Optional[float] = Field(None, ge=0.0, le=100.0)
+
+
+class ForceDischargeRequest(BaseModel):
+    # 강제 방전 모드 on/off — 부하 무관 ESS(NO) 유지
+    on: bool
 
 
 class ChargerControlRequest(BaseModel):
@@ -272,6 +279,31 @@ async def get_soc_reset_endpoint(building_id: str) -> dict:
     pending이 None이 아니면 브리지가 id 신규 여부를 보고 1회만 MQTT로 전파한다.
     """
     return success_response({"pending": get_soc_reset(building_id)})
+
+
+@router.post("/{building_id}/ess-force-discharge")
+async def set_force_discharge_endpoint(
+    building_id: str,
+    request: ForceDischargeRequest,
+    user: AdminOrManager,
+) -> dict:
+    """강제 방전 모드 on/off — 대시보드 [강제 방전]/[대기] 버튼용 (관리자 인증).
+
+    on=true면 부하3 유무와 무관하게 릴레이를 NO(ESS)로 유지, off면 자동 판단 복귀.
+    릴레이를 직접 흔들지 않고 in-memory 모드만 바꾼다 — 하드웨어 브리지가
+    GET /force-discharge로 폴링해 MQTT command로 펌웨어에 전파(안전: 통신 끊겨도
+    로컬 판단이 마지막 모드로 계속 돈다). 펌웨어는 SOC 하한 시 자체적으로 자동 해제.
+    """
+    req = set_force_discharge(building_id, request.on)
+    return success_response(
+        {"building_id": building_id, "on": req["on"], "id": req["id"]}
+    )
+
+
+@router.get("/{building_id}/force-discharge")
+async def get_force_discharge_endpoint(building_id: str) -> dict:
+    """하드웨어 브리지 폴링용 — 현재 강제 방전 모드 상태 (무인증, 조회성 정책 동일)."""
+    return success_response({"state": get_force_discharge(building_id)})
 
 
 @router.get("/{building_id}/auto-mode")

@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import { useDashboard } from '../hooks/useDashboard';
-import { sendControlAction } from '../services/dashboardApi';
 import { controlApi } from '../services/controlApi';
 
 export default function ControlPage() {
@@ -26,20 +25,22 @@ export default function ControlPage() {
   const [loading, setLoading] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const runAction = async (action: string, payload?: Record<string, unknown>) => {
-    setLoading(action);
+  // 강제 방전 on/off — 실증 하드웨어(XIAO)로 실제 전파되는 명령.
+  // on: 부하3 유무와 무관하게 릴레이 NO(ESS) 유지 / off: 자동 판단 복귀.
+  const runForceDischarge = async (on: boolean) => {
+    setLoading(on ? 'discharge' : 'standby');
     setMessage(null);
     try {
-      await sendControlAction(action, payload);
-      setMessage(`'${action}' 명령이 전송되었습니다.`);
+      await controlApi.setForceDischarge(on);
+      setMessage(
+        on
+          ? '강제 방전 ON — 부하 무관 ESS(NO) 유지 명령 전송'
+          : '강제 방전 해제 — 자동 판단 복귀',
+      );
       setTimeout(() => setMessage(null), 3000);
     } catch (err) {
-      const isDuplicate = axios.isAxiosError(err) && err.response?.status === 409;
-      setMessage(
-        isDuplicate
-          ? `⏳ '${action}' 명령이 30초 이내에 이미 전송됐습니다. 잠시 후 다시 시도하세요.`
-          : `❌ '${action}' 명령 전송에 실패했습니다.`,
-      );
+      const isAuth = axios.isAxiosError(err) && err.response?.status === 401;
+      setMessage(isAuth ? '❌ 관리자 로그인이 필요합니다.' : '❌ 명령 전송에 실패했습니다.');
       setTimeout(() => setMessage(null), 3000);
     } finally {
       setLoading(null);
@@ -51,30 +52,26 @@ export default function ControlPage() {
       {/* Control Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ESS Control */}
-        <Card title="ESS 제어" subtitle="수동 제어">
-          <div className="grid grid-cols-3 gap-3">
+        <Card title="ESS 제어" subtitle="실증 하드웨어 직접 제어">
+          <div className="grid grid-cols-2 gap-3">
             <Button
-              variant="secondary"
               loading={loading === 'discharge'}
-              onClick={() => runAction('discharge')}
+              onClick={() => runForceDischarge(true)}
             >
               강제 방전
             </Button>
             <Button
               variant="secondary"
-              loading={loading === 'charge'}
-              onClick={() => runAction('charge')}
-            >
-              강제 충전
-            </Button>
-            <Button
-              variant="secondary"
               loading={loading === 'standby'}
-              onClick={() => runAction('standby')}
+              onClick={() => runForceDischarge(false)}
             >
               대기
             </Button>
           </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-[#5A6472]">
+            강제 방전: 부하 유무와 무관하게 릴레이를 ESS(NO)로 전환·유지합니다.
+            대기: 자동 판단으로 복귀(부하 없으면 한전으로). SOC 15% 미만 시 안전 자동 해제.
+          </p>
         </Card>
 
         {/* Peak Threshold Slider */}

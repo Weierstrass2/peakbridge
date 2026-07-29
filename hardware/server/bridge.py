@@ -91,6 +91,8 @@ def init() -> None:
     _worker.start()
     # 클라우드 → 하드웨어 역방향: SOC 리셋 요청 폴러 (버튼 → 펌웨어 쿨롱카운터 리셋)
     threading.Thread(target=_poll_soc_reset, daemon=True).start()
+    # 강제 방전 모드 폴러 (버튼 → 펌웨어 NO 유지/자동 복귀)
+    threading.Thread(target=_poll_force_discharge, daemon=True).start()
     logger.info(
         "클라우드 브리지 활성: %s (건물 %s, 디바이스 %s, 스케일 ×%s)",
         _url, _building_id, _device_id, _scale,
@@ -210,6 +212,48 @@ def _poll_soc_reset() -> None:
                 )
         except Exception as exc:  # noqa: BLE001
             logger.debug("SOC 리셋 폴링 예외: %s", exc)
+        time.sleep(3)
+
+
+def _poll_force_discharge() -> None:
+    """클라우드의 강제 방전 모드 상태를 3초 주기로 폴링해 MQTT command로 전파.
+
+    [강제 방전] 버튼 → Railway in-memory 토글 → 여기서 id(변경 시각)로 상태 변화를
+    감지해 force_discharge/auto 명령을 보낸다. on인 동안은 15초마다 재발행해,
+    XIAO가 중간에 재부팅(기본값=해제)해도 곧 강제 모드가 복원되게 한다.
+    오토파일럿·SOC리셋과 같은 원칙: 릴레이를 직접 흔들지 않고 모드만 바꾼다.
+    """
+    import time
+
+    import requests
+
+    import mqtt_gateway
+
+    session = requests.Session()
+    endpoint = f"{_url}/api/v1/control/{_building_id}/force-discharge"
+    last_id: int | None = None
+    last_republish = 0.0
+    while True:
+        try:
+            resp = session.get(endpoint, timeout=3)
+            state = resp.json().get("data", {}).get("state")
+            if state is not None:
+                on = bool(state.get("on"))
+                changed = state.get("id") != last_id
+                # 상태가 바뀌었거나, on 유지 중 15초 경과 시 재발행(재부팅 복원용)
+                if changed or (on and time.time() - last_republish >= 15):
+                    action = "force_discharge" if on else "auto"
+                    sent = mqtt_gateway.publish_command({"action": action})
+                    last_id = state.get("id")
+                    last_republish = time.time()
+                    if changed:
+                        logger.info(
+                            "강제 방전 %s → MQTT command %s",
+                            "ON" if on else "OFF",
+                            "발행" if sent else "미발행(MQTT 비활성)",
+                        )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("강제 방전 폴링 예외: %s", exc)
         time.sleep(3)
 
 

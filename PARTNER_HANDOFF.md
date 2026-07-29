@@ -355,6 +355,30 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
   재시작 1번으로 즉시 주입).
 - SMP CSV 갱신: `py backend/scripts/fetch_kpx_smp_today.py` → 커밋·푸시.
 
+## 15차 세션 (2026-07-29) — 강제 방전(수동 절체) 실동작 구현
+
+**배경**: 컨트롤 탭 [강제 방전/충전/대기]는 DB 로그만 남기고 하드웨어에 안 닿았음
+(XIAO는 control/relay 토픽 미구독 — 절체는 로컬 판단 원칙). 강제 충전은 리그에
+충전 제어 회로가 없어 불가. 강제 방전만 "부하 무관 NO 유지"로 실동작화.
+
+**안전성 결론(가능)**: 결선 COM=부하3/NC=한전/NO=인버터, SPDT라 NC·NO 동시연결
+불가 → 역류 없음. 부하3 OFF여도 인버터 무부하 도통(대기 ~690mA)일 뿐 안전.
+유일 리스크=배터리 서서히 방전 → SOC 15% 하한 자동 해제로 방어.
+
+**구현(SOC 리셋과 동일 체인 재사용)**:
+- 펌웨어: `gForceDischarge` 모드 + command `force_discharge`/`auto`. on이면 loop에서
+  복귀 판단(INA<임계) 스킵하고 NO 유지 → 채터링 원천 차단. SOC 하한 시 자체 자동 해제.
+  telemetry에 `force_discharge` 필드 추가. 컴파일 통과.
+- Railway: `POST /control/{id}/ess-force-discharge {on}`(관리자) + `GET /force-discharge`
+  (브리지 폴링). scenario_service in-memory 토글(id=변경시각).
+- `hardware/server/bridge.py`: `_poll_force_discharge` 폴러 — id 변화 감지 발행 +
+  on 유지 중 15초마다 재발행(XIAO 재부팅 복원용). 모의서버 통합테스트 5시나리오 통과.
+- 프론트: 컨트롤 탭 [강제 방전]/[대기] 2버튼으로(강제 충전 제거), setForceDischarge 연결.
+- **주의**: 원칙 유지 — 서버가 릴레이 직접 제어 아님, '판단 모드'만 전파. 통신 두절 시
+  로컬이 마지막 모드로 안전 동작, 재부팅 시 기본값(해제/NC)로 안전 시작.
+- 시연 검증법: 로컬 mosquitto+hardware/server(BRIDGE_URL) 기동 → [강제 방전] →
+  시리얼 "강제 방전 ON" + 릴레이 NO(부하3 꺼져 있어도 유지) → [대기] → 자동 복귀.
+
 ## 남은 백로그 (의도적 미구현 — 필요성 낮음)
 - C2 WebSocket 전환 (3초 폴링으로 시연 충분)
 - 정식 JWT 콘솔 로그인 (시연 마찰 증가)

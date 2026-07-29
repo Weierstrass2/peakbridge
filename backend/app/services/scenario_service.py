@@ -69,6 +69,29 @@ def get_soc_reset(building_id: str, max_age_s: float = 120.0) -> dict | None:
     return req
 
 
+# 강제 방전 모드 (in-memory 토글). 대시보드 버튼 → 브리지가 폴링해 MQTT command로
+# 펌웨어에 전파. on이면 부하 무관 NO 유지, off면 자동 판단 복귀. id는 변경 시각(ms)으로,
+# 브리지가 상태 변화를 감지하는 데 쓴다.
+_force_discharge_state: dict[str, dict] = {}
+
+
+def set_force_discharge(building_id: str, on: bool) -> dict:
+    """강제 방전 모드 on/off 설정. id(ms)로 브리지가 변경 여부를 판별한다."""
+    req = {
+        "on": on,
+        "id": int(datetime.now(timezone.utc).timestamp() * 1000),
+    }
+    _force_discharge_state[building_id] = req
+    logger.info("force_discharge_set", building_id=building_id, on=on)
+    return req
+
+
+def get_force_discharge(building_id: str) -> dict | None:
+    """현재 강제 방전 상태 (없으면 None). 토글 상태라 TTL 없이 마지막 값을 유지 —
+    브리지가 재기동해도 현재 원하는 상태를 그대로 반영한다."""
+    return _force_discharge_state.get(building_id)
+
+
 def set_ess_runtime(building_id: str, remain_hours: float, soc: float | None) -> None:
     """하드웨어 브리지가 올린 ESS 잔여 가동시간(h)·SOC(%) 저장."""
     _ess_runtime_state[building_id] = {

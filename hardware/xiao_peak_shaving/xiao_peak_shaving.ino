@@ -87,6 +87,13 @@ const float THRESHOLD_LOW_A = 0.055;  // INA 방식에선 미사용 — 스키�
 bool isPeak = false;
 int overCount = 0;
 int underCount = 0;
+// 강제 방전 모드: 서버 command로 켜지면 부하3 on/off와 무관하게 NO(ESS)를 유지한다.
+// 복귀 판단(INA<임계)을 건너뛰므로, 부하 없을 때 인버터 무부하로 즉시 복귀하던
+// 채터링이 원천 차단된다. 릴레이 직접 원격제어가 아니라 '판단 모드'만 바꾸는 것 —
+// 통신이 끊겨도 로컬에서 마지막 모드로 안전하게 돌고, 재부팅하면 기본값(해제)로 시작.
+bool gForceDischarge = false;
+// 안전장치: 강제 방전 중 SOC가 이 값 밑으로 내려가면 배터리 보호를 위해 자동 해제.
+const float FORCE_DISCHARGE_MIN_SOC = 15.0;
 // 절체/복귀 직후 판단 유예: 인버터 전류가 정격에 도달하기까지 2~3초 램프가 있어
 // (실측 확인) 유예 없이는 램프 구간을 "부하3 꺼짐"으로 오판해 즉시 복귀한다.
 const unsigned long STABILIZE_MS = 10000;
@@ -115,6 +122,19 @@ void onCommand(JsonDocument& doc) {
     Serial.print("command 적용: SOC ");
     Serial.print(p, 0);
     Serial.println("%로 리셋 (쿨롱 카운터 기준값 보정)");
+  } else if (strcmp(action, "force_discharge") == 0) {
+    // 강제 방전 ON — 부하 무관 NO 유지. SOC 하한 미만이면 배터리 보호를 위해 거부.
+    if (gSocPercent <= FORCE_DISCHARGE_MIN_SOC) {
+      Serial.println("command 거부: SOC 하한 미만 — 강제 방전 불가");
+      return;
+    }
+    gForceDischarge = true;
+    if (!isPeak) goNO();   // 즉시 절체 (부하3 여부와 무관)
+    Serial.println("command 적용: 강제 방전 ON (부하 무관 NO 유지)");
+  } else if (strcmp(action, "auto") == 0 || strcmp(action, "release") == 0) {
+    // 강제 방전 해제 — 자동 판단 복귀. 부하3이 없으면 다음 루프에서 자연스럽게 NC로.
+    gForceDischarge = false;
+    Serial.println("command 적용: 강제 방전 해제 — 자동 판단 복귀");
   } else {
     Serial.print("command 무시: 알 수 없는 action ");
     Serial.println(action);
@@ -194,6 +214,7 @@ void publishTelemetry(float ct, float inaMa) {
   doc["battery_soc"]      = gSocPercent;     // 쿨롱 카운팅 SOC(%)
   doc["battery_voltage_v"] = gBatteryV;      // INA219 버스 전압(읽히면)
   doc["remain_hours"]     = gRemainHours;    // 현재 방전율 기준 잔여 가동시간
+  doc["force_discharge"]  = gForceDischarge; // 강제 방전 모드 여부(로컬 대시보드 표시용)
 
   char buf[384];
   size_t n = serializeJson(doc, buf);
@@ -343,6 +364,23 @@ void loop() {
     Serial.print((STABILIZE_MS - (millis() - lastSwitchMillis)) / 1000 + 1);
     Serial.println("s]");
     publishTelemetry(ctCurrent, inaCurrent_mA);   // 유예 중에도 텔레메트리는 발행
+    maintainNetwork();
+    delay(1000);
+    return;
+  }
+
+  // 강제 방전 모드: 자동 판단을 건너뛰고 NO(ESS)를 유지한다.
+  if (gForceDischarge) {
+    if (gSocPercent <= FORCE_DISCHARGE_MIN_SOC) {
+      // 배터리 보호 — SOC 하한 도달 시 강제 해제하고 한전으로 복귀
+      Serial.println("   [강제 방전 자동 해제: SOC 하한 도달 → 복귀]");
+      gForceDischarge = false;
+      goNC();
+    } else {
+      if (!isPeak) goNO();   // 혹시 NC 상태면 다시 NO로
+      Serial.println("   [강제 방전 유지 — 부하 무관]");
+    }
+    publishTelemetry(ctCurrent, inaCurrent_mA);
     maintainNetwork();
     delay(1000);
     return;

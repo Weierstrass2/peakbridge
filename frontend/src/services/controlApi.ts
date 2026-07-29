@@ -36,6 +36,11 @@ export const controlApi = {
     await api.post(`${V1}/control/${BUILDING_ID}/ess-soc-reset`, {});
   },
 
+  // 강제 방전 모드 on/off — 부하 무관 릴레이 NO(ESS) 유지 / 자동 판단 복귀
+  setForceDischarge: async (on: boolean): Promise<void> => {
+    await api.post(`${V1}/control/${BUILDING_ID}/ess-force-discharge`, { on });
+  },
+
   getAutoMode: async (): Promise<boolean> => {
     const { data } = await api.get<Wrapped<{ enabled: boolean }>>(
       `${V1}/control/${BUILDING_ID}/auto-mode`,
