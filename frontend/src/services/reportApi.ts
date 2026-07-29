@@ -63,6 +63,45 @@ export async function fetchAlerts(): Promise<AlertItem[]> {
   }));
 }
 
+// ── 전원 절체 이벤트 (한전 ↔ ESS) ─────────────────────────────
+// fetchAlerts는 alert_type을 'peak' 하나로 뭉개므로, 절체 로그용으로
+// 원본 타입을 보존해 따로 가져온다.
+export interface PowerEvent {
+  id: string;
+  kind: 'switch_to_ess' | 'return_to_grid' | 'peak_detected';
+  timestamp: string;
+  gridCurrent: number | null;
+  reductionPercent: number | null;
+}
+
+const POWER_EVENT_KINDS: Record<string, PowerEvent['kind']> = {
+  peak_shaving_activated: 'switch_to_ess',
+  peak_resolved: 'return_to_grid',
+  peak_detected: 'peak_detected',
+};
+
+export async function fetchPowerEvents(limit = 8): Promise<PowerEvent[]> {
+  if (isMockMode()) {
+    const now = Date.now();
+    return mockFetch([
+      { id: 'pe-1', kind: 'switch_to_ess', timestamp: new Date(now - 40_000).toISOString(), gridCurrent: 0.108, reductionPercent: 18 },
+      { id: 'pe-2', kind: 'peak_detected', timestamp: new Date(now - 45_000).toISOString(), gridCurrent: 0.108, reductionPercent: null },
+      { id: 'pe-3', kind: 'return_to_grid', timestamp: new Date(now - 300_000).toISOString(), gridCurrent: 0.073, reductionPercent: null },
+    ] as PowerEvent[]);
+  }
+  const { data } = await api.get<BackendResponse<RawAlert[]>>(apiPaths.alerts());
+  return data.data
+    .filter((a) => a.alert_type in POWER_EVENT_KINDS)
+    .slice(0, limit)
+    .map((a) => ({
+      id: a.id,
+      kind: POWER_EVENT_KINDS[a.alert_type],
+      timestamp: a.created_at,
+      gridCurrent: a.grid_current,
+      reductionPercent: a.reduction_percent,
+    }));
+}
+
 export async function acknowledgeAlert(alertId: string): Promise<void> {
   if (isMockMode()) {
     await mockFetch(null, 200);

@@ -2,6 +2,7 @@ import TopMetrics from '../components/dashboard/TopMetrics';
 import AiForecastPanel from '../components/dashboard/AiForecastPanel';
 import RealtimeChart from '../components/dashboard/RealtimeChart';
 import EnergyFlowDiagram from '../components/dashboard/EnergyFlowDiagram';
+import PowerSourceLog from '../components/dashboard/PowerSourceLog';
 import ChargerGrid from '../components/dashboard/ChargerGrid';
 import SavingsCard from '../components/dashboard/SavingsCard';
 import EventLogPanel from '../components/dashboard/EventLogPanel';
@@ -32,7 +33,9 @@ export default function DashboardPage() {
 
       {/* Energy Flow + Chart */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
+        <div className="space-y-4 lg:col-span-2">
+          {/* 전원 절체 로그 — 한전/ESS 방출 상태와 최근 절체 이벤트 */}
+          <PowerSourceLog peakActive={dashboard?.peak_active} />
           <RealtimeChart
             data={chartData}
             threshold={dashboard?.peak_threshold ?? 0.095}

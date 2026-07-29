@@ -10,13 +10,17 @@ import { BUILDING_ID, isMockMode } from '../config/env';
 import { formatCo2Kg, formatWon } from '../utils/format';
 
 // 예시 일별 절감 데이터 (오늘 기준 최근 30일, 실데이터 누적 전까지 표시용)
+// 실측 스케일 정렬: 실제 하루 절감이 0.1~0.4원 수준(초과전류 0.02A × 220V × 5분
+// × 피크단가 250원 × 피크 수 회)이므로 예시도 같은 자릿수로 생성한다.
+// 아파트 스케일(만원대) 예시를 쓰면 실측 카드(0.19원)와 모순돼 신뢰를 깎는다.
 const fallbackDaily = Array.from({ length: 30 }, (_, i) => {
   const d = new Date();
   d.setDate(d.getDate() - (29 - i));
+  const peakCount = Math.floor(Math.random() * 6);
   return {
     day: `${d.getMonth() + 1}/${d.getDate()}`,
-    savings: Math.floor(Math.random() * 50000) + 10000,
-    peakCount: Math.floor(Math.random() * 5),
+    savings: Number((peakCount * (0.03 + Math.random() * 0.04)).toFixed(3)),
+    peakCount,
     isToday: i === 29,
   };
 });
@@ -49,6 +53,25 @@ function DailyTooltip({ active, payload, label }: TooltipProps<number, string>) 
     </div>
   );
 }
+
+// ROI 시나리오 (보수 가정 — 결과값 하드코딩 금지, 아래 상수에서만 계산)
+// 프레임: 노후 아파트가 EV 충전 부하로 변압기 용량 한계에 도달했을 때
+//   대안 A) 변압기 증설·교체 공사  vs  대안 B) PeakBridge ESS 피크쉐이빙
+// 보수 원칙: 도입비는 상한으로, 회피비는 통상 범위 하한으로, 요금 절감·보조금·
+// VPP 수익은 계산에서 제외(업사이드로만 언급) — 숫자를 부풀릴 여지를 없앤다.
+const ROI_ASSUMPTIONS = {
+  transformerCostWon: 300_000_000, // 대안 A: 변압기 교체 + 정전 수반 공사 (통상 범위 하한)
+  essCostWon: 180_000_000,         // 대안 B: 100kW/200kWh급 ESS 도입 상한 (설치 포함)
+  maintenanceWonPerYear: 5_000_000, // ESS 유지보수 — 보수적으로 비용에 반영
+  horizonYears: 10,                 // 배터리 보증 수명 내 비교 기간
+};
+const roiCapexSavePct = Math.round(
+  (1 - ROI_ASSUMPTIONS.essCostWon / ROI_ASSUMPTIONS.transformerCostWon) * 100,
+);
+const roiTotalSaveWon =
+  ROI_ASSUMPTIONS.transformerCostWon -
+  (ROI_ASSUMPTIONS.essCostWon +
+    ROI_ASSUMPTIONS.maintenanceWonPerYear * ROI_ASSUMPTIONS.horizonYears);
 
 // 다중 단지 확장 예시 데이터 (전시용)
 const buildingData = [
@@ -218,14 +241,36 @@ export default function ReportPage() {
         </div>
 
         {/* ROI Calculator */}
-        <Card title="ROI 계산기" subtitle="투자 회수 기간">
-          <div className="rounded-md bg-[#0A0C10] p-6 border border-[#222933]">
-            <p className="text-sm text-[#98A2B3] mb-2">변압기 교체 비용</p>
-            <p className="text-2xl font-bold text-[#E8ECF1] mb-6">3억원</p>
-            <div className="border-t border-[#222933] pt-6">
-              <p className="text-sm text-[#98A2B3] mb-2">PeakBridge 도입 시 회수 기간</p>
-              <p className="text-2xl font-bold text-[#E8A33D]">2.3년</p>
+        <Card title="ROI 시나리오" subtitle="변압기 증설 대비 · 보수 가정">
+          <div className="rounded-md bg-[#0A0C10] p-6 border border-[#222933] space-y-4">
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-[#98A2B3]">대안 A · 변압기 교체 공사</p>
+              <p className="text-lg font-bold text-[#E8ECF1]">
+                {(ROI_ASSUMPTIONS.transformerCostWon / 100_000_000).toFixed(1)}억원
+              </p>
             </div>
+            <div className="flex items-baseline justify-between">
+              <p className="text-sm text-[#98A2B3]">대안 B · ESS 도입 (상한)</p>
+              <p className="text-lg font-bold text-[#E8ECF1]">
+                {(ROI_ASSUMPTIONS.essCostWon / 100_000_000).toFixed(1)}억원
+                <span className="ml-1 text-xs font-normal text-[#98A2B3]">
+                  +유지 연 {(ROI_ASSUMPTIONS.maintenanceWonPerYear / 10_000).toLocaleString()}만원
+                </span>
+              </p>
+            </div>
+            <div className="border-t border-[#222933] pt-4">
+              <p className="text-sm text-[#98A2B3] mb-1">초기 투자 절감 (즉시)</p>
+              <p className="text-2xl font-bold text-[#E8A33D]">{roiCapexSavePct}%</p>
+              <p className="mt-1 text-xs text-[#98A2B3]">
+                {ROI_ASSUMPTIONS.horizonYears}년 유지보수 반영 순절감{' '}
+                {(roiTotalSaveWon / 100_000_000).toFixed(1)}억원
+              </p>
+            </div>
+            <p className="text-[11px] leading-relaxed text-[#5A6472]">
+              보수 가정: 요금 절감·정부 보조금·VPP 수익 미반영 (전부 업사이드).
+              실증이 검증하는 것은 감축 메커니즘(실측 절체 이력)이며, 금액은
+              단지 규모·요금제에 따라 본 가정으로 재산출.
+            </p>
           </div>
           <div className="mt-6">
             <Button className="w-full">
