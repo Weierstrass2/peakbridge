@@ -56,6 +56,7 @@ CALIB_JSON = Path(__file__).resolve().parents[2] / "data" / "kpx_calibration.jso
 
 SMP_TTL_S = 600      # 시간별 확정값 — 10분 캐시면 충분
 SUKUB_TTL_S = 120    # 5분 주기 데이터
+SUKUB_FAIL_BACKOFF_S = 300   # 실패 시 재시도 금지 구간 (무응답 API 태스크 누적 방지)
 TIMEOUT_S = 6.0
 
 
@@ -68,6 +69,11 @@ class KpxFeed:
         self._fail = 0
         self._last_error: str = ""
         self._calib: dict | None = None
+        # 동시 중복 호출 방지 + 실패 백오프
+        # (Railway는 해외 IP라 한국 공공 API가 무응답인 경우가 있다. 실패 시각을
+        #  기록해두지 않으면 3초 폴링마다 새 HTTP 태스크가 쌓여 서버가 마비된다.)
+        self._sukub_inflight: bool = False
+        self._sukub_fail_at: float = 0.0
 
     # ── 상태 ──
     @property
@@ -280,17 +286,30 @@ class KpxFeed:
         now = datetime.now(KST).timestamp()
         if self._sukub and (now - self._sukub_at) < SUKUB_TTL_S:
             return self._sukub
+        # 직전 실패 후 백오프 구간이면 재시도하지 않는다 (무응답 API에 태스크 누적 방지)
+        if (now - self._sukub_fail_at) < SUKUB_FAIL_BACKOFF_S:
+            return self._sukub
+        # 이미 조회가 진행 중이면 중복 생성하지 않는다
+        if self._sukub_inflight:
+            return self._sukub
+        self._sukub_inflight = True
         try:
             data = await self._get(SUKUB_URL)
             parsed = self._parse_sukub(data)
             if parsed:
                 self._sukub, self._sukub_at = parsed, now
+                self._sukub_fail_at = 0.0
+            else:
+                self._sukub_fail_at = now
             return self._sukub
         except Exception as exc:  # noqa: BLE001
             self._fail += 1
+            self._sukub_fail_at = now      # 실패도 기록 — 다음 백오프까지 재시도 금지
             self._last_error = str(exc)[:160]
             logger.warning("kpx_sukub_failed", error=self._last_error)
             return self._sukub
+        finally:
+            self._sukub_inflight = False
 
     # ── 파싱 ──
     # 공공데이터 응답은 래핑 구조가 제각각이라(items/item, body/items 등)

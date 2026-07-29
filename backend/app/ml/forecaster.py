@@ -109,8 +109,14 @@ class PowerForecaster:
         self._model = {"type": "fallback", "model": reg}
 
     def load(self) -> bool:
-        """저장된 모델 로드."""
+        """저장된 모델 로드.
+
+        이미 메모리에 올라와 있으면 디스크를 다시 읽지 않는다.
+        (대시보드가 주기 폴링하므로 매 요청 joblib.load()는 이벤트 루프를 막는다.)
+        """
         try:
+            if self._model is not None:
+                return True
             if not self.model_path.exists():
                 return False
             self._model = joblib.load(self.model_path)

@@ -332,7 +332,8 @@ class WeatherService:
             "updated_at": _now_kst().isoformat(timespec="seconds"),
             "source": "기상청 초단기실황 (일사량은 청천 곡선 추정치)",
         }
-        if points:
-            _overlay_cache["ts"] = now
-            _overlay_cache["data"] = payload
+        # 전 지점 실패여도 캐시에 남긴다 — 캐시를 비워두면 매 요청이 9개 지점을
+        # 동시에 재조회해(각 10초 타임아웃) 서버 응답이 밀린다. 다음 TTL에 재시도.
+        _overlay_cache["ts"] = now
+        _overlay_cache["data"] = payload
         return payload

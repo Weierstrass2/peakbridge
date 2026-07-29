@@ -141,6 +141,12 @@ _stream_hist: list[dict] = []
 # 학습된 XGBoost 모델 인스턴스 캐시 (3초 폴링마다 joblib 재로드 방지)
 _xgb_forecaster = None
 _xgb_load_failed = False
+# 추론 결과 캐시 — XGBoost 추론은 동기(블로킹) 연산이라 3초 폴링마다 돌리면
+# 이벤트 루프가 막혀 서버 전체 응답이 느려진다. 곡선은 5분 단위로만 쓰이므로
+# 60초 캐시로 충분하다.
+_xgb_cache: tuple[list[float], float] | None = None
+_xgb_cache_at: float = 0.0
+_XGB_TTL_S = 60.0
 
 
 def _xgb_forecast_curve() -> tuple[list[float], float] | None:
@@ -151,9 +157,12 @@ def _xgb_forecast_curve() -> tuple[list[float], float] | None:
     CI 비율은 모델 실측 MAE를 예측 평균 대비 상대 오차로 환산 (2~8% 클램프,
     MAE 없으면 기존 3.5% 유지).
     """
-    global _xgb_forecaster, _xgb_load_failed
+    global _xgb_forecaster, _xgb_load_failed, _xgb_cache, _xgb_cache_at
     if XGBoostForecaster is None or _xgb_load_failed:
         return None
+    # 캐시 유효하면 추론을 건너뛴다 (블로킹 연산 회피)
+    if _xgb_cache is not None and (_time.time() - _xgb_cache_at) < _XGB_TTL_S:
+        return _xgb_cache
     try:
         if _xgb_forecaster is None:
             _xgb_forecaster = XGBoostForecaster("building-A")
@@ -169,7 +178,9 @@ def _xgb_forecast_curve() -> tuple[list[float], float] | None:
         ci_ratio = 0.035
         if mae and mean_pred > 0:
             ci_ratio = max(0.02, min(0.08, float(mae) / mean_pred))
-        return curve, round(ci_ratio, 4)
+        _xgb_cache = (curve, round(ci_ratio, 4))
+        _xgb_cache_at = _time.time()
+        return _xgb_cache
     except Exception:
         _xgb_load_failed = True
         return None
