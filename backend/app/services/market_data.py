@@ -65,18 +65,84 @@ def _load_once() -> bool:
             for key, d in demands:
                 _dpct[key] = bisect.bisect_left(vals, d) / n
 
+        # ── KPX 실측 SMP 덮어쓰기 ──────────────────────────────
+        # 위 곡선은 '한전 요금표 × 수요백분위'로 만든 합성 가격이다.
+        # scripts/fetch_smp_history.py 로 받아둔 **실제 시장 체결가**가 있으면
+        # 그 구간을 덮어쓴다. 합성은 실측이 없는 구간의 폴백으로만 남는다.
+        _load_real_smp()
+
         years = sorted({k[0] for k in _price})
         _years.extend(years)
         logger.info(
             "market_data_loaded",
             price_hours=len(_price),
             demand_hours=len(_dpct),
+            real_smp_hours=_real_count,
             years=f"{years[0]}~{years[-1]}" if years else "none",
         )
         return True
     except Exception as exc:
         logger.warning("market_data_load_failed", error=str(exc))
         return False
+
+
+_real_count = 0
+
+
+def _load_real_smp() -> int:
+    """KPX 시간별 실측 SMP(kpx_smp_hourly.csv)로 합성 가격을 덮어쓴다.
+
+    지역은 KPX_REGION(기본 jeju)을 따른다. 파일이 없으면 조용히 넘어가고
+    기존 합성 곡선이 그대로 쓰인다 — 실측 유무와 무관하게 서버는 돈다.
+    """
+    global _real_count
+    import os
+
+    path = DATA_DIR / "kpx_smp_hourly.csv"
+    if not path.exists():
+        return 0
+
+    want = os.environ.get("KPX_REGION", "jeju").strip().lower()
+    area_kr = "제주" if want == "jeju" else "육지"
+    n = 0
+    try:
+        with open(path, encoding="utf-8") as f:
+            for row in csv.DictReader(f):
+                if area_kr not in (row.get("area") or ""):
+                    continue
+                d = (row.get("date") or "").strip()
+                if len(d) != 8:
+                    continue
+                try:
+                    smp = float(row["smp"])
+                    h = int(row["hour"])
+                except (TypeError, ValueError, KeyError):
+                    continue
+                idx = h - 1 if 1 <= h <= 24 else h      # 1~24 → 0~23
+                if not 0 <= idx <= 23 or smp <= 0:
+                    continue
+                _price[(int(d[:4]), int(d[4:6]), int(d[6:8]), idx)] = smp
+                n += 1
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("real_smp_load_failed", error=str(exc))
+        return 0
+
+    _real_count = n
+    if n:
+        logger.info("real_smp_loaded", region=want, hours=n)
+    return n
+
+
+def real_smp_coverage() -> dict:
+    """실측 SMP가 전체 중 얼마를 덮고 있는가 — 화면 배지용."""
+    _load_once()
+    total = len(_price) or 1
+    return {
+        "real_hours": _real_count,
+        "total_hours": total,
+        "share": round(_real_count / total, 4),
+        "source": "kpx_smp_hourly.csv" if _real_count else None,
+    }
 
 
 def mcp_day(delivery: date, jitter: float = 1.0) -> list[float] | None:

@@ -470,9 +470,38 @@ async def data_source() -> dict:
         st = kpx_feed.status()
         smp = await kpx_feed.smp_today()
         st["smp_today"] = smp
+
+        # 하루전 SMP·수요 API (KPX 실측) — 이쪽이 살아 있으면 실측으로 승격
+        try:
+            from app.services.kpx_smp_api import smp_api
+
+            api = smp_api.status()
+            st["smp_api"] = {
+                "enabled": api["enabled"],
+                "has_smp": api["has_smp"],
+                "cached_date": api["cached_date"],
+                "remaining": api["remaining"],
+                "via": (api.get("diagnostic") or {}).get("via"),
+            }
+            if api["has_smp"]:
+                st["source"] = "kpx"
+                st["label"] = "KPX 실측 (하루전 SMP·수요)"
+                st["smp_today"] = smp_api.smp_curve()
+                st["demand_today"] = smp_api.demand_curve()
+        except Exception:  # noqa: BLE001
+            pass
+
+        # 백테스트 가격 중 실측이 차지하는 비중
+        try:
+            from app.services.market_data import real_smp_coverage
+
+            st["backtest_real"] = real_smp_coverage()
+        except Exception:  # noqa: BLE001
+            pass
+
         st["hint"] = (
-            "KPX 실데이터로 운영 중" if st["source"] == "kpx"
-            else "KPX_API_KEY 미설정 — 10년 재생 데이터로 운영 중 (공공데이터포털에서 발급)"
+            "KPX 실측 데이터로 운영 중" if st["source"] == "kpx"
+            else "KPX_API_KEY 미설정 — 재생 데이터로 운영 중 (공공데이터포털에서 발급)"
         )
         return success_response(st)
     except Exception as exc:  # noqa: BLE001
