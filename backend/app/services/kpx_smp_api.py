@@ -108,6 +108,7 @@ class SmpForecastApi:
             "has_smp": bool(cur.get("smp")),
             "has_demand": bool(cur.get("demand")),
             "last_error": c.get("last_error", ""),
+            "diagnostic": c.get("diagnostic"),
             "fetched_at": cur.get("fetched_at"),
         }
 
@@ -201,26 +202,46 @@ class SmpForecastApi:
             return cur
 
         key = os.environ.get("KPX_API_KEY", "").strip()
+        # 공공데이터포털은 서비스마다 요청 날짜 파라미터 이름이 다르다.
+        # 하루전 발전계획용이므로 '내일'을 기본으로 하되, 응답이 비면 오늘도 시도한다.
+        now = datetime.now(KST)
+        tomorrow = (now + timedelta(days=1)).strftime("%Y%m%d")
         params = {
             "serviceKey": key,
             "returnType": "json",
             "dataType": "JSON",
-            "numOfRows": "100",
+            "numOfRows": "200",
             "pageNo": "1",
+            "baseDate": tomorrow,
+            "tradeDay": tomorrow,
         }
         try:
             self._bump()
-            async with httpx.AsyncClient(timeout=TIMEOUT_S) as c:
+            async with httpx.AsyncClient(timeout=TIMEOUT_S, follow_redirects=True) as c:
                 r = await c.get(f"{BASE}/{PATH}", params=params)
+                body = r.text or ""
+                # 진단 정보를 항상 남긴다 — 할당량이 하루 90회뿐이라
+                # 실패 한 번에서 최대한 많은 것을 알아내야 한다.
+                diag = {
+                    "http": r.status_code,
+                    "content_type": r.headers.get("content-type", ""),
+                    "length": len(body),
+                    "body_head": body[:400],
+                    "final_url": str(r.request.url).split("serviceKey=")[0] + "serviceKey=***",
+                }
+                cache["diagnostic"] = diag
+                self._save_cache(cache)
                 r.raise_for_status()
+                if not body.strip():
+                    raise ValueError(f"응답 본문이 비어 있음 (HTTP {r.status_code})")
                 try:
                     payload = r.json()
                 except Exception:  # noqa: BLE001
-                    raise ValueError(f"JSON 아님: {r.text[:200]}")
+                    raise ValueError(f"JSON 아님 [{diag['content_type']}]: {body[:300]}")
 
             curve = self._to_curve(self._rows(payload))
             if not curve.get("smp"):
-                raise ValueError(f"SMP 파싱 실패 — 응답 키: {str(payload)[:200]}")
+                raise ValueError(f"SMP 파싱 실패 — 응답: {str(payload)[:300]}")
 
             curve.update({"date": today,
                           "fetched_at": datetime.now(KST).isoformat(timespec="seconds")})
@@ -231,7 +252,7 @@ class SmpForecastApi:
                         has_demand=bool(curve.get("demand")))
             return curve
         except Exception as exc:  # noqa: BLE001
-            cache["last_error"] = str(exc)[:200]
+            cache["last_error"] = (str(exc) or type(exc).__name__)[:300]
             self._save_cache(cache)
             logger.warning("kpx_smp_api_failed", error=cache["last_error"])
             return cur
