@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DashboardData } from '../../types';
 import { controlApi } from '../../services/controlApi';
-import { formatCo2Kg } from '../../utils/format';
+import { formatCo2Kg, formatWon } from '../../utils/format';
 import { MetricSkeleton } from '../common/LoadingSkeleton';
 
 interface TopMetricsProps {
@@ -72,13 +72,13 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
     <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <KPICard
         label="오늘 절감액"
-        value={`${(data.today_saved_won ?? 0).toLocaleString()}원`}
+        value={formatWon(data.today_saved_won)}
         accent="text-[#E8A33D]"
         isHighlight={true}
       />
       <KPICard
         label="이번달 절감액"
-        value={`${(data.month_saved_won ?? 0).toLocaleString()}원`}
+        value={formatWon(data.month_saved_won)}
         accent="text-[#E8ECF1]"
       />
       <KPICard

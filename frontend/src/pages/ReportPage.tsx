@@ -6,7 +6,7 @@ import { mockReports, formatKRW } from '../mock/mockData';
 import { fetchReports } from '../services/reportApi';
 import { api } from '../services/api';
 import { BUILDING_ID, isMockMode } from '../config/env';
-import { formatCo2Kg } from '../utils/format';
+import { formatCo2Kg, formatWon } from '../utils/format';
 
 // 예시 일별 절감 데이터 (오늘 기준 최근 30일, 실데이터 누적 전까지 표시용)
 const fallbackDaily = Array.from({ length: 30 }, (_, i) => {
@@ -60,7 +60,8 @@ export default function ReportPage() {
           const dt = new Date(dateStr);
           return {
             day: `${dt.getMonth() + 1}/${dt.getDate()}`,
-            savings: Math.round(parseFloat(savedWon) || 0),
+            // 실측 스케일 절감액은 1원 미만 소수 — 반올림하면 전부 0으로 소실된다
+            savings: Number((parseFloat(savedWon) || 0).toFixed(3)),
             peakCount: parseInt(peakCount, 10) || 0,
             isToday: dateStr === today,
           };
@@ -71,10 +72,17 @@ export default function ReportPage() {
     refetchInterval: 60_000,
   });
 
-  // 실데이터가 5일 이상 쌓이기 전엔 예시 프로파일 표시 (빈 차트 방지)
-  const dailySavingsData = dailyQ.data && dailyQ.data.length >= 5 ? dailyQ.data : fallbackDaily;
+  // 실데이터가 5일 이상 쌓이기 전엔 예시 프로파일 표시 (빈 차트 방지).
+  // 백엔드 CSV는 값 0인 날도 행으로 주므로 "행 수"가 아니라 "절감액>0인 날 수"로 판정.
+  const realDayCount = dailyQ.data?.filter((d) => d.savings > 0).length ?? 0;
+  const usingRealDaily = !!dailyQ.data && realDayCount >= 5;
+  const dailySavingsData = usingRealDaily ? dailyQ.data! : fallbackDaily;
   const monthSaved = reports?.[0]?.total_saved_won ?? 0;
   const annualProjection = monthSaved * 12;
+
+  // y축 단위: 실측 스케일(1원 미만)부터 아파트 스케일(만원대)까지 자동 대응
+  const yTickWon = (v: number) =>
+    v >= 1000 ? `${(v / 1000).toFixed(0)}k` : `${Number(v.toFixed(2))}원`;
 
   return (
     <div className="space-y-6">
@@ -83,7 +91,7 @@ export default function ReportPage() {
         <Card padding={false}>
           <div className="p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">이번 달 절감</p>
-            <p className="text-2xl font-bold text-[#E8A33D]">{(reports?.[0]?.total_saved_won ?? 0).toLocaleString()}원</p>
+            <p className="text-2xl font-bold text-[#E8A33D]">{formatWon(reports?.[0]?.total_saved_won)}</p>
           </div>
         </Card>
         <Card padding={false}>
@@ -101,14 +109,21 @@ export default function ReportPage() {
         <Card padding={false}>
           <div className="p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">연간 예상 절감</p>
-            <p className="text-2xl font-bold text-[#9B8AFB]">{annualProjection.toLocaleString()}원</p>
+            <p className="text-2xl font-bold text-[#9B8AFB]">{formatWon(annualProjection)}</p>
             <p className="mt-1 text-xs text-[#98A2B3]">이번 달 실적 × 12 기준</p>
           </div>
         </Card>
       </div>
 
       {/* Daily Savings Chart */}
-      <Card title="일별 절감액" subtitle="최근 30일">
+      <Card
+        title="일별 절감액"
+        subtitle={
+          usingRealDaily
+            ? '최근 30일 (실데이터)'
+            : '최근 30일 — 예시 프로파일 (실데이터 5일 이상 축적 시 자동 전환)'
+        }
+      >
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailySavingsData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
@@ -124,7 +139,7 @@ export default function ReportPage() {
                 tick={{ fill: '#98A2B3', fontSize: 12 }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`}
+                tickFormatter={yTickWon}
               />
               <Tooltip
                 contentStyle={{
