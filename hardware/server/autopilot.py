@@ -62,6 +62,11 @@ def _run() -> None:
 
     session = requests.Session()
     endpoint = f"{_url}/api/v1/dashboard/{_building}"
+    # 디바운스: 노이즈로 next_peak이 깜빡여도 연속 조건을 채워야 발동/복원한다
+    peak_streak = 0
+    clear_streak = 0
+    PEAK_TRIGGER = 2   # 연속 2회(약 6초) 피크 예상 → 발동
+    CLEAR_TRIGGER = 3  # 연속 3회(약 9초) 예상 해소 → 복원
     while True:
         try:
             resp = session.get(endpoint, timeout=4)
@@ -70,20 +75,26 @@ def _run() -> None:
             grid = float(d.get("grid_current") or 0.0)
             cfg = db.get_config()
 
-            if next_peak and not _active:
+            if next_peak:
+                peak_streak += 1
+                clear_streak = 0
+            else:
+                clear_streak += 1
+                peak_streak = 0
+
+            if peak_streak >= PEAK_TRIGGER and not _active:
                 # 현재 실측 살짝 아래로 임계치 하향 → ESP32가 선제 절체
                 _baseline_high = cfg["threshold_high_a"]
                 low = cfg["threshold_low_a"]
                 target = max(round(low + 0.005, 4), round(grid * 0.9, 4)) if grid > 0 else _baseline_high
-                if target < _baseline_high:
-                    if _apply(target, cfg):
-                        _active = True
-                        _last_reason = (
-                            f"피크 {next_peak.get('minutes_ahead')}분 뒤 예상 → "
-                            f"임계치 {_baseline_high:.4f}→{target:.4f} 선제 하향"
-                        )
-                        logger.warning("AI 선제 대응: %s", _last_reason)
-            elif not next_peak and _active:
+                if target < _baseline_high and _apply(target, cfg):
+                    _active = True
+                    mins = next_peak.get("minutes_ahead") if next_peak else "?"
+                    _last_reason = (
+                        f"피크 {mins}분 뒤 예상 → 임계치 {_baseline_high:.4f}→{target:.4f} 선제 하향"
+                    )
+                    logger.warning("AI 선제 대응: %s", _last_reason)
+            elif clear_streak >= CLEAR_TRIGGER and _active:
                 if _baseline_high is not None and _apply(_baseline_high, cfg):
                     _last_reason = f"피크 예상 해소 → 임계치 {_baseline_high:.4f} 복원"
                     logger.info(_last_reason)

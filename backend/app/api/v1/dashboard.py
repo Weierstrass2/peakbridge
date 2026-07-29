@@ -59,35 +59,41 @@ async def get_dashboard(session: DbSession, building_id: str) -> dict:
     real_now = datetime.now(timezone.utc)
     demo_dt = get_demo_time()
     try:
-        # 표시용 예측: 데모 시각(있으면) 기준
+        # 예측 시각열(time)만 사용 — 데모 시각(있으면) 기준으로 향후 60분
         forecast = await forecast_svc.predict(building_id)
-        # 앵커 기준값: 항상 '실제 현재 시각'의 모델 예측 첫 점.
-        # 이래야 데모 시각을 피크시간대로 옮겼을 때의 절대 상승이 살아난다.
-        if demo_dt is not None:
-            real_fc = await forecast_svc.predict(building_id, now_override=real_now)
-            base_ref = real_fc[0]["predicted_current"] if real_fc else None
-        else:
-            base_ref = forecast[0]["predicted_current"] if forecast else None
     except Exception:
         forecast = []
-        base_ref = None
     peak_active = await alert_repo.has_active_peak(building_id)
 
     threshold = get_threshold(building_id)
     actual_current = grid.value if grid else 0.0
 
-    # 실측 스케일 앵커링: XGBoost 모델은 합성 데이터(수~십 A) 스케일로 학습돼 있어,
-    # 예측선의 '시간대 모양'은 살리되 스케일은 현재 실측 전류에 맞춘다.
-    # ratio = 실측 현재값 / (실제 현재 시각의 모델 예측값).
-    #   · 부하를 올리면 actual_current↑ → 예측선 전체 상승 (실측 반응)
-    #   · 데모 시각을 피크시간대로 옮기면 모델 패턴이 상대적으로 높아 → will_exceed (예측 반응)
-    if forecast and actual_current > 0 and base_ref and base_ref > 0:
-        ratio = actual_current / base_ref
+    # 시간대 프로파일 배율로 예측을 구성한다.
+    # XGBoost는 실측 lag 없이 합성 학습돼(더미 lag 고정) 시간대 반응이 약하므로,
+    # 실측 데이터로 재학습하기 전까지는 명시적 시간대 배율을 쓴다.
+    #   기저부하 = 현재 실측 전류 / (현재 시각 배율)   ← 실측 반응(부하 올리면 상승)
+    #   예측값   = 기저부하 × (예측 시각 배율)          ← 시간대 반응(피크대로 옮기면 상승)
+    def _hour_factor(kst_hour: int) -> float:
+        if 18 <= kst_hour <= 21:
+            return 1.6           # 저녁 피크
+        if kst_hour in (11, 12, 13, 17):
+            return 1.3           # 낮 준피크
+        if kst_hour >= 23 or kst_hour < 7:
+            return 0.6           # 심야 경부하
+        return 1.0
+
+    if forecast and actual_current > 0:
+        real_kst = (real_now.hour + 9) % 24
+        base_load = actual_current / _hour_factor(real_kst)
         for p in forecast:
-            p["predicted_current"] = round(p["predicted_current"] * ratio, 4)
-            p["lower"] = round(p["lower"] * ratio, 4)
-            p["upper"] = round(p["upper"] * ratio, 4)
-            p["will_exceed"] = p["predicted_current"] > threshold
+            t = p["time"]
+            t_dt = datetime.fromisoformat(t) if isinstance(t, str) else t
+            kst_h = (t_dt.hour + 9) % 24
+            val = base_load * _hour_factor(kst_h)
+            p["predicted_current"] = round(val, 4)
+            p["lower"] = round(val * 0.9, 4)
+            p["upper"] = round(val * 1.1, 4)
+            p["will_exceed"] = val > threshold
 
     # 다음 피크 예상: will_exceed=True인 첫 예측점 (없으면 None)
     now_eff = effective_now_utc()
