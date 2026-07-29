@@ -12,6 +12,29 @@ from app.services.ops_service import ops_service
 from app.services.bid_ai import ai_bids
 from app.services.strategy_service import strategy_service
 
+# ── 제주 분석 엔드포인트 보호 ───────────────────────────────────
+# 이 계산들은 수백 일치 시뮬레이션이라 한 번에 수 초가 걸린다. async 함수
+# 안에서 그냥 돌리면 그동안 이벤트 루프가 통째로 막혀 서버 전체가 멈춘다
+# (실제로 /health까지 응답 불가였다). 그래서 두 겹으로 막는다.
+#   1) 결과 캐시 — 파라미터가 같으면 재계산하지 않는다(시드 고정이라 결정적).
+#   2) 스레드 오프로드 — 캐시 미스여도 이벤트 루프는 계속 다른 요청을 받는다.
+_ANALYSIS_TTL_S = 600.0
+_analysis_cache: dict[str, tuple[float, dict]] = {}
+
+
+async def _cached_analysis(key: str, fn):
+    """무거운 분석을 캐시 + 별도 스레드에서 수행한다."""
+    import time as _t
+
+    from starlette.concurrency import run_in_threadpool
+
+    hit = _analysis_cache.get(key)
+    if hit and (_t.time() - hit[0]) < _ANALYSIS_TTL_S:
+        return hit[1]
+    result = await run_in_threadpool(fn)
+    _analysis_cache[key] = (_t.time(), result)
+    return result
+
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/market", tags=["market"])
@@ -270,7 +293,11 @@ async def jeju_plusdr(incentive: float = 120.0, sites: int = 100) -> dict:
     try:
         from app.services.strategies.plusdr import Fleet, compare
 
-        return success_response(compare(Fleet(sites=sites), incentive))
+        data = await _cached_analysis(
+            f"plusdr:{incentive}:{sites}",
+            lambda: compare(Fleet(sites=sites), incentive),
+        )
+        return success_response(data)
     except Exception as exc:  # noqa: BLE001
         logger.error("jeju_plusdr_failed", error=str(exc))
         return success_response({"leaderboard": []})
@@ -309,11 +336,15 @@ async def jeju_leaderboard(days: int = 180, spread_scale: float = 0.41,
     try:
         from app.services.strategies.jeju import Asset, JejuMarketModel, leaderboard as jlb
 
-        return success_response(jlb(
-            days=days,
-            model=JejuMarketModel(spread_scale=spread_scale),
-            asset=Asset(behind_meter=behind_meter),
-        ))
+        data = await _cached_analysis(
+            f"leaderboard:{days}:{spread_scale}:{behind_meter}",
+            lambda: jlb(
+                days=days,
+                model=JejuMarketModel(spread_scale=spread_scale),
+                asset=Asset(behind_meter=behind_meter),
+            ),
+        )
+        return success_response(data)
     except Exception as exc:  # noqa: BLE001
         logger.error("jeju_leaderboard_failed", error=str(exc))
         return success_response({"leaderboard": []})
@@ -332,21 +363,25 @@ async def jeju_site_compare(days: int = 120) -> dict:
             Asset, CurtailAbsorb, DayAheadOnly, JejuMarketModel, RollingRT, backtest,
         )
 
-        model = JejuMarketModel(spread_scale=0.41)
-        out = []
-        for site, bm in [("발전연계 (계량기 밖)", False), ("아파트 (계량기 안)", True)]:
-            asset = Asset(behind_meter=bm)
-            rows = []
-            for strat in (CurtailAbsorb(), DayAheadOnly(model), RollingRT(model)):
-                r = backtest(strat, model, asset, days)
-                rows.append({
-                    "strategy": r["strategy"], "label": r["label"],
-                    "annual_won": r["annual_won"], "margin_per_kwh": r["margin_per_kwh"],
-                    "free_share": r["free_share"], "hit_rate": r["hit_rate"],
-                })
-            out.append({"site": site, "behind_meter": bm,
-                        "price_basis": "계시별 요금(TOU)" if bm else "시장 실시간가",
-                        "rows": rows})
+        def _run() -> list:
+            model = JejuMarketModel(spread_scale=0.41)
+            out = []
+            for site, bm in [("발전연계 (계량기 밖)", False), ("아파트 (계량기 안)", True)]:
+                asset = Asset(behind_meter=bm)
+                rows = []
+                for strat in (CurtailAbsorb(), DayAheadOnly(model), RollingRT(model)):
+                    r = backtest(strat, model, asset, days)
+                    rows.append({
+                        "strategy": r["strategy"], "label": r["label"],
+                        "annual_won": r["annual_won"], "margin_per_kwh": r["margin_per_kwh"],
+                        "free_share": r["free_share"], "hit_rate": r["hit_rate"],
+                    })
+                out.append({"site": site, "behind_meter": bm,
+                            "price_basis": "계시별 요금(TOU)" if bm else "시장 실시간가",
+                            "rows": rows})
+            return out
+
+        out = await _cached_analysis(f"site-compare:{days}", _run)
         return success_response({
             "sites": out,
             "insight": (
@@ -372,20 +407,24 @@ async def jeju_sensitivity(days: int = 180) -> dict:
             Asset, CurtailAbsorb, JejuMarketModel, backtest,
         )
 
-        rows = []
-        for label, mr in [("출력제어 없음", 0.0), ("드묾", 200.0),
-                          ("보통", 350.0), ("잦음", 450.0)]:
-            r = backtest(CurtailAbsorb(mr),
-                         JejuMarketModel(spread_scale=0.41, must_run_mw=mr),
-                         Asset(), days)
-            rows.append({
-                "scenario": label,
-                "must_run_mw": mr,
-                "free_share": r["free_share"],
-                "charge_unit_won": round(r["charge_cost_won"] / max(r["charge_kwh"], 1), 1),
-                "margin_per_kwh": r["margin_per_kwh"],
-                "annual_won": r["annual_won"],
-            })
+        def _run() -> list:
+            rows = []
+            for label, mr in [("출력제어 없음", 0.0), ("드묾", 200.0),
+                              ("보통", 350.0), ("잦음", 450.0)]:
+                r = backtest(CurtailAbsorb(mr),
+                             JejuMarketModel(spread_scale=0.41, must_run_mw=mr),
+                             Asset(), days)
+                rows.append({
+                    "scenario": label,
+                    "must_run_mw": mr,
+                    "free_share": r["free_share"],
+                    "charge_unit_won": round(r["charge_cost_won"] / max(r["charge_kwh"], 1), 1),
+                    "margin_per_kwh": r["margin_per_kwh"],
+                    "annual_won": r["annual_won"],
+                })
+            return rows
+
+        rows = await _cached_analysis(f"sensitivity:{days}", _run)
         return success_response({
             "rows": rows,
             "inland_reference": {
