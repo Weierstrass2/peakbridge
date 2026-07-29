@@ -41,6 +41,13 @@ interface ScenarioItem {
   value?: number | string | null;
 }
 
+interface KepcoStatus {
+  smp_price: number;
+  smp_is_live?: boolean;
+  tariff_period: string;
+  source: string;
+}
+
 type BarEntry = { hour: number; rate: number; type: 'light' | 'medium' | 'heavy' };
 
 const fallbackSchedule: BarEntry[] = Array.from({ length: 24 }, (_, i) => {
@@ -186,9 +193,18 @@ export default function EnergyTradingPage() {
     refetchInterval: 30_000,
   });
 
+  const smpQ = useQuery({
+    queryKey: ['energy', 'smp'],
+    queryFn: async () => unwrap<KepcoStatus>((await energyApi.getKepcoStatus()).data),
+    enabled: live,
+    retry: false,
+    refetchInterval: 60_000,
+  });
+
   const rate = rateQ.data;
   const rec = recQ.data;
   const arb = arbQ.data;
+  const smp = smpQ.data;
 
   const scheduleData: BarEntry[] =
     schedQ.data && schedQ.data.length > 0
@@ -238,7 +254,19 @@ export default function EnergyTradingPage() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+        <KPICard
+          label="SMP (시장가)"
+          value={smp ? `${smp.smp_price.toFixed(1)}원/kWh` : '연결 대기'}
+          sub={
+            smp
+              ? smp.smp_is_live
+                ? '전력거래소 실시간'
+                : '요금표 추정 (SMP API 미연동)'
+              : 'KPX 전날 결정가'
+          }
+          accent="text-[#9B8AFB]"
+        />
         <KPICard
           label="현재 요금"
           value={rate ? `${rate.rate}원/kWh` : '42.5원/kWh'}

@@ -30,4 +30,7 @@ export const energyApi = {
   /** AI 시나리오 발동 상태 */
   getAiScenarios: (buildingId: string) =>
     api.get(`${V1}/ai/scenarios/${buildingId}`),
+
+  /** 한전 전력거래소 요약 (실시간 SMP·예비율) */
+  getKepcoStatus: () => api.get(`${V1}/kepco/status`),
 };
