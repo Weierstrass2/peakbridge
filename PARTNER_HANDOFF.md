@@ -184,9 +184,28 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
      닫기 전 esptool식 리셋 시퀀스 필요 (스크립트로 해결, 증상: ROM 배너만 출력)
 - **XIAO 개발 참고**: FQBN `esp32:esp32:XIAO_ESP32S3`, 포트 COM11(ESP32 Family Device로
   표시), 네이티브 USB CDC라 `Serial.begin` 후 3초 대기 없으면 초기 출력 유실.
-- **남은 것**: 서버 연동(MQTT 전송 계층, FIRMWARE_MQTT_SPEC.md 스펙 준수) — 판단 로직이
-  실증됐으므로 통신 계층만 얹으면 됨. 배터리 전압 분배회로(1000Ω+100Ω, 배율 11.0)와
-  충전 LED는 DevKitC판(esp32_peak_shaving)에 구현돼 있음 — XIAO판에 필요 시 이식.
+- **MQTT 전송 계층 완료 + 실기 엔드투엔드 개통** (같은 날 후반):
+  - `xiao_peak_shaving`에 FIRMWARE_MQTT_SPEC.md 스펙 그대로 구현 — telemetry 발행(1초,
+    QoS0), retained config 구독(QoS1)·검증·적용, 판단 우선 원칙(통신 전멸해도 절체·복귀
+    단독 동작, 실기 확인). 시리얼에 `[MQTT O/X]` 상태 표시.
+  - **전 구간 실증**: 센서 → ESP32 → Wi-Fi(폰 핫스팟) → mosquitto → `hardware/server`
+    게이트웨이 → SQLite → `/api/latest` 실데이터 확인. config 라운드트립도 증명
+    (서버 PUT ina_low=900 → ESP32 "config 적용" 즉시 출력 → 850 복원).
+  - 서버 config의 `ina_low_ma` 시드 710은 구 리그 값 — **실측 850으로 PUT 갱신함**
+    (in-memory 아닌 SQLite라 유지되지만, DB 초기화 시 시드 710로 돌아가니 주의).
+  - **현장 함정 3건 기록**:
+    1. **폰 핫스팟은 반드시 2.4GHz 대역으로** — ESP32는 5GHz 미지원, 기본값이 5GHz인
+       폰이 많음 (이번에 Wi-Fi 미연결 원인이 정확히 이것)
+    2. **Windows mosquitto는 설치 시 서비스로 자동 기동** (127.0.0.1 전용) — 수동 브로커와
+       이중 기동되면 ESP32와 서버가 서로 다른 브로커에 붙는 분단 발생. 서비스 중지
+       (`Stop-Service mosquitto`) 후 0.0.0.0 리스너 설정으로 단일 기동할 것
+    3. **S3 CDC 블로킹**: PC가 시리얼을 안 읽으면 Serial.print가 막혀 MQTT 킵얼라이브를
+       놓치고 재접속 반복 → `Serial.setTxTimeoutMs(0)` 필수
+  - Wi-Fi SSID/PW·브로커 IP는 저장소에 플레이스홀더로만 커밋 (실값은 현장에서 기입,
+    git 커밋 금지 — 기존 원칙 유지)
+- **남은 것**: 배터리 전압 분배회로(1000Ω+100Ω, 배율 11.0)와 충전 LED는
+  DevKitC판(esp32_peak_shaving)에 구현돼 있음 — XIAO판에 필요 시 이식.
+  합숙 때는 브로커·서버를 라즈베리파이로 옮기고 IP만 바꾸면 됨 (이미 검증된 구성).
 
 ## 남은 백로그 (의도적 미구현 — 필요성 낮음)
 - C2 WebSocket 전환 (3초 폴링으로 시연 충분)

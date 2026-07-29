@@ -1,11 +1,16 @@
 // xiao_peak_shaving.ino
 // 목적: CT 센서(한전 인입 전류) + INA219(배터리->인버터 전류)을 함께 이용해
-//       릴레이를 자동으로 절체하는 핵심 로직.
-//       배터리 전압 측정, 충전 LED는 제외한 단순화 버전 (XIAO ESP32S3용).
+//       릴레이를 자동으로 절체하는 핵심 로직 + MQTT 전송 계층 (XIAO ESP32S3용).
 //
 // 판단 원칙:
 //   NC -> NO 전환: CT 값이 임계값을 넘으면 (한전 쪽에서 피크를 감지)
 //   NO -> NC 전환: INA219 값이 대기 전류 수준으로 떨어지면
+//
+// 통신 원칙 (FIRMWARE_MQTT_SPEC.md):
+//   - 발행: peakbridge/demo/telemetry (QoS0, 약 1초 주기)
+//   - 구독: peakbridge/demo/config (QoS1, retained — 재접속 시 즉시 최신 설정 수신)
+//   - Wi-Fi/MQTT가 죽어도 절체·복귀 판단은 로컬에서 독립적으로 계속 돈다.
+//     통신은 어디까지나 부가 기능이다.
 //
 // 배선 (XIAO ESP32S3 기준):
 //   ZMCT103C  VCC -> 3V3  / GND -> GND  / OUT -> D0 (GPIO1)
@@ -14,32 +19,44 @@
 //             SDA -> D4 (GPIO5) / SCL -> D5 (GPIO6)
 //             VIN+ -> 배터리쪽 (+) / VIN- -> 인버터쪽 (+)
 //
-// 필요한 라이브러리: 아두이노 라이브러리 매니저에서 "Adafruit INA219" 검색 후 설치
-//
 // 릴레이 결선: NC=한전, NO=인버터, COM=부하3
 //
-// 중요: INA_LOW_mA는 INA219로 재측정한 실측값(대기/공급)의 중간값으로 다시 확정할 것.
+// 실측 확정값 (2026-07-29 벤치 검증):
+//   노이즈 플로어 CT 0.008A / 부하1·2 0.073A / 절체 트리거 ~0.108A
+//   인버터 대기 ~690mA(650~733) / ESS 공급 ~1320mA(1260~1384)
 
+#include <WiFi.h>
+#include <PubSubClient.h>
+#include <ArduinoJson.h>
 #include <Wire.h>
 #include <Adafruit_INA219.h>
+
+// ---------- 네트워크 (합숙 1일차에 확정 — 실제 비밀번호는 git에 절대 커밋 금지) ----------
+const char* WIFI_SSID     = "여기에_와이파이_이름";
+const char* WIFI_PASSWORD = "여기에_와이파이_비밀번호";
+const char* MQTT_SERVER   = "여기에_브로커_IP";   // 라즈베리파이(또는 서버 노트북) IP
+const int   MQTT_PORT     = 1883;
+const char* DEVICE_ID     = "ess-demo-01";        // 스펙 고정값
+const char* TOPIC_PUB     = "peakbridge/demo/telemetry";
+const char* TOPIC_SUB     = "peakbridge/demo/config";
 
 // ---------- CT 센서 ----------
 const int CT_PIN = 1;                 // XIAO ESP32S3: D0 (GPIO1)
 const int SAMPLE_COUNT = 1000;
 int samples[SAMPLE_COUNT];
 const float CALIBRATION = 0.727;
-const float I_HIGH = 0.090;           // 절체 임계값(A)
-const int CONSEC_REQUIRED = 2;        // 노이즈 방지: 연속 이 횟수 넘어야 절체
+const int CONSEC_REQUIRED = 2;        // 노이즈 방지: 연속 이 횟수 넘어야 절체/복귀
 
 // ---------- 릴레이 ----------
 const int RELAY_PIN = 2;              // XIAO ESP32S3: D1 (GPIO2)
 
 // ---------- INA219 ----------
 Adafruit_INA219 ina219;               // 기본 주소 0x40
-// 실측(구형 리그): 대기 600~700mA / 공급 1000mA+ → 중간값 850.
-// 650은 대기 대역(600~700) 안이라 부하3을 꺼도 복귀가 안 될 수 있음.
-// INA219 리그에서 대기/공급 재측정 후 중간값으로 다시 확정할 것.
-const float INA_LOW_mA = 850.0;
+
+// ---------- 임계값 (서버 config로 갱신 가능한 전역 — 기본값은 실측 확정값) ----------
+float gThresholdHigh = 0.090;         // 절체 임계(A). 실측: 부하1·2=0.073 / 트리거=0.108
+float gInaLowMa      = 850.0;         // 복귀 임계(mA). 실측: 대기 690 / 공급 1320의 사이값
+const float THRESHOLD_LOW_A = 0.055;  // INA 방식에선 미사용 — 스키마상 필수라 그대로 발행
 
 // ---------- 상태 ----------
 bool isPeak = false;
@@ -50,8 +67,89 @@ int underCount = 0;
 const unsigned long STABILIZE_MS = 10000;
 unsigned long lastSwitchMillis = 0;
 
+// ---------- 통신 상태 ----------
+WiFiClient wifiClient;
+PubSubClient mqtt(wifiClient);
+unsigned long lastWifiAttemptMillis = 0;
+unsigned long lastMqttAttemptMillis = 0;
+const unsigned long WIFI_RETRY_MS = 15000;   // Wi-Fi 재시도 간격
+const unsigned long MQTT_RETRY_MS = 5000;    // MQTT 재시도 간격
+
+// 서버가 내려주는 config (retained) — 펌웨어 자체 검증 후에만 적용, 불합격이면 기존 값 유지
+void onConfig(char* topic, byte* payload, unsigned int len) {
+  StaticJsonDocument<256> doc;
+  if (deserializeJson(doc, payload, len)) {
+    Serial.println("config 거부: JSON 파싱 실패");
+    return;
+  }
+  float high   = doc["threshold_high_a"] | gThresholdHigh;
+  float low    = doc["threshold_low_a"]  | THRESHOLD_LOW_A;
+  int   hold   = doc["min_hold_s"]       | 30;
+  float inaLow = doc["ina_low_ma"]       | gInaLowMa;
+
+  // 검증 규칙 (서버·대시보드와 동일): high > low > 0, 5<=hold<=300, 50<=inaLow<=8200
+  if (!(high > low && low > 0) || hold < 5 || hold > 300 || inaLow < 50 || inaLow > 8200) {
+    Serial.println("config 거부: 범위 위반");
+    return;
+  }
+  gThresholdHigh = high;
+  gInaLowMa = inaLow;
+  Serial.print("config 적용: I_HIGH=");
+  Serial.print(gThresholdHigh, 3);
+  Serial.print("A, INA_LOW=");
+  Serial.print(gInaLowMa, 0);
+  Serial.println("mA");
+}
+
+// Wi-Fi/MQTT 유지 — 전부 논블로킹 성격(짧은 타임아웃 + 재시도 간격)으로,
+// 연결이 안 돼도 판단 루프는 계속 돈다. 여기서 절대 무한 대기하지 말 것.
+void maintainNetwork() {
+  if (WiFi.status() != WL_CONNECTED) {
+    if (millis() - lastWifiAttemptMillis >= WIFI_RETRY_MS) {
+      lastWifiAttemptMillis = millis();
+      Serial.println("[통신] Wi-Fi 재연결 시도...");
+      WiFi.disconnect();
+      WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    }
+    return;   // Wi-Fi 없으면 MQTT 시도 무의미
+  }
+  if (!mqtt.connected()) {
+    if (millis() - lastMqttAttemptMillis >= MQTT_RETRY_MS) {
+      lastMqttAttemptMillis = millis();
+      if (mqtt.connect(DEVICE_ID)) {
+        mqtt.subscribe(TOPIC_SUB, 1);   // QoS1 — retained config 즉시 수신
+        Serial.println("[통신] MQTT 연결 완료, config 구독");
+      } else {
+        Serial.println("[통신] MQTT 연결 실패 (판단은 계속 동작)");
+      }
+    }
+    return;
+  }
+  mqtt.loop();
+}
+
+// 텔레메트리 발행 (FIRMWARE_MQTT_SPEC.md 페이로드 그대로)
+void publishTelemetry(float ct, float inaMa) {
+  if (!mqtt.connected()) return;   // 전송 실패가 판단을 막지 않는다
+  StaticJsonDocument<320> doc;
+  doc["device_id"]        = DEVICE_ID;
+  doc["timestamp"]        = 0;               // NTP 미동기 — 스펙대로 0 그대로
+  doc["grid_current_a"]   = ct;
+  doc["relay_state"]      = isPeak ? "NO" : "NC";
+  doc["threshold_high_a"] = gThresholdHigh;
+  doc["threshold_low_a"]  = THRESHOLD_LOW_A;
+  doc["hold_remaining_s"] = 0;               // 최소 유지시간 미사용 — 항상 0
+  doc["ina_current_ma"]   = inaMa;
+
+  char buf[320];
+  size_t n = serializeJson(doc, buf);
+  mqtt.publish(TOPIC_PUB, (uint8_t*)buf, n, false);
+}
+
 void setup() {
   Serial.begin(115200);
+  Serial.setTxTimeoutMs(0);   // PC가 시리얼을 안 읽을 때 print가 블로킹되어
+                              // MQTT 킵얼라이브를 놓치는 것 방지 (S3 CDC 함정)
   delay(3000);   // XIAO는 네이티브 USB CDC — 열거 전 출력은 유실되므로 대기
 
   pinMode(RELAY_PIN, OUTPUT);
@@ -67,9 +165,24 @@ void setup() {
   }
   ina219.setCalibration_32V_2A();     // 기본 보정값: 최대 32V / 2A 범위
 
+  // Wi-Fi: 부팅 시 최대 8초만 대기 — 실패해도 판단 루프는 그대로 시작 (폐쇄망 단독 데모 보장)
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  for (int i = 0; i < 16 && WiFi.status() != WL_CONNECTED; i++) delay(500);
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.print("[통신] Wi-Fi 연결: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("[통신] Wi-Fi 미연결 — 판단은 단독 동작, 백그라운드 재시도");
+  }
+  mqtt.setServer(MQTT_SERVER, MQTT_PORT);
+  mqtt.setCallback(onConfig);
+  mqtt.setSocketTimeout(3);   // 연결 실패 시 블로킹을 3초로 제한 (판단 루프 보호)
+  mqtt.setKeepAlive(15);
+
   delay(500);
   lastSwitchMillis = millis() - STABILIZE_MS;   // 부팅 직후에는 유예 없이 바로 판단
-  Serial.println("피크 셰이빙 시작 (CT: 절체 판단 / INA219: 복귀 판단)");
+  Serial.println("피크 셰이빙 시작 (CT: 절체 판단 / INA219: 복귀 판단 / MQTT 부가)");
 }
 
 // INA219는 순간값 1회 읽기라 인버터 리플(±300mA, 실측)이 그대로 보인다.
@@ -131,18 +244,21 @@ void loop() {
   Serial.print(inaCurrent_mA, 1);
   Serial.print("   상태: ");
   Serial.print(isPeak ? "NO(ESS)" : "NC(한전)");
+  Serial.print(mqtt.connected() ? "   [MQTT O]" : "   [MQTT X]");
 
   // 절체/복귀 직후 안정화 유예 — 인버터 램프·과도 전류를 오판하지 않도록 판단 보류
   if (millis() - lastSwitchMillis < STABILIZE_MS) {
     Serial.print("   [안정화 대기 ");
     Serial.print((STABILIZE_MS - (millis() - lastSwitchMillis)) / 1000 + 1);
     Serial.println("s]");
+    publishTelemetry(ctCurrent, inaCurrent_mA);   // 유예 중에도 텔레메트리는 발행
+    maintainNetwork();
     delay(1000);
     return;
   }
 
   if (!isPeak) {
-    if (ctCurrent > I_HIGH) {
+    if (ctCurrent > gThresholdHigh) {
       overCount++;
       Serial.print("   [절체 대기 ");
       Serial.print(overCount);
@@ -155,7 +271,7 @@ void loop() {
       Serial.println("   [정상]");
     }
   } else {
-    if (inaCurrent_mA < INA_LOW_mA) {
+    if (inaCurrent_mA < gInaLowMa) {
       underCount++;
       Serial.print("   [복귀 대기 ");
       Serial.print(underCount);
@@ -168,6 +284,10 @@ void loop() {
       Serial.println("   [공급 중]");
     }
   }
+
+  // 판단이 끝난 뒤에 통신 — 절체 직후의 상태 변화가 바로 다음 발행에 실린다
+  publishTelemetry(ctCurrent, inaCurrent_mA);
+  maintainNetwork();
 
   delay(1000);
 }
