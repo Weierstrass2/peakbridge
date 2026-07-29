@@ -44,7 +44,7 @@ interface ScenarioItem {
 interface KepcoStatus {
   smp_price: number;
   smp_is_live?: boolean;
-  smp_source?: 'api' | 'csv' | 'estimate';
+  smp_source?: 'api' | 'inject' | 'csv' | 'estimate';
   tariff_period: string;
   source: string;
 }
@@ -53,6 +53,7 @@ interface KepcoStatus {
 function smpSourceLabel(smp: KepcoStatus): string {
   const source = smp.smp_source ?? (smp.smp_is_live ? 'api' : 'estimate');
   if (source === 'api') return '전력거래소 실시간';
+  if (source === 'inject') return 'KPX 확정가 (당일·자동 중계)';
   if (source === 'csv') return 'KPX 실데이터 (전일 확정가)';
   return '요금표 추정 (실데이터 미연동)';
 }

@@ -274,9 +274,14 @@ class SmpForecastApi:
                 except Exception:  # noqa: BLE001
                     raise ValueError(f"JSON 아님 [{diag['content_type']}]: {body[:300]}")
 
-            curve = self._to_curve(self._rows(payload))
+            rows = self._rows(payload)
+            curve = self._to_curve(rows)
             if not curve.get("smp"):
                 raise ValueError(f"SMP 파싱 실패 — 응답: {str(payload)[:300]}")
+            # 육지 곡선도 함께 저장 — 아파트 관제(kepco_service)는 육지 기준을 쓴다
+            land = self._to_curve(rows, region="inland")
+            if land.get("smp"):
+                curve["smp_land"] = land["smp"]
 
             curve.update({"date": today,
                           "fetched_at": datetime.now(KST).isoformat(timespec="seconds")})
@@ -299,10 +304,18 @@ class SmpForecastApi:
         그럴 때는 **한국에서 받은 응답을 이 경로로 주입**한다.
         파싱·캐시 규칙은 직접 호출과 완전히 동일하므로 결과물의 신뢰도는 같다.
         """
-        curve = self._to_curve(self._rows(payload))
+        rows = self._rows(payload)
+        curve = self._to_curve(rows)
         if not curve.get("smp"):
             return {"ok": False, "error": f"SMP 파싱 실패 — 응답: {str(payload)[:300]}"}
+        land = self._to_curve(rows, region="inland")
+        if land.get("smp"):
+            curve["smp_land"] = land["smp"]
         cache = self._load_cache()
+        # 수요예측이 없는 주입(웹 중계 등)이 같은 날의 기존 수요예측을 지우지 않게 보존
+        old = cache.get("curve") or {}
+        if not curve.get("demand") and old.get("date") == self._today() and old.get("demand"):
+            curve["demand"] = old["demand"]
         curve.update({
             "date": self._today(),
             "fetched_at": datetime.now(KST).isoformat(timespec="seconds"),
@@ -317,6 +330,23 @@ class SmpForecastApi:
     def smp_curve(self) -> list[float] | None:
         """캐시된 24시간 SMP. **스트림 경로는 이것만 쓴다.**"""
         return (self._load_cache().get("curve") or {}).get("smp")
+
+    def smp_land_today(self) -> list[float] | None:
+        """**오늘 날짜**의 육지 24시간 SMP (아파트 관제 kepco_service용).
+
+        어제 곡선을 오늘 값처럼 보여주지 않도록 날짜가 지나면 None을 돌려
+        호출자가 다음 폴백(CSV)으로 넘어가게 한다.
+        """
+        cur = self._load_cache().get("curve") or {}
+        if str(cur.get("date") or "") != self._today():
+            return None
+        land = cur.get("smp_land")
+        if land:
+            return land
+        # KPX_REGION이 육지로 운영 중이면 기본 곡선이 곧 육지다
+        if os.environ.get("KPX_REGION", "jeju").strip().lower() != "jeju":
+            return cur.get("smp")
+        return None
 
     def demand_curve(self) -> list[float] | None:
         """캐시된 24시간 수요예측. 피크 예약의 입력이 된다."""

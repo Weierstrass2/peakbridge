@@ -105,15 +105,29 @@ class KepcoService:
             return None
         return curve[_now_kst().hour]
 
+    def _smp_from_inject(self) -> float | None:
+        """로컬 중계(hardware/server smp_relay 또는 fetch_smp_local)가
+        /market/smp-api/inject 로 주입한 **당일** 육지 곡선에서 현재 시각 값."""
+        try:
+            from app.services.kpx_smp_api import smp_api
+
+            curve = smp_api.smp_land_today()
+            if curve:
+                return curve[_now_kst().hour]
+        except Exception as e:  # noqa: BLE001
+            logger.warning("smp_inject_read_failed", error=str(e))
+        return None
+
     async def get_smp_info(self) -> tuple[float, str]:
-        """(SMP 원/kWh, 출처) 반환. 출처: "api" | "csv" | "estimate". 결과는 10분 캐시.
+        """(SMP 원/kWh, 출처) 반환. 출처: "api" | "inject" | "csv" | "estimate".
 
         전날 KPX가 결정한 실제 시간별 SMP를 두 공공데이터 API로 시도한다.
           1) getSmp1hToday — 육지 계통한계가격 시간별(스펙 명확, XML)
           2) SmpWithForecastDemand — 계통한계가격+수요예측(신규 권장, JSON)
-        API 실패 시(Railway는 해외 IP라 한국 공공 API가 막힌다) PC에서 내려받아
-        둔 시간별 SMP CSV(실데이터) → 그것도 없으면 요금표 추정으로 폴백.
-        실패도 캐시해 TTL 동안 재호출로 응답을 지연시키지 않는다.
+        API 실패 시(Railway는 해외 IP라 한국 공공 API가 막힌다) 폴백 순서:
+          로컬 중계가 주입한 **당일** 곡선(inject) → 커밋해 둔 시간별 SMP
+          CSV(실데이터, 갱신일 기준) → 요금표 추정.
+        API 결과는 10분 캐시하고 실패도 캐시해 응답을 지연시키지 않는다.
         """
         if self._has_valid_key():
             cached_age = _time.time() - _smp_cache["ts"]
@@ -134,6 +148,9 @@ class KepcoService:
         else:
             logger.info("smp_no_api_key_trying_csv_fallback")
 
+        injected = self._smp_from_inject()
+        if injected is not None:
+            return injected, "inject"
         csv_smp = self._smp_from_csv()
         if csv_smp is not None:
             return csv_smp, "csv"
@@ -236,6 +253,7 @@ class KepcoService:
 
         source_label = {
             "api": "한전 공공데이터 API (실시간 SMP)",
+            "inject": "KPX 하루전 확정가 (당일 — 로컬 중계 자동 주입)",
             "csv": "KPX 시간별 SMP 실데이터 (파일데이터 — 전일 확정가)",
             "estimate": "요금표 기반 추정 (SMP 실데이터 미연동 — kpx_smp.csv 배치 시 실데이터)",
         }[smp_source]

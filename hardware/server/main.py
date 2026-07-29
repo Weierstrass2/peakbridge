@@ -20,6 +20,7 @@ import autopilot
 import bridge
 import db
 import mqtt_gateway
+import smp_relay
 from models import (
     ConfigModel,
     ConfigUpdate,
@@ -54,6 +55,8 @@ async def lifespan(app: FastAPI):
     mqtt_gateway.start(ingest, db.get_config)
     # AUTOPILOT=1 + BRIDGE_URL 설정 시에만: Railway AI 예측 → 선제 임계치 조정
     autopilot.init()
+    # BRIDGE_URL 설정 시: KPX 웹 당일 SMP → 클라우드 주입 (한국 IP 우회 중계)
+    smp_relay.init()
     yield
     mqtt_gateway.stop()
 
@@ -76,6 +79,7 @@ def health():
         "mqtt": mqtt_gateway.status(),
         "bridge": bridge.status(),
         "autopilot": autopilot.status(),
+        "smp_relay": smp_relay.status(),
         "legacy_adapter": mqtt_gateway.LEGACY_ENABLED,
     }
 
