@@ -6,6 +6,7 @@ import { mockReports, formatKRW } from '../mock/mockData';
 import { fetchReports } from '../services/reportApi';
 import { api } from '../services/api';
 import { BUILDING_ID, isMockMode } from '../config/env';
+import { formatCo2Kg } from '../utils/format';
 
 // 예시 일별 절감 데이터 (오늘 기준 최근 30일, 실데이터 누적 전까지 표시용)
 const fallbackDaily = Array.from({ length: 30 }, (_, i) => {
@@ -94,7 +95,7 @@ export default function ReportPage() {
         <Card padding={false}>
           <div className="p-6">
             <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">CO₂ 절감</p>
-            <p className="text-2xl font-bold text-[#2EBD85]">{reports?.[0]?.co2_reduced_kg ?? 0}kg</p>
+            <p className="text-2xl font-bold text-[#2EBD85]">{formatCo2Kg(reports?.[0]?.co2_reduced_kg)}</p>
           </div>
         </Card>
         <Card padding={false}>

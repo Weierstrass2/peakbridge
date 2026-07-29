@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DashboardData } from '../../types';
 import { controlApi } from '../../services/controlApi';
+import { formatCo2Kg } from '../../utils/format';
 import { MetricSkeleton } from '../common/LoadingSkeleton';
 
 interface TopMetricsProps {
@@ -112,7 +113,7 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
       </KPICard>
       <KPICard
         label="CO2 절감"
-        value={`${data.co2_reduced_kg ?? 0}kg`}
+        value={formatCo2Kg(data.co2_reduced_kg)}
         accent="text-[#2EBD85]"
       />
     </div>

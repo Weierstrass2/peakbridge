@@ -1,4 +1,5 @@
 import Card from '../common/Card';
+import { formatCo2Kg } from '../../utils/format';
 
 interface SavingsCardProps {
   todaySaved: number;
@@ -20,7 +21,7 @@ export default function SavingsCard({ todaySaved, monthSaved, co2Reduced }: Savi
         </div>
         <div className="rounded-md bg-[#0A0C10] p-5 border border-[#222933]">
           <p className="text-xs font-medium uppercase tracking-wider text-[#98A2B3] mb-2">CO₂ 절감</p>
-          <p className="text-2xl font-bold text-[#2EBD85]">{(co2Reduced ?? 0).toFixed(1)}kg</p>
+          <p className="text-2xl font-bold text-[#2EBD85]">{formatCo2Kg(co2Reduced)}</p>
         </div>
       </div>
     </Card>
