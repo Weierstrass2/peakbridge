@@ -150,6 +150,13 @@ def create_app() -> FastAPI:
             },
         )
 
+    @app.get("/", include_in_schema=False)
+    async def root_redirect():
+        """루트 접속 시 아파트 관제 대시보드로 — 도메인만 치고 들어와도 404가 아니게."""
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(url="/app/", status_code=307)
+
     @app.get("/health", response_model=HealthResponse, tags=["health"])
     async def health() -> HealthResponse:
         return HealthResponse(
