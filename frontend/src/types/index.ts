@@ -22,6 +22,7 @@ export interface NextPeak {
 export interface DashboardData {
   grid_current: number;
   ess_soc: number;
+  ess_remain_hours?: number | null;
   ess_discharge: number;
   peak_active: boolean;
   peak_threshold: number;

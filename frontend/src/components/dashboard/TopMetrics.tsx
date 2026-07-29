@@ -62,7 +62,12 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
       />
       <KPICard
         label="ESS 잔량"
-        value={`${data.ess_soc ?? 0}%`}
+        value={`${(data.ess_soc ?? 0).toFixed(1)}%`}
+        sub={
+          data.ess_remain_hours != null && data.ess_remain_hours > 0
+            ? `현재 방전율로 ${data.ess_remain_hours.toFixed(1)}시간 공급 가능`
+            : undefined
+        }
         accent={(data.ess_soc ?? 0) < 20 ? 'text-[#E5484D]' : 'text-[#2EBD85]'}
       >
         <div className="mt-2 w-full bg-[#222933] rounded-full h-2">

@@ -38,6 +38,28 @@ _threshold_state: dict[str, float] = {}
 # 실제 피크 판정·제어는 항상 실제 시각을 쓴다(안전). None이면 실시간.
 _demo_now_utc: datetime | None = None
 
+# ESS 런타임(하드웨어 브리지가 올린 잔여 가동시간·SOC). in-memory, 신선도 체크용 시각 포함.
+_ess_runtime_state: dict[str, dict] = {}
+
+
+def set_ess_runtime(building_id: str, remain_hours: float, soc: float | None) -> None:
+    """하드웨어 브리지가 올린 ESS 잔여 가동시간(h)·SOC(%) 저장."""
+    _ess_runtime_state[building_id] = {
+        "remain_hours": remain_hours,
+        "soc": soc,
+        "updated_at": datetime.now(timezone.utc).timestamp(),
+    }
+
+
+def get_ess_runtime(building_id: str, max_age_s: float = 30.0) -> dict | None:
+    """신선한(기본 30초 이내) ESS 런타임만 반환. 오래됐거나 없으면 None."""
+    rt = _ess_runtime_state.get(building_id)
+    if not rt:
+        return None
+    if datetime.now(timezone.utc).timestamp() - rt["updated_at"] > max_age_s:
+        return None
+    return rt
+
 
 def set_demo_time(dt_utc: datetime | None) -> None:
     """시연용 가상 시각 설정. None이면 실시간 복원."""

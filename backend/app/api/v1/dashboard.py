@@ -12,7 +12,12 @@ from app.repositories.energy_repository import EnergyRepository
 from app.repositories.sensor_repository import SensorRepository
 from app.schemas.response import success_response
 from app.services.forecast_service import ForecastService
-from app.services.scenario_service import get_threshold, effective_now_utc, get_demo_time
+from app.services.scenario_service import (
+    get_threshold,
+    effective_now_utc,
+    get_demo_time,
+    get_ess_runtime,
+)
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -113,9 +118,11 @@ async def get_dashboard(session: DbSession, building_id: str) -> dict:
             break
 
     demo_dt = get_demo_time()
+    ess_rt = get_ess_runtime(building_id)
     data = {
         "grid_current": actual_current,
         "ess_soc": ess.value if ess else 0.0,
+        "ess_remain_hours": ess_rt["remain_hours"] if ess_rt else None,
         "peak_active": peak_active,
         "peak_threshold": threshold,
         "next_peak": next_peak,

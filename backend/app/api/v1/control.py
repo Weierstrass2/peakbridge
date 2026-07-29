@@ -25,6 +25,7 @@ from app.services.scenario_service import (
     set_threshold,
     set_demo_time,
     get_demo_time,
+    set_ess_runtime,
 )
 
 
@@ -40,6 +41,12 @@ class AutoModeRequest(BaseModel):
 class DemoTimeRequest(BaseModel):
     # 시연용 가상 시각(KST 0~23시). None이면 실시간 복원
     hour: Optional[int] = Field(None, ge=0, le=23)
+
+
+class EssRuntimeRequest(BaseModel):
+    # 하드웨어 브리지가 올리는 ESS 잔여 가동시간(h)·SOC(%)
+    remain_hours: float = Field(..., ge=0.0)
+    soc: Optional[float] = Field(None, ge=0.0, le=100.0)
 
 
 class ChargerControlRequest(BaseModel):
@@ -198,6 +205,19 @@ async def set_demo_time_endpoint(
     utc_target = (kst_target - _td(hours=9)).replace(tzinfo=_tz.utc)
     set_demo_time(utc_target)
     return success_response({"demo_time": utc_target.isoformat(), "hour": request.hour})
+
+
+@router.post("/{building_id}/ess-runtime")
+async def set_ess_runtime_endpoint(
+    building_id: str,
+    body: EssRuntimeRequest,
+) -> dict:
+    """하드웨어 브리지가 ESS 잔여 가동시간·SOC를 올리는 경로 (무인증 — 조회성 센서 업로드와 동일 정책).
+
+    쿨롱 카운팅 SOC·방전율로 계산한 값. 대시보드가 30초 신선도로 표시한다.
+    """
+    set_ess_runtime(building_id, body.remain_hours, body.soc)
+    return success_response({"building_id": building_id, "remain_hours": body.remain_hours})
 
 
 @router.get("/{building_id}/auto-mode")
