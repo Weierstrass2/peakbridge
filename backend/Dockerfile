@@ -35,6 +35,12 @@ COPY static/ ./static/
 COPY alembic/ ./alembic/
 COPY alembic.ini .
 
+# 런타임 data 파일 — 작은 것만 (ev2gym/kpx_processed 등 수십 MB 재생 데이터는 제외).
+# appuser 소유로 복사해야 smp-api inject 캐시(kpx_smp_api_cache.json)를 쓸 수 있다.
+COPY --chown=appuser:appuser data/kpx_smp.csv data/kpx_calibration.json \
+     data/jeju_facts.json data/jeju_curtailment.csv data/jeju_plusdr.csv ./data/
+COPY --chown=appuser:appuser data/models/ ./data/models/
+
 USER appuser
 
 EXPOSE 8000
