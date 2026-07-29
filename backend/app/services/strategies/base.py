@@ -32,12 +32,27 @@ class MarketContext:
     price_cap: float             # 입찰 상한가
     min_unit_kw: float           # 최소 입찰 단위
     degradation_won: float       # 열화비용 (₩/kWh)
+    # ── 변동비 항목 ──────────────────────────────────────────
+    # 우리는 연료를 태우지 않지만 **충전 전기를 사와야 한다**. 그것이 우리의 연료비다.
+    # 여기에 왕복효율 손실이 붙는다: 90kWh를 팔려면 100kWh를 사야 한다.
+    charge_cost_won: float = 0.0     # 충전 전기 구입 단가 (₩/kWh, 효율 반영 전)
+    round_trip_eff: float = 0.90     # 왕복효율 (충전→방전 손실)
     # 과거 실현 데이터 — 온라인 학습형 전략만 사용 (룩어헤드 방지: 어제까지의 정보)
     history: list[dict] = field(default_factory=list)
 
     @property
     def fc(self) -> np.ndarray:
         return np.asarray(self.forecast, dtype=float)
+
+    @property
+    def var_cost_won(self) -> float:
+        """방전 1kWh의 변동비 = 충전단가 ÷ 왕복효율 + 열화비용.
+
+        발전소의 변동비(연료비)와 정확히 같은 위치에 있는 값이다.
+        **MCP가 이 값보다 낮으면 파는 순간 손해**이므로 입찰 하한이 된다.
+        """
+        eff = max(0.05, self.round_trip_eff)
+        return self.charge_cost_won / eff + self.degradation_won
 
 
 @dataclass
@@ -67,6 +82,22 @@ def snap(qty: float, unit: float) -> float:
 
 def clamp_price(price: float, cap: float) -> float:
     return float(round(min(max(price, 0.0), cap), 1))
+
+
+def var_cost_floor(bids: list[Bid], ctx: MarketContext) -> list[Bid]:
+    """변동비 이하로는 응찰하지 않는다 — 발전사업자의 기본 문법.
+
+    pay-as-clear에서 입찰가는 '이 가격 이상이면 팔겠다'는 하한선이다.
+    입찰가를 변동비로 올려두면, MCP가 변동비를 밑도는 날에는 자동으로 미낙찰되어
+    **손해 보는 체결 자체가 생기지 않는다.** (기회비용을 잃는 대신 하방을 막는다)
+
+    이 장치가 없으면 전략은 '싸도 일단 팔고 보는' 행동을 하고,
+    스프레드가 열화비용보다 작은 날에 구조적으로 적자를 낸다.
+    """
+    floor = ctx.var_cost_won
+    if floor <= 0:
+        return bids
+    return [Bid(b.hour, b.qty_kw, clamp_price(max(b.price, floor), ctx.price_cap)) for b in bids]
 
 
 def energy_feasible(bids: list[Bid], ctx: MarketContext) -> list[Bid]:

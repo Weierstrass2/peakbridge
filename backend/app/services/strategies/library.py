@@ -17,7 +17,7 @@ import math
 
 import numpy as np
 
-from .base import Bid, MarketContext, clamp_price, energy_feasible, snap
+from .base import Bid, MarketContext, clamp_price, energy_feasible, snap, var_cost_floor
 
 HOURS = 24
 
@@ -78,6 +78,24 @@ class SafeTopK(TopKPeak):
 
     def bids(self, ctx: MarketContext) -> list[Bid]:
         return energy_feasible(super().bids(ctx), ctx)
+
+
+class MarginalCostBidder(SafeTopK):
+    """변동비 하한 입찰 — 발전사업자의 기본 문법을 그대로 적용.
+
+    SafeTopK와 자원·에너지 제약은 같지만, **입찰가를 변동비 아래로 내리지 않는다.**
+    충전단가÷효율 + 열화비용을 밑도는 가격에는 아예 응찰하지 않으므로,
+    스프레드가 얇은 날에는 자동으로 거래를 쉰다.
+
+    "안 파는 것도 전략이다" — 손해 보는 체결을 구조적으로 차단한다.
+    """
+
+    name = "marginal_cost"
+    family = "rule"
+    description = "상위 K구간 + 에너지 한도 + 변동비(충전÷효율+열화) 입찰 하한"
+
+    def bids(self, ctx: MarketContext) -> list[Bid]:
+        return energy_feasible(var_cost_floor(super(SafeTopK, self).bids(ctx), ctx), ctx)
 
 
 # ─────────────────────────── optimize 계열 ───────────────────────────
@@ -375,6 +393,7 @@ def registry() -> dict:
         "flat90": FlatPrice,
         "topk_peak": TopKPeak,
         "topk_safe": SafeTopK,
+        "marginal_cost": MarginalCostBidder,
         "greedy_budget": GreedyEnergyBudget,
         "marginal_value": MarginalValueBidder,
         "zscore": ZScoreMeanReversion,

@@ -243,12 +243,35 @@ async def get_stream(session: DbSession) -> dict:
     )
     hour = _now_kst.hour
     smp = None
+    smp_source = "replay"
+    try:
+        # 1순위: KPX 공개 API 실데이터 (캐시). 키 미설정·실패 시 자동으로 2순위로 내려간다.
+        from app.services.kpx_feed import kpx_feed
+
+        kpx_feed.refresh_background()              # 비차단 갱신
+        live = kpx_feed.smp_cached()
+        if live and len(live) == 24:
+            smp = round(float(live[hour]), 1)
+            smp_source = "kpx"
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("stream_kpx_smp_failed", error=str(exc))
+
     try:
         from app.services.market_service import market_service
 
-        curve = market_service.mcp_forecast()      # 24개 시간대 확정 곡선
-        if curve and len(curve) == 24:
-            smp = round(float(curve[hour]), 1)
+        if smp is None:
+            curve = market_service.mcp_forecast()  # 2순위: 재생 데이터 기반 확정 곡선
+            if curve and len(curve) == 24:
+                # 제주 운영 모드면 실데이터 기반 보정 계수를 곱한다 (수준·계절성)
+                try:
+                    from app.services.kpx_feed import kpx_feed as _kf
+
+                    scale = _kf.region_scale()
+                    if scale != 1.0:
+                        smp_source = "replay_jeju"
+                except Exception:  # noqa: BLE001
+                    scale = 1.0
+                smp = round(float(curve[hour]) * scale, 1)
     except Exception as exc:  # noqa: BLE001
         logger.warning("stream_smp_curve_failed", error=str(exc))
     if smp is None:
@@ -276,6 +299,11 @@ async def get_stream(session: DbSession) -> dict:
             # 가격 문법 표기 — 화면에서 '시간별 확정'과 '실시간'을 구분해 보여준다
             "smp_basis": "hourly",          # 하루전시장 시간대별 확정
             "smp_hour": hour,
+            "smp_source": smp_source,       # kpx = 실데이터 / replay = 재생 데이터
+            "smp_label": {
+                "kpx": "KPX 실데이터",
+                "replay_jeju": "재생 데이터 (제주 보정)",
+            }.get(smp_source, "재생 데이터"),
             "rt_price": rt_price,           # 실시간시장 15분 슬롯
             "rt_slot": f"{hour:02d}:{slot * 15:02d}",
         }

@@ -36,6 +36,7 @@ class DayResult:
     capacity_payment: float
     penalty: float
     degradation: float
+    charge_cost: float
     awarded_kwh: float
     delivered_kwh: float
     bid_kwh: float
@@ -101,6 +102,12 @@ class BacktestResult:
             "fill_rate": round(delivered / awarded, 3) if awarded > 0 else None,
             "award_rate": round(awarded / bid, 3) if bid > 0 else None,
             "penalty_won": round(sum(d.penalty for d in self.days)),
+            "charge_cost_won": round(sum(d.charge_cost for d in self.days)),
+            "degradation_won": round(sum(d.degradation for d in self.days)),
+            # 방전 1kWh당 실현 마진 — 사업 성립 여부를 가르는 단일 지표
+            "margin_per_kwh": round(
+                float(p.sum()) / delivered, 1
+            ) if delivered > 0 else None,
             "penalty_share": round(
                 sum(d.penalty for d in self.days) / max(sum(d.revenue for d in self.days), 1e-9), 3
             ),
@@ -115,7 +122,9 @@ class MarketSimulator:
     def __init__(self, price_map: dict, dpct_map: dict, rules: dict,
                  power_kw: float, energy_kwh: float, degradation_won: float = 50.0,
                  forecast_error: float = 0.10, error_rho: float = 0.7,
-                 energy_uncertainty: float = 0.25) -> None:
+                 energy_uncertainty: float = 0.25,
+                 charge_price_won: float | None = None,
+                 round_trip_eff: float = 0.90, charge_hours: int = 4) -> None:
         self._price, self._dpct = price_map, dpct_map
         self.rules = rules
         self.power_kw = power_kw
@@ -129,6 +138,21 @@ class MarketSimulator:
         # (자가소비 증가, 충전 실패, 온도에 따른 가용용량 축소 등)
         # 이 항이 없으면 이행 리스크가 사라져 Sharpe가 비현실적으로 부풀려진다.
         self.energy_uncertainty = energy_uncertainty
+        # ── 충전(연료) 비용 ────────────────────────────────────
+        # 이전 버전은 이 항이 없었다. 전기를 공짜로 얻은 셈 치고 매출-열화만 계산해
+        # **손익을 구조적으로 과대평가**했다. 방전하려면 반드시 먼저 사와야 한다.
+        #   charge_price_won=None → 시장에서 산다 (그날 최저가 구간 평균)
+        #   charge_price_won=고정값 → 소비자 요금제(경부하)로 산다
+        self.charge_price_won = charge_price_won
+        self.round_trip_eff = round_trip_eff
+        self.charge_hours = charge_hours
+
+    def charge_cost(self, curve: list[float]) -> float:
+        """그날 충전 단가 (₩/kWh, 효율 반영 전)."""
+        if self.charge_price_won is not None:
+            return float(self.charge_price_won)
+        cheapest = sorted(curve)[: max(1, self.charge_hours)]
+        return float(sum(cheapest) / len(cheapest))
 
     def realized_energy(self, rng: random.Random) -> float:
         """급전 시점에 실제로 낼 수 있는 에너지 (계획 대비 축소/확대)."""
@@ -170,6 +194,9 @@ class MarketSimulator:
             price_cap=self.rules["price_cap"],
             min_unit_kw=self.rules["min_bid_unit_kw"],
             degradation_won=self.degradation_won,
+            # 전략은 '예측 곡선'으로 추정한 충전단가만 본다 (룩어헤드 방지)
+            charge_cost_won=self.charge_cost(forecast),
+            round_trip_eff=self.round_trip_eff,
             history=history,
         )
 
@@ -182,6 +209,8 @@ class MarketSimulator:
         energy = self.energy_kwh if energy_available is None else energy_available
         revenue = capacity = penalty = degradation = 0.0
         awarded = delivered = bid_total = 0.0
+        # 실제 충전은 실현 곡선 기준으로 이뤄진다
+        charge_unit = self.charge_cost(actual) / max(0.05, self.round_trip_eff)
 
         for b in bids:
             if b.qty_kw <= 0:
@@ -200,8 +229,10 @@ class MarketSimulator:
             if short > 0.5:
                 penalty += short * actual[b.hour] * pen_factor
 
-        pnl = revenue - degradation + capacity - penalty
-        return DayResult(day, pnl, revenue, capacity, penalty, degradation,
+        # 방전한 만큼만 충전비가 든다 (판 에너지에 대응하는 연료비)
+        charge = delivered * charge_unit
+        pnl = revenue - degradation - charge + capacity - penalty
+        return DayResult(day, pnl, revenue, capacity, penalty, degradation, charge,
                          awarded, delivered, bid_total)
 
 

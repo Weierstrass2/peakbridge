@@ -360,6 +360,55 @@ async function get<T>(path: string, timeoutMs = 8000): Promise<{ data: T; latenc
   }
 }
 
+/* ── 제주 실시간시장 ──────────────────────────────────── */
+
+export interface JejuRow {
+  strategy: string;
+  label: string;
+  daily_mean_won: number;
+  annual_won: number;
+  sharpe: number | null;
+  max_drawdown_won: number;
+  hit_rate: number;
+  worst_day_won: number;
+  discharge_kwh: number;
+  charge_kwh: number;
+  free_kwh: number;
+  free_share: number;
+  revenue_won: number;
+  charge_cost_won: number;
+  degradation_won: number;
+  margin_per_kwh: number | null;
+  avg_curtail_slots: number;
+  days: number;
+}
+
+export interface JejuLeaderboard {
+  market: string;
+  disclaimer: string;
+  asset: { power_kw: number; capacity_kwh: number; degradation_won: number; round_trip: number };
+  leaderboard: JejuRow[];
+}
+
+export interface JejuSensitivity {
+  rows: {
+    scenario: string;
+    must_run_mw: number;
+    free_share: number;
+    charge_unit_won: number;
+    margin_per_kwh: number | null;
+    annual_won: number;
+  }[];
+  inland_reference: {
+    label: string;
+    charge_unit_won: number;
+    peak_won: number;
+    var_cost_won: number;
+    margin_per_kwh: number;
+  };
+  verdict: string;
+}
+
 export const consoleApi = {
   base: BASE,
   stream: () => get<StreamSnapshot>('/vpp/stream'),
@@ -416,6 +465,14 @@ export const consoleApi = {
   deskOverfit: (days = 60) => get<OverfitReport>(`/desk/overfit?days=${days}`, 30000),
   deskKillReset: () => post<{ kill_switch: boolean }>('/desk/kill-switch/reset', {}),
   deskReset: () => post<{ reset: boolean }>('/desk/reset', {}),
+
+  // ── 제주 실시간시장 ──
+  jejuLeaderboard: (days = 365, spreadScale = 0.41) =>
+    get<JejuLeaderboard>(
+      `/market/jeju/leaderboard?days=${days}&spread_scale=${spreadScale}`, 30000,
+    ),
+  jejuSensitivity: (days = 180) =>
+    get<JejuSensitivity>(`/market/jeju/sensitivity?days=${days}`, 30000),
 
   // ── 전략 라이브러리 (퀀트 백테스트 결과 기반) ──
   strategies: () =>
