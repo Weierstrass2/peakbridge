@@ -28,3 +28,8 @@ export async function fetchHardwareStatus(): Promise<HardwareStatus> {
   const { data } = await api.get<BackendResponse<HardwareStatus>>(apiPaths.dashboard());
   return data.data;
 }
+
+/** 하드웨어 절체 임계(A) 설정 요청. 브리지가 폴링해 게이트웨이 config→MQTT로 XIAO에 전파. */
+export async function setHwThreshold(high: number): Promise<void> {
+  await api.post(apiPaths.hwThreshold(), { threshold_high_a: high });
+}

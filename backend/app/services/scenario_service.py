@@ -92,6 +92,28 @@ def get_force_discharge(building_id: str) -> dict | None:
     return _force_discharge_state.get(building_id)
 
 
+# 하드웨어 절체 임계(A) 설정 요청 (in-memory). 클라우드 '하드웨어 실측' 탭 → 브리지가
+# 폴링해 게이트웨이 config 갱신 + MQTT config(retained)로 XIAO에 전파. 토글과 동일하게
+# 마지막 값을 유지(TTL 없음) — 브리지 재기동해도 원하는 임계를 반영한다.
+_hw_threshold_state: dict[str, dict] = {}
+
+
+def set_hw_threshold(building_id: str, high: float) -> dict:
+    """하드웨어 절체 임계(A) 설정 요청. id(ms)로 브리지가 변경 여부를 판별한다."""
+    req = {
+        "high": high,
+        "id": int(datetime.now(timezone.utc).timestamp() * 1000),
+    }
+    _hw_threshold_state[building_id] = req
+    logger.info("hw_threshold_set", building_id=building_id, high=high)
+    return req
+
+
+def get_hw_threshold(building_id: str) -> dict | None:
+    """현재 하드웨어 임계 설정 요청 (없으면 None). 마지막 값 유지."""
+    return _hw_threshold_state.get(building_id)
+
+
 def set_ess_runtime(
     building_id: str,
     remain_hours: float,

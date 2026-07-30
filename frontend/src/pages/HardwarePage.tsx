@@ -12,7 +12,7 @@ import {
   YAxis,
 } from 'recharts';
 
-import { fetchHardwareStatus, type HardwareStatus } from '../services/hardwareApi';
+import { fetchHardwareStatus, setHwThreshold, type HardwareStatus } from '../services/hardwareApi';
 
 const POLL_MS = 1500;
 const STALE_MS = 12_000; // 실기 값이 이만큼 끊기면 '연결 대기'
@@ -49,7 +49,28 @@ export default function HardwarePage() {
   const [status, setStatus] = useState<HardwareStatus | null>(null);
   const [history, setHistory] = useState<Point[]>([]);
   const [lastOk, setLastOk] = useState<number>(0);
+  const [thrInput, setThrInput] = useState('');
+  const [applying, setApplying] = useState(false);
+  const [thrMsg, setThrMsg] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
+
+  const applyThreshold = async () => {
+    const v = parseFloat(thrInput);
+    if (!Number.isFinite(v) || v <= 0 || v > 1) {
+      setThrMsg('0 초과 1 이하의 값(A)을 입력하세요.');
+      return;
+    }
+    setApplying(true);
+    setThrMsg(null);
+    try {
+      await setHwThreshold(v);
+      setThrMsg(`요청됨: ${v.toFixed(3)}A — 몇 초 내 하드웨어에 적용됩니다.`);
+    } catch {
+      setThrMsg('적용 실패 — 로그인/권한 또는 네트워크를 확인하세요.');
+    } finally {
+      setApplying(false);
+    }
+  };
 
   useEffect(() => {
     let alive = true;
@@ -191,6 +212,41 @@ export default function HardwarePage() {
         </div>
 
         <div className="space-y-5">
+          {/* 절체 임계 설정 (하드웨어 config 전파) */}
+          <div className={card}>
+            <h2 className="mb-2 text-sm font-semibold text-[#E6EBF2]">절체 임계 설정 (하드웨어)</h2>
+            <div className="mb-2 text-xs text-[#98A2B3]">
+              현재 하드웨어 임계:{' '}
+              <span className="font-semibold text-[#E6EBF2]">
+                {status?.hw_threshold_high_a != null ? `${status.hw_threshold_high_a.toFixed(3)} A` : '—'}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="number"
+                step="0.005"
+                min="0.001"
+                max="1"
+                value={thrInput}
+                onChange={(e) => setThrInput(e.target.value)}
+                placeholder="예: 0.15"
+                className="w-full rounded-md border border-[#222933] bg-[#12161d] px-3 py-2 text-sm text-[#E6EBF2] outline-none focus:border-[#4C8DFF]"
+              />
+              <button
+                type="button"
+                onClick={applyThreshold}
+                disabled={applying}
+                className="shrink-0 rounded-md bg-[#4C8DFF] px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+              >
+                {applying ? '적용 중…' : '적용'}
+              </button>
+            </div>
+            {thrMsg && <div className="mt-2 text-xs text-[#98A2B3]">{thrMsg}</div>}
+            <p className="mt-2 text-[11px] text-[#5A6472]">
+              XIAO로 MQTT config(retained) 전파 · 절체는 CT&gt;임계, 복귀(NO→NC)는 임계가 아니라 INA219(&lt;850mA)로 판정됩니다.
+            </p>
+          </div>
+
           {/* ESS 계측 */}
           <div className={card}>
             <h2 className="mb-2 text-sm font-semibold text-[#E6EBF2]">ESS 계측</h2>

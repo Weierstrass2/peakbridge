@@ -99,6 +99,8 @@ def init() -> None:
     threading.Thread(target=_poll_soc_reset, daemon=True).start()
     # 강제 방전 모드 폴러 (버튼 → 펌웨어 NO 유지/자동 복귀)
     threading.Thread(target=_poll_force_discharge, daemon=True).start()
+    # 하드웨어 임계 설정 폴러 (탭 입력 → 게이트웨이 config → MQTT config → XIAO)
+    threading.Thread(target=_poll_hw_threshold, daemon=True).start()
     logger.info(
         "클라우드 브리지 활성: %s (건물 %s, 디바이스 %s, 스케일 ×%s)",
         _url, _building_id, _device_id, _scale,
@@ -260,6 +262,50 @@ def _poll_force_discharge() -> None:
                         )
         except Exception as exc:  # noqa: BLE001
             logger.debug("강제 방전 폴링 예외: %s", exc)
+        time.sleep(3)
+
+
+def _poll_hw_threshold() -> None:
+    """클라우드 '하드웨어 실측' 탭의 임계 설정 요청을 3초 주기로 폴링해 게이트웨이
+    config 갱신 + MQTT config(retained)로 XIAO에 전파. Railway in-memory 요청을 id로
+    감지. config는 retained라 1회 발행으로 재부팅에도 복원된다. 오토파일럿·강제방전과
+    같은 원칙: 릴레이 직접 제어가 아니라 임계(config)만 조정한다."""
+    import time
+
+    import requests
+
+    import db
+    import mqtt_gateway
+    from models import config_payload, validate_config
+
+    session = requests.Session()
+    endpoint = f"{_url}/api/v1/control/{_building_id}/hw-threshold-request"
+    last_id: int | None = None
+    while True:
+        try:
+            resp = session.get(endpoint, timeout=3)
+            state = resp.json().get("data", {}).get("state")
+            if state is not None and state.get("id") != last_id:
+                high = float(state.get("high"))
+                cfg = db.get_config()
+                reason = validate_config(
+                    high, cfg["threshold_low_a"], cfg["min_hold_s"], cfg["ina_low_ma"]
+                )
+                last_id = state.get("id")  # 유효/무효 무관 재처리 방지
+                if reason:
+                    logger.warning("클라우드 임계 거부: %s", reason)
+                else:
+                    newcfg = db.update_config(
+                        high, cfg["threshold_low_a"], cfg["min_hold_s"], cfg["ina_low_ma"]
+                    )
+                    sent = mqtt_gateway.publish_config(config_payload(newcfg))
+                    logger.info(
+                        "클라우드 임계 %.4fA → config 전파 %s",
+                        high,
+                        "발행" if sent else "미발행(MQTT 비활성)",
+                    )
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("임계 폴링 예외: %s", exc)
         time.sleep(3)
 
 

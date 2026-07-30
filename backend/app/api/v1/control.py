@@ -30,6 +30,8 @@ from app.services.scenario_service import (
     get_soc_reset,
     set_force_discharge,
     get_force_discharge,
+    set_hw_threshold,
+    get_hw_threshold,
 )
 
 
@@ -65,6 +67,11 @@ class EssRuntimeRequest(BaseModel):
 class ForceDischargeRequest(BaseModel):
     # 강제 방전 모드 on/off — 부하 무관 ESS(NO) 유지
     on: bool
+
+
+class HwThresholdRequest(BaseModel):
+    # 하드웨어 절체 임계(A) — 실측 스케일(0.0x A). 브리지가 게이트웨이 config로 전파.
+    threshold_high_a: float = Field(..., gt=0.0, le=1.0)
 
 
 class ChargerControlRequest(BaseModel):
@@ -324,6 +331,31 @@ async def set_force_discharge_endpoint(
 async def get_force_discharge_endpoint(building_id: str) -> dict:
     """하드웨어 브리지 폴링용 — 현재 강제 방전 모드 상태 (무인증, 조회성 정책 동일)."""
     return success_response({"state": get_force_discharge(building_id)})
+
+
+@router.post("/{building_id}/hw-threshold")
+async def set_hw_threshold_endpoint(
+    building_id: str,
+    request: HwThresholdRequest,
+    user: AdminOrManager,
+) -> dict:
+    """하드웨어 절체 임계(A) 설정 — '하드웨어 실측' 탭 임계 입력 (관리자 인증).
+
+    클라우드 판정용 임계(set_threshold)와 별개로, 실제 XIAO의 절체 임계를 바꾼다.
+    릴레이를 직접 흔들지 않고 in-memory 요청만 등록 — 브리지가 GET
+    /hw-threshold-request로 폴링해 게이트웨이 config를 갱신하고 MQTT config(retained)로
+    XIAO에 전파한다(통신 끊겨도 하드웨어 로컬 판단이 마지막 임계로 계속 돈다).
+    """
+    req = set_hw_threshold(building_id, request.threshold_high_a)
+    return success_response(
+        {"building_id": building_id, "high": req["high"], "id": req["id"]}
+    )
+
+
+@router.get("/{building_id}/hw-threshold-request")
+async def get_hw_threshold_endpoint(building_id: str) -> dict:
+    """하드웨어 브리지 폴링용 — 대기 중 하드웨어 임계 설정 요청 (무인증, 조회성 정책 동일)."""
+    return success_response({"state": get_hw_threshold(building_id)})
 
 
 @router.get("/{building_id}/auto-mode")

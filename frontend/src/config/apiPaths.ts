@@ -7,6 +7,7 @@ export const apiPaths = {
   dashboard: (buildingId = BUILDING_ID) => `${V1}/dashboard/${buildingId}`,
   sensorHistory: (deviceId: string) => `${V1}/sensors/${deviceId}/history`,
   controlRelay: (buildingId = BUILDING_ID) => `${V1}/control/${buildingId}/relay`,
+  hwThreshold: (buildingId = BUILDING_ID) => `${V1}/control/${buildingId}/hw-threshold`,
   reportsSavings: (buildingId = BUILDING_ID) => `${V1}/reports/${buildingId}/savings`,
   alerts: (buildingId = BUILDING_ID) => `${V1}/alerts/${buildingId}`,
   // 차주 화면(/drive)에서 등록된 충전 세션 — 관제 운영자 조회용
