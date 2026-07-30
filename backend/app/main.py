@@ -215,14 +215,23 @@ def create_app() -> FastAPI:
 
         from starlette.staticfiles import StaticFiles as _StaticFiles
 
+        from starlette.exceptions import HTTPException as _HTTPException
+
         class SPAStaticFiles(_StaticFiles):
-            """SPA용 정적 서빙: 없는 경로(딥링크·새로고침)는 index.html로 폴백."""
+            """SPA용 정적 서빙: 없는 경로(딥링크·새로고침)는 index.html로 폴백.
+
+            최신 Starlette은 파일이 없을 때 404를 '예외'로 던진다. 기존처럼
+            response.status_code만 검사하면 예외가 그대로 전파돼 폴백이 걸리지 않아
+            /app/<하위경로> 새로고침이 전부 404가 됐다. 예외를 잡아 index.html로 폴백한다.
+            """
 
             async def get_response(self, path, scope):
-                response = await super().get_response(path, scope)
-                if response.status_code == 404:
-                    response = await super().get_response("index.html", scope)
-                return response
+                try:
+                    return await super().get_response(path, scope)
+                except _HTTPException as exc:
+                    if exc.status_code == 404:
+                        return await super().get_response("index.html", scope)
+                    raise
 
         app_dir = Path(__file__).resolve().parents[1] / "static" / "app"
         if app_dir.exists():
