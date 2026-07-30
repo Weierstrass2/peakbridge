@@ -68,8 +68,14 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
     );
   }
 
+  const battTemp = data.ess_battery_temp_c;
+  const invTemp = data.ess_inverter_temp_c;
+  const thermalLock = data.thermal_lock === true;
+  const temps = [battTemp, invTemp].filter((v): v is number => typeof v === 'number');
+
   return (
-    <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
       <KPICard
         label="오늘 절감액"
         value={formatWon(data.today_saved_won)}
@@ -116,6 +122,20 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
         value={formatCo2Kg(data.co2_reduced_kg)}
         accent="text-[#2EBD85]"
       />
+      </div>
+
+      {thermalLock ? (
+        <div className="rounded-md border border-[#E5484D]/50 bg-[#E5484D]/[0.08] px-4 py-2 text-sm font-medium text-[#E5484D]">
+          🌡 열 차단 발동 — 과열로 ESS 방전 정지 (한전 고정)
+          {temps.length > 0 && ` · 최고 ${Math.max(...temps).toFixed(1)}°C`}
+        </div>
+      ) : temps.length > 0 ? (
+        <div className="rounded-md border border-[#222933] bg-[#0E1116] px-4 py-2 text-xs text-[#98A2B3]">
+          🌡 배터리 {battTemp != null ? `${battTemp.toFixed(1)}°C` : '—'} · 인버터{' '}
+          {invTemp != null ? `${invTemp.toFixed(1)}°C` : '—'}{' '}
+          <span className="text-[#2EBD85]">· 정상</span>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { DevicePicker } from './components/DevicePicker';
 import { EssPanel } from './components/EssPanel';
 import { EventLog } from './components/EventLog';
 import { RelayStateBanner } from './components/RelayStateBanner';
+import { ThermalPanel } from './components/ThermalPanel';
 import type { Config, DeviceInfo, RelayEvent, Telemetry } from './lib/api';
 import { hardwareApi } from './lib/api';
 
@@ -90,6 +91,22 @@ export default function App() {
 
       <RelayStateBanner latest={latest} stale={stale} />
 
+      {latest?.thermal_lock === true && (
+        <div
+          style={{
+            margin: '10px 0',
+            padding: '10px 14px',
+            borderRadius: 8,
+            background: 'rgba(229,72,77,0.12)',
+            border: '1px solid rgba(229,72,77,0.45)',
+            color: '#E5484D',
+            fontWeight: 600,
+          }}
+        >
+          🌡 열 차단 발동 — 과열로 ESS 방전을 정지하고 한전으로 고정했습니다.
+        </div>
+      )}
+
       <div className="grid">
         <div className="stack">
           <div className="card">
@@ -110,6 +127,10 @@ export default function App() {
           <div className="card">
             <h2>ESS 계측</h2>
             <EssPanel latest={latest} />
+          </div>
+          <div className="card">
+            <h2>온도 · 열 차단 (BME280)</h2>
+            <ThermalPanel latest={latest} />
           </div>
         </div>
       </div>

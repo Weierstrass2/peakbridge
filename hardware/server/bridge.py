@@ -280,13 +280,24 @@ def _run() -> None:
                         "브리지 릴레이 %d건 (원측정 %.4fA → 전송 %.4fA)",
                         _sent, payload["grid_current_a"], body["readings"][0]["value"],
                     )
-            # ESS 잔여 가동시간 — 별도 경량 경로. 실패해도 메인 릴레이엔 영향 없음.
-            remain = payload.get("remain_hours")
-            if remain is not None and float(remain) > 0:
+            # ESS 잔여 가동시간 + 열 차단(BME280 온도) — 별도 경량 경로.
+            # 실패해도 메인 릴레이엔 영향 없음. 방전 중이 아니어도(remain=0) 온도가
+            # 있으면 함께 올려 클라우드가 상시 온도·열 차단 상태를 표시하게 한다.
+            remain = payload.get("remain_hours") or 0.0
+            bt = payload.get("battery_temp_c")
+            it = payload.get("inverter_temp_c")
+            tl = payload.get("thermal_lock")
+            if (remain and float(remain) > 0) or bt is not None or it is not None or tl is not None:
                 try:
                     session.post(
                         runtime_endpoint,
-                        json={"remain_hours": float(remain), "soc": payload.get("battery_soc")},
+                        json={
+                            "remain_hours": float(remain or 0.0),
+                            "soc": payload.get("battery_soc"),
+                            "battery_temp_c": bt,
+                            "inverter_temp_c": it,
+                            "thermal_lock": tl,
+                        },
                         timeout=3,
                     )
                 except Exception:  # noqa: BLE001

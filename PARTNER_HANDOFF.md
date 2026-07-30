@@ -379,6 +379,58 @@ P1 셸/디자인시스템 → P2 금융급 차트(lightweight-charts) → P3 자
 - 시연 검증법: 로컬 mosquitto+hardware/server(BRIDGE_URL) 기동 → [강제 방전] →
   시리얼 "강제 방전 ON" + 릴레이 NO(부하3 꺼져 있어도 유지) → [대기] → 자동 복귀.
 
+## 16차 세션 (2026-07-30) — BME280 온도 감시 + 열 차단(과열 시 강제 NC) + 온도 표시
+
+**배경**: XIAO ESP32S3 Sense + BME280 2개(배터리 옆·인버터 옆)로 온도를 재고,
+과열 시 메인 보드(xiao_peak_shaving)가 스스로 ESS 방전을 멈추고 한전(NC)으로
+고정하는 안전 기능 추가. **두 보드 사이 전선 없음 — 오직 MQTT로만 연동**(기존 원칙).
+
+### 펌웨어
+- **신규 `hardware/xiao_sense_bme280/xiao_sense_bme280.ino`**: BME280 x2(둘 다 0x76,
+  서로 다른 I2C 버스 — 배터리 Wire GPIO5/6, 인버터 I2C_2 GPIO1/2) 온·습도를
+  `peakbridge/demo/sense_telemetry`로 2초마다 발행. 기존 초안의 **블로킹 while
+  재연결을 논블로킹 `maintainNetwork`로 교체**(네트워크 끊겨도 발행 계속),
+  `Serial.setTxTimeoutMs(0)`·`delay(3000)`·`WiFi.setSleep(false)`(S3 CDC·킵얼라이브
+  함정 방어), 센서 실패 시 5초 주기 자동 재초기화.
+- **`xiao_peak_shaving.ino`에 열 차단 추가**: `sense_telemetry` 구독 → 배터리·인버터 중
+  **더 뜨거운 값**으로 판정. **트립 50°C / 해제 43°C 히스테리시스**. 우선순위
+  **열 차단 > 강제 방전 > 자동 판단**(과열 시 강제 방전도 자동 해제, 안정화 유예도
+  무시하고 즉시 발동). **Fail-safe: 잠금 중 온도 수신이 끊겨도(stale, 15s) 절대 자동
+  해제 안 함** — 다시 받아 43°C 이하 확인돼야만 해제. 차단 = `goNC()`(인버터 정지→
+  한전 복귀). telemetry에 `battery_temp_c`/`inverter_temp_c`/`thermal_lock` 추가
+  (버퍼 384→512). **판정은 로컬** — 원칙 유지(서버가 릴레이 직접 제어 아님).
+- 온도는 메인 보드가 받아 자기 telemetry에 실어 재발행 → 기존 파이프라인
+  (서버·SQLite·브리지·클라우드)에 **별도 구독 없이 그대로 얹힘**.
+
+### 온도 표시 (요청: 대시보드/클라우드)
+- **로컬 대시보드(`hardware/dashboard`)**: 신규 `ThermalPanel`(배터리/인버터 온도 +
+  열 차단 배지) + 과열 시 상단 적색 경보 스트립. 서버 `models.py`(v5 필드)·`db.py`
+  (컬럼 3개 마이그레이션·저장·조회)로 온도 보존.
+- **클라우드(`/app`)**: 기존 `ess-runtime` 사이드채널(무인증·in-memory)을 확장 —
+  `bridge.py`가 온도·thermal_lock을 함께 전송(방전 중 아니어도 온도 있으면 전송),
+  `scenario_service.set_ess_runtime`·`control.py`·`dashboard.py`가 통과시켜
+  `TopMetrics` 하단에 온도/열 차단 스트립 표시. **dashboard는 dict 반환이라 스키마
+  무변경**, backend/frontend 최소 침습.
+
+### 검증 (실기 전)
+- 스케치 2종 arduino-cli 컴파일 통과(esp32:esp32:XIAO_ESP32S3, sense 26%/main 27%).
+  BME280 라이브러리 2.3.0 + Unified Sensor 1.1.15 설치.
+- 변경 Python 7개 `py -m py_compile` 통과.
+- **`hardware/server/verify_thermal.py` 신규 — 서버 온도 경로 7/7 통과**(온도·
+  thermal_lock 저장→`/api/latest` 라운드트립, Sense 미연결 시 null 보존).
+- `hardware/dashboard` tsc+vite 빌드 통과. `/app` `tsc -p tsconfig.app.json` +
+  `vite build --base=/app/`(PowerShell) 통과 → `backend/static/app` 갱신,
+  index.html asset가 `/app/` 기준인지 확인(흰 화면 방지).
+
+### ⚠️ 시연/커밋 전 주의
+- **Sense 펌웨어에 실제 Wi-Fi 자격증명·브로커 IP(10.36.50.248) 기입됨** — 메인
+  보드와 동일 값. **브로커 IP는 현장 실제 브로커 IP와 일치해야** 하고, 원칙상
+  실값은 git 커밋 금지(기존 메인 보드도 커밋돼 있으나, 커밋 전 플레이스홀더 복원 권장).
+- **클라우드 온도 표시는 배포 필요**: `/app` 번들은 재빌드·복사 완료. 실서비스
+  반영은 **git push → Railway 자동배포**(2~3분)로만 라이브. 로컬 대시보드는 즉시 동작.
+- 물리/정직 포인트: MQTT는 안전등급 인터록 아님(Wi-Fi 끊기면 신호 미도달),
+  BME280은 주변 공기 온도(셀 표면 아님) — 데모용 대리지표. 실방재는 하드 인터록이 다음 단계.
+
 ## 남은 백로그 (의도적 미구현 — 필요성 낮음)
 - C2 WebSocket 전환 (3초 폴링으로 시연 충분)
 - 정식 JWT 콘솔 로그인 (시연 마찰 증가)

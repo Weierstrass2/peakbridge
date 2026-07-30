@@ -46,6 +46,13 @@ class TelemetryIn(BaseModel):
     battery_soc: float | None = None
     remain_hours: float | None = None
 
+    # v5 (옵셔널 — Sense 보드 BME280 온도 + 메인 보드 열 차단 상태)
+    # 메인 보드가 sense_telemetry로 받은 온도를 자기 텔레메트리에 실어 재발행한다.
+    # 온도 판정(트립/해제)은 펌웨어가 로컬로 하고, 서버는 표시·기록만 한다.
+    battery_temp_c: float | None = None
+    inverter_temp_c: float | None = None
+    thermal_lock: bool | None = None
+
 
 class ConfigModel(BaseModel):
     threshold_high_a: float
@@ -90,6 +97,9 @@ class TelemetryRecord(BaseModel):
     ina_current_ma: float | None = None
     battery_soc: float | None = None
     remain_hours: float | None = None
+    battery_temp_c: float | None = None
+    inverter_temp_c: float | None = None
+    thermal_lock: bool | None = None
 
 
 class EventRecord(BaseModel):

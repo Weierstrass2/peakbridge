@@ -83,6 +83,19 @@ float gThresholdHigh = 0.090;         // 절체 임계(A). 실측: 부하1·2=0.
 float gInaLowMa      = 850.0;         // 복귀 임계(mA). 실측: 대기 690 / 공급 1320의 사이값
 const float THRESHOLD_LOW_A = 0.055;  // INA 방식에선 미사용 — 스키마상 필수라 그대로 발행
 
+// ---------- 열 차단 (Sense 보드 온도 구독 → 과열 시 강제 NC) ----------
+// Sense 보드(xiao_sense_bme280)가 BME280 온도를 MQTT로 발행 → 이 보드가 구독해
+// 스스로 판정한다. 두 보드 사이 전선 없음. 판단은 여기(로컬)에서 도므로 절체 원칙 유지.
+const char* TOPIC_SENSE = "peakbridge/demo/sense_telemetry";
+const float THERMAL_TRIP_C    = 50.0;   // 이 온도 이상 → 차단(강제 NC 잠금)
+const float THERMAL_RELEASE_C = 43.0;   // 이 온도 이하로 식으면 → 해제 (히스테리시스)
+const unsigned long SENSE_STALE_MS = 15000;   // 온도 수신이 이만큼 끊기면 stale로 간주
+bool  gThermalLock   = false;           // 과열 잠금 상태
+float gSenseTempC    = NAN;             // 최근 수신 최고온도(배터리/인버터 중 큰 값)
+float gBatteryTempC  = NAN;
+float gInverterTempC = NAN;
+unsigned long gLastSenseMs = 0;         // 마지막 온도 수신 시각(0 = 아직 없음)
+
 // ---------- 상태 ----------
 bool isPeak = false;
 int overCount = 0;
@@ -141,6 +154,20 @@ void onCommand(JsonDocument& doc) {
   }
 }
 
+// Sense 보드 온도 텔레메트리 수신 — 판정은 loop에서 로컬로 한다(여기선 저장만).
+// 두 온도 중 더 뜨거운 값을 판정 기준으로 삼는다. 없는 값(NaN)은 무시.
+void onSense(JsonDocument& doc) {
+  float bt = doc["battery_temp_c"]  | (float)NAN;
+  float it = doc["inverter_temp_c"] | (float)NAN;
+  gBatteryTempC  = bt;
+  gInverterTempC = it;
+  float m = NAN;
+  if (!isnan(bt)) m = bt;
+  if (!isnan(it)) m = isnan(m) ? it : max(m, it);
+  gSenseTempC  = m;
+  gLastSenseMs = millis();
+}
+
 // 서버가 내려주는 config (retained) — 펌웨어 자체 검증 후에만 적용, 불합격이면 기존 값 유지
 void onConfig(char* topic, byte* payload, unsigned int len) {
   StaticJsonDocument<256> doc;
@@ -150,6 +177,10 @@ void onConfig(char* topic, byte* payload, unsigned int len) {
   }
   if (strcmp(topic, TOPIC_CMD) == 0) {
     onCommand(doc);
+    return;
+  }
+  if (strcmp(topic, TOPIC_SENSE) == 0) {
+    onSense(doc);
     return;
   }
   float high   = doc["threshold_high_a"] | gThresholdHigh;
@@ -187,9 +218,10 @@ void maintainNetwork() {
     if (millis() - lastMqttAttemptMillis >= MQTT_RETRY_MS) {
       lastMqttAttemptMillis = millis();
       if (mqtt.connect(DEVICE_ID)) {
-        mqtt.subscribe(TOPIC_SUB, 1);   // QoS1 — retained config 즉시 수신
-        mqtt.subscribe(TOPIC_CMD, 1);   // QoS1 — 1회성 명령(SOC 리셋 등)
-        Serial.println("[통신] MQTT 연결 완료, config·command 구독");
+        mqtt.subscribe(TOPIC_SUB, 1);     // QoS1 — retained config 즉시 수신
+        mqtt.subscribe(TOPIC_CMD, 1);     // QoS1 — 1회성 명령(SOC 리셋 등)
+        mqtt.subscribe(TOPIC_SENSE, 0);   // QoS0 — Sense 보드 온도(열 차단 판정 입력)
+        Serial.println("[통신] MQTT 연결 완료, config·command·sense 구독");
       } else {
         Serial.println("[통신] MQTT 연결 실패 (판단은 계속 동작)");
       }
@@ -202,7 +234,7 @@ void maintainNetwork() {
 // 텔레메트리 발행 (FIRMWARE_MQTT_SPEC.md 페이로드 그대로)
 void publishTelemetry(float ct, float inaMa) {
   if (!mqtt.connected()) return;   // 전송 실패가 판단을 막지 않는다
-  StaticJsonDocument<384> doc;
+  StaticJsonDocument<512> doc;
   doc["device_id"]        = DEVICE_ID;
   doc["timestamp"]        = 0;               // NTP 미동기 — 스펙대로 0 그대로
   doc["grid_current_a"]   = ct;
@@ -215,8 +247,11 @@ void publishTelemetry(float ct, float inaMa) {
   doc["battery_voltage_v"] = gBatteryV;      // INA219 버스 전압(읽히면)
   doc["remain_hours"]     = gRemainHours;    // 현재 방전율 기준 잔여 가동시간
   doc["force_discharge"]  = gForceDischarge; // 강제 방전 모드 여부(로컬 대시보드 표시용)
+  doc["thermal_lock"]     = gThermalLock;    // 과열 잠금 여부(로컬 대시보드 표시용)
+  if (!isnan(gBatteryTempC))  doc["battery_temp_c"]  = gBatteryTempC;
+  if (!isnan(gInverterTempC)) doc["inverter_temp_c"] = gInverterTempC;
 
-  char buf[384];
+  char buf[512];
   size_t n = serializeJson(doc, buf);
   mqtt.publish(TOPIC_PUB, (uint8_t*)buf, n, false);
 }
@@ -357,6 +392,45 @@ void loop() {
   Serial.print("   상태: ");
   Serial.print(isPeak ? "NO(ESS)" : "NC(한전)");
   Serial.print(mqtt.connected() ? "   [MQTT O]" : "   [MQTT X]");
+
+  // ── 열 차단 판정 (최우선 — 강제 방전·자동 판단·안정화 유예보다 먼저) ──────────
+  // Sense 보드 온도로 히스테리시스 판정. 과열이면 인버터(ESS)를 멈추고 한전(NC) 고정.
+  bool senseFresh = (gLastSenseMs != 0) && (millis() - gLastSenseMs < SENSE_STALE_MS);
+  if (!isnan(gSenseTempC)) {
+    Serial.print("   T:");
+    Serial.print(gSenseTempC, 1);
+    Serial.print("C");
+    if (!senseFresh) Serial.print("(stale)");
+  }
+  // 신선한 온도가 있을 때만 상태 전이. stale이면 아래 분기를 건너뛰어 현 상태 유지.
+  if (senseFresh && !isnan(gSenseTempC)) {
+    if (!gThermalLock && gSenseTempC >= THERMAL_TRIP_C) {
+      gThermalLock = true;
+      gForceDischarge = false;   // 과열 시 강제 방전도 자동 해제(SOC 하한과 동일 안전 원칙)
+      Serial.print("   [열 차단 발동! ");
+      Serial.print(gSenseTempC, 1);
+      Serial.print("C >= 트립 ");
+      Serial.print(THERMAL_TRIP_C, 0);
+      Serial.println("C]");
+    } else if (gThermalLock && gSenseTempC <= THERMAL_RELEASE_C) {
+      gThermalLock = false;
+      Serial.print("   [열 차단 해제 ");
+      Serial.print(gSenseTempC, 1);
+      Serial.print("C <= 해제 ");
+      Serial.print(THERMAL_RELEASE_C, 0);
+      Serial.println("C]");
+    }
+  }
+  // fail-safe: 잠금 중 온도 수신이 끊겨도(stale) 절대 자동 해제하지 않는다.
+  // 온도를 다시 받아 해제온도 밑으로 확인될 때만 풀린다(안전측 고장).
+  if (gThermalLock) {
+    if (isPeak) goNC();   // 인버터(ESS) 정지, 한전으로 복귀
+    else Serial.println("   [열 차단 유지 — 과열, 한전 고정]");
+    publishTelemetry(ctCurrent, inaCurrent_mA);
+    maintainNetwork();
+    delay(1000);
+    return;
+  }
 
   // 절체/복귀 직후 안정화 유예 — 인버터 램프·과도 전류를 오판하지 않도록 판단 보류
   if (millis() - lastSwitchMillis < STABILIZE_MS) {

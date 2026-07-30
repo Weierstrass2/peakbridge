@@ -16,6 +16,9 @@ export interface Telemetry {
   ess_current_a: number | null;
   ess_power_w: number | null;
   ina_current_ma: number | null; // INA226 배터리→인버터 전류 (복귀 판단 센서)
+  battery_temp_c: number | null; // Sense 보드 BME280 배터리 옆 온도(°C)
+  inverter_temp_c: number | null; // Sense 보드 BME280 인버터 옆 온도(°C)
+  thermal_lock: boolean | null; // 과열 차단(강제 NC) 상태
 }
 
 export interface RelayEvent {

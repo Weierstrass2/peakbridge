@@ -23,6 +23,9 @@ export interface DashboardData {
   grid_current: number;
   ess_soc: number;
   ess_remain_hours?: number | null;
+  ess_battery_temp_c?: number | null;
+  ess_inverter_temp_c?: number | null;
+  thermal_lock?: boolean | null;
   ess_discharge: number;
   peak_active: boolean;
   peak_threshold: number;

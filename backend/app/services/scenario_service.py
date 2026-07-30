@@ -92,11 +92,21 @@ def get_force_discharge(building_id: str) -> dict | None:
     return _force_discharge_state.get(building_id)
 
 
-def set_ess_runtime(building_id: str, remain_hours: float, soc: float | None) -> None:
-    """하드웨어 브리지가 올린 ESS 잔여 가동시간(h)·SOC(%) 저장."""
+def set_ess_runtime(
+    building_id: str,
+    remain_hours: float,
+    soc: float | None,
+    battery_temp_c: float | None = None,
+    inverter_temp_c: float | None = None,
+    thermal_lock: bool | None = None,
+) -> None:
+    """하드웨어 브리지가 올린 ESS 잔여 가동시간(h)·SOC(%) + 열 차단 상태 저장."""
     _ess_runtime_state[building_id] = {
         "remain_hours": remain_hours,
         "soc": soc,
+        "battery_temp_c": battery_temp_c,
+        "inverter_temp_c": inverter_temp_c,
+        "thermal_lock": thermal_lock,
         "updated_at": datetime.now(timezone.utc).timestamp(),
     }
 

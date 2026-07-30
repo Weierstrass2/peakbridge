@@ -51,6 +51,10 @@ class EssRuntimeRequest(BaseModel):
     # 하드웨어 브리지가 올리는 ESS 잔여 가동시간(h)·SOC(%)
     remain_hours: float = Field(..., ge=0.0)
     soc: Optional[float] = Field(None, ge=0.0, le=100.0)
+    # 열 차단(Sense 보드 BME280 온도 + 메인 보드 thermal_lock) — 함께 올라온다. 없으면 None.
+    battery_temp_c: Optional[float] = None
+    inverter_temp_c: Optional[float] = None
+    thermal_lock: Optional[bool] = None
 
 
 class ForceDischargeRequest(BaseModel):
@@ -225,7 +229,14 @@ async def set_ess_runtime_endpoint(
 
     쿨롱 카운팅 SOC·방전율로 계산한 값. 대시보드가 30초 신선도로 표시한다.
     """
-    set_ess_runtime(building_id, body.remain_hours, body.soc)
+    set_ess_runtime(
+        building_id,
+        body.remain_hours,
+        body.soc,
+        battery_temp_c=body.battery_temp_c,
+        inverter_temp_c=body.inverter_temp_c,
+        thermal_lock=body.thermal_lock,
+    )
     return success_response({"building_id": building_id, "remain_hours": body.remain_hours})
 
 

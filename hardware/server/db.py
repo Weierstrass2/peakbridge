@@ -99,6 +99,10 @@ def init_db() -> None:
             # 마이그레이션: XIAO 쿨롱 카운팅 SOC(%)·잔여 가동시간(h)
             _add_column_if_missing(conn, "telemetry", "battery_soc", "REAL")
             _add_column_if_missing(conn, "telemetry", "remain_hours", "REAL")
+            # 마이그레이션: 열 차단(Sense BME280 온도 + thermal_lock 상태)
+            _add_column_if_missing(conn, "telemetry", "battery_temp_c", "REAL")
+            _add_column_if_missing(conn, "telemetry", "inverter_temp_c", "REAL")
+            _add_column_if_missing(conn, "telemetry", "thermal_lock", "INTEGER")
 
             conn.execute(
                 """
@@ -181,8 +185,9 @@ def save_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
                     device_id, timestamp, received_at, grid_current_a, relay_state,
                     threshold_high_a, threshold_low_a, hold_remaining_s,
                     battery_voltage_v, ess_current_a, ess_power_w, ina_current_ma,
-                    battery_soc, remain_hours
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    battery_soc, remain_hours,
+                    battery_temp_c, inverter_temp_c, thermal_lock
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     device_id,
@@ -199,6 +204,9 @@ def save_telemetry(payload: dict[str, Any]) -> dict[str, Any]:
                     payload.get("ina_current_ma"),
                     payload.get("battery_soc"),
                     payload.get("remain_hours"),
+                    payload.get("battery_temp_c"),
+                    payload.get("inverter_temp_c"),
+                    (int(payload["thermal_lock"]) if payload.get("thermal_lock") is not None else None),
                 ),
             )
             telemetry_id = cur.lastrowid
