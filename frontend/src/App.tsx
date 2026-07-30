@@ -9,6 +9,7 @@ import ControlPage from './pages/ControlPage';
 import AlertsPage from './pages/AlertsPage';
 import EnergyTradingPage from './pages/EnergyTradingPage';
 import VPPPage from './pages/VPPPage';
+import HardwarePage from './pages/HardwarePage';
 import ControlRoomPage from './pages/ControlRoomPage';
 import { useAuthStore } from './store/authStore';
 
@@ -43,6 +44,7 @@ export default function App() {
           <Route index element={<DashboardPage />} />
           <Route path="chargers" element={<ChargersPage />} />
           <Route path="control" element={<ControlPage />} />
+          <Route path="hardware" element={<HardwarePage />} />
           <Route path="reports" element={<ReportPage />} />
           <Route path="alerts" element={<AlertsPage />} />
           <Route path="energy" element={<EnergyTradingPage />} />

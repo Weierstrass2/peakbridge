@@ -130,6 +130,11 @@ async def get_dashboard(session: DbSession, building_id: str) -> dict:
         "ess_battery_temp_c": ess_rt.get("battery_temp_c") if ess_rt else None,
         "ess_inverter_temp_c": ess_rt.get("inverter_temp_c") if ess_rt else None,
         "thermal_lock": ess_rt.get("thermal_lock") if ess_rt else None,
+        # 실시간 릴레이/계측 상태 (하드웨어 실측 탭) — 브리지 ess-runtime 사이드채널
+        "relay_state": ess_rt.get("relay_state") if ess_rt else None,
+        "ess_ina_current_ma": ess_rt.get("ina_current_ma") if ess_rt else None,
+        "hw_threshold_high_a": ess_rt.get("threshold_high_a") if ess_rt else None,
+        "hold_remaining_s": ess_rt.get("hold_remaining_s") if ess_rt else None,
         "peak_active": peak_active,
         "peak_threshold": threshold,
         "next_peak": next_peak,

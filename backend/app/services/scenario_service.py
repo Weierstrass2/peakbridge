@@ -99,14 +99,22 @@ def set_ess_runtime(
     battery_temp_c: float | None = None,
     inverter_temp_c: float | None = None,
     thermal_lock: bool | None = None,
+    relay_state: str | None = None,
+    ina_current_ma: float | None = None,
+    threshold_high_a: float | None = None,
+    hold_remaining_s: float | None = None,
 ) -> None:
-    """하드웨어 브리지가 올린 ESS 잔여 가동시간(h)·SOC(%) + 열 차단 상태 저장."""
+    """하드웨어 브리지가 올린 ESS 잔여 가동시간(h)·SOC(%) + 열 차단 + 실시간 릴레이/계측 상태 저장."""
     _ess_runtime_state[building_id] = {
         "remain_hours": remain_hours,
         "soc": soc,
         "battery_temp_c": battery_temp_c,
         "inverter_temp_c": inverter_temp_c,
         "thermal_lock": thermal_lock,
+        "relay_state": relay_state,
+        "ina_current_ma": ina_current_ma,
+        "threshold_high_a": threshold_high_a,
+        "hold_remaining_s": hold_remaining_s,
         "updated_at": datetime.now(timezone.utc).timestamp(),
     }
 

@@ -55,6 +55,11 @@ class EssRuntimeRequest(BaseModel):
     battery_temp_c: Optional[float] = None
     inverter_temp_c: Optional[float] = None
     thermal_lock: Optional[bool] = None
+    # 실시간 릴레이/계측 상태 — 클라우드 '하드웨어 실측' 탭 표시용. 없으면 None.
+    relay_state: Optional[str] = None  # "NC"(한전) | "NO"(ESS 방전)
+    ina_current_ma: Optional[float] = None  # INA219 인버터→부하 전류(복귀 판단 센서)
+    threshold_high_a: Optional[float] = None  # 하드웨어에 적용된 절체 임계(A)
+    hold_remaining_s: Optional[float] = None  # 최소 유지시간 잔여(초)
 
 
 class ForceDischargeRequest(BaseModel):
@@ -236,6 +241,10 @@ async def set_ess_runtime_endpoint(
         battery_temp_c=body.battery_temp_c,
         inverter_temp_c=body.inverter_temp_c,
         thermal_lock=body.thermal_lock,
+        relay_state=body.relay_state,
+        ina_current_ma=body.ina_current_ma,
+        threshold_high_a=body.threshold_high_a,
+        hold_remaining_s=body.hold_remaining_s,
     )
     return success_response({"building_id": building_id, "remain_hours": body.remain_hours})
 

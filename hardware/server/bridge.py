@@ -35,6 +35,12 @@ import logging
 import os
 import queue
 import threading
+import time
+
+# Railway 저사양 보호: 클라우드 전송 간 최소 간격(초). record_batch가 건별
+# 예측을 돌아 무겁고, 매초 연속 전송 시 밀려 타임아웃난다. 이 간격만큼 쉬어
+# 과부하를 막는다(큐 드레인이 있어 이 사이 쌓인 텔레메트리는 최신만 전송).
+_MIN_POST_INTERVAL = 2.5
 from typing import Any
 
 logger = logging.getLogger("bridge")
@@ -267,9 +273,18 @@ def _run() -> None:
 
     while True:
         payload = _queue.get()
+        # 전송이 밀렸다면 큐에 쌓인 과거분을 버리고 최신값만 올린다.
+        # 클라우드는 실시간 최신 상태만 표시하므로, 느린 POST로 지연이
+        # 누적되지 않도록 항상 가장 최근 텔레메트리로 건너뛴다.
+        try:
+            while True:
+                payload = _queue.get_nowait()
+                _queue.task_done()
+        except queue.Empty:
+            pass
         try:
             body = {"readings": build_readings(payload)}
-            resp = session.post(endpoint, json=body, timeout=3)
+            resp = session.post(endpoint, json=body, timeout=15)
             if resp.status_code >= 400:
                 _failed += 1
                 logger.warning("브리지 릴레이 실패 %s: %s", resp.status_code, resp.text[:200])
@@ -287,7 +302,19 @@ def _run() -> None:
             bt = payload.get("battery_temp_c")
             it = payload.get("inverter_temp_c")
             tl = payload.get("thermal_lock")
-            if (remain and float(remain) > 0) or bt is not None or it is not None or tl is not None:
+            # 실시간 릴레이/계측 상태 — 클라우드 '하드웨어 실측' 탭이 표시한다.
+            rs = payload.get("relay_state")
+            ina = payload.get("ina_current_ma")
+            thr = payload.get("threshold_high_a")
+            hold = payload.get("hold_remaining_s")
+            # 온도·릴레이 등 표시할 값이 하나라도 있으면 사이드채널로 올린다(방전 중이 아니어도).
+            if (
+                (remain and float(remain) > 0)
+                or bt is not None
+                or it is not None
+                or tl is not None
+                or rs is not None
+            ):
                 try:
                     session.post(
                         runtime_endpoint,
@@ -297,8 +324,12 @@ def _run() -> None:
                             "battery_temp_c": bt,
                             "inverter_temp_c": it,
                             "thermal_lock": tl,
+                            "relay_state": rs,
+                            "ina_current_ma": ina,
+                            "threshold_high_a": thr,
+                            "hold_remaining_s": hold,
                         },
-                        timeout=3,
+                        timeout=15,
                     )
                 except Exception:  # noqa: BLE001
                     pass
@@ -307,3 +338,5 @@ def _run() -> None:
             logger.warning("브리지 릴레이 예외: %s", exc)
         finally:
             _queue.task_done()
+        # 전송 간 최소 간격 — Railway 과부하 방지(위 드레인이 최신값을 보장).
+        time.sleep(_MIN_POST_INTERVAL)
