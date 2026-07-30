@@ -32,9 +32,9 @@
 #include <Adafruit_INA219.h>
 
 // ---------- 네트워크 (합숙 1일차에 확정 — 실제 비밀번호는 git에 절대 커밋 금지) ----------
-const char* WIFI_SSID     = "Galaxy A90 5G0201";
-const char* WIFI_PASSWORD = "2580kkjo";
-const char* MQTT_SERVER   = "10.36.50.248";   // 라즈베리파이(또는 서버 노트북) IP
+const char* WIFI_SSID     = "여기에_와이파이_이름";
+const char* WIFI_PASSWORD = "여기에_와이파이_비밀번호";
+const char* MQTT_SERVER   = "여기에_브로커_IP";   // 라즈베리파이(또는 서버 노트북) IP
 const int   MQTT_PORT     = 1883;
 const char* DEVICE_ID     = "ess-demo-01";        // 스펙 고정값
 const char* TOPIC_PUB     = "peakbridge/demo/telemetry";
@@ -290,6 +290,14 @@ void setup() {
   // Wi-Fi: 부팅 시 최대 8초만 대기 — 실패해도 판단 루프는 그대로 시작 (폐쇄망 단독 데모 보장)
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  // [저전력 슬립 전략] Modem Sleep 채택 (ESP32 기본값을 명시적으로 선언).
+  //  - Deep/Light Sleep 배제: 이 노드는 CT를 상시 샘플링해 피크를 감지하고 릴레이
+  //    상태를 유지해야 한다. CPU를 재우면 피크를 놓치고, 재부팅(Deep) 시 릴레이가
+  //    NC로 리셋돼 부하3이 순단된다. XIAO는 USB CDC라 Deep Sleep 시 포트도 사라진다.
+  //  - Modem Sleep: Wi-Fi 연결은 유지하되 비컨 사이 RF 모뎀만 꺼 절전한다. 통신 지연이
+  //    생겨도 '판단은 로컬 우선' 원칙이라 절체·복귀 안전에 영향 없다.
+  //  - 역할별 차등: 열 차단 신호원인 Sense 보드는 지연 방지로 setSleep(false)를 쓴다.
+  WiFi.setSleep(true);
   for (int i = 0; i < 16 && WiFi.status() != WL_CONNECTED; i++) delay(500);
   if (WiFi.status() == WL_CONNECTED) {
     Serial.print("[통신] Wi-Fi 연결: ");
