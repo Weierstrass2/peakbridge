@@ -31,7 +31,8 @@ interface HistoryItem {
 async function fetchDeviceHistory(deviceId: string): Promise<SensorReading[]> {
   const { data } = await api.get<BackendResponse<{ history: HistoryItem[] }>>(
     apiPaths.sensorHistory(deviceId),
-    { params: { interval: '5min' } },
+    { params: { interval: '1min' } },   // 실물 반응성 — 5분 평균은 변화를 뭉개 늦게 보임.
+                                         // 1분 버킷이 백엔드 허용치(1min/5min/1hour) 중 최소.
   );
   return (data.data.history ?? []).map((h) => ({
     sensor_id: deviceId,

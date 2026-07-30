@@ -16,8 +16,9 @@ export function useDashboard() {
   const chartQuery = useQuery({
     queryKey: ['dashboard', 'chart'],
     queryFn: fetchChartHistory,
-    refetchInterval: 60_000,
-    staleTime: 30_000,
+    refetchInterval: 3_000,   // 실물 반응성 — 대시보드 본체(3초)와 동일. 60초였을 때
+                              // 하드웨어 변화가 최대 1분 뒤에야 차트에 떠서 "늦게 뜸".
+    staleTime: 2_000,
   });
 
   const eventsQuery = useQuery({
