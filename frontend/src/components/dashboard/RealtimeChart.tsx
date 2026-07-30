@@ -25,15 +25,17 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
     return <ChartSkeleton />;
   }
 
-  // AI 예측선 (표시용): 실측 스케일에 비례해 생성 — 고정 A값 하드코딩 금지
+  // AI 예측선 (표시용): 실측 스케일에 비례해 생성 — 고정 A값 하드코딩 금지.
+  // 실시간 3초 갱신 시 Math.random을 쓰면 매 렌더마다 예측선이 깜빡이므로,
+  // 데이터에만 의존하는 결정적 계수(1.08배)로 부드럽게 따라붙게 한다.
   const chartData = data.map((d, i) => ({
     ...d,
-    prediction: d.grid_current * (0.9 + Math.random() * 0.25),
+    prediction: d.grid_current * 1.08,
     peakShading: i > data.length * 0.6 ? d.grid_current : null,
   }));
 
   return (
-    <Card title="24시간 전력 프로필" subtitle="실시간 전류 및 피크 관리">
+    <Card title="실시간 전력 프로필" subtitle="실물 전류 · 3초 실시간 (최근 약 10분)">
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -43,7 +45,8 @@ export default function RealtimeChart({ data, threshold, loading }: RealtimeChar
               tick={{ fill: '#98A2B3', fontSize: 12 }}
               tickLine={false}
               axisLine={false}
-              interval={3}
+              interval="preserveStartEnd"
+              minTickGap={48}
             />
             {/* 실증 하드웨어 스케일 고정(0~0.2A) — 컨트롤 임계치 슬라이더(0.02~0.20A)와 동일 기준 */}
             <YAxis
