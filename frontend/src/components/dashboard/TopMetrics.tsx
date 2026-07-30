@@ -124,16 +124,55 @@ export default function TopMetrics({ data, loading }: TopMetricsProps) {
       />
       </div>
 
-      {thermalLock ? (
-        <div className="rounded-md border border-[#E5484D]/50 bg-[#E5484D]/[0.08] px-4 py-2 text-sm font-medium text-[#E5484D]">
-          🌡 열 차단 발동 — 과열로 ESS 방전 정지 (한전 고정)
-          {temps.length > 0 && ` · 최고 ${Math.max(...temps).toFixed(1)}°C`}
-        </div>
-      ) : temps.length > 0 ? (
-        <div className="rounded-md border border-[#222933] bg-[#0E1116] px-4 py-2 text-xs text-[#98A2B3]">
-          🌡 배터리 {battTemp != null ? `${battTemp.toFixed(1)}°C` : '—'} · 인버터{' '}
-          {invTemp != null ? `${invTemp.toFixed(1)}°C` : '—'}{' '}
-          <span className="text-[#2EBD85]">· 정상</span>
+      {thermalLock || temps.length > 0 ? (
+        <div
+          className={`rounded-md border p-5 ${
+            thermalLock ? 'border-[#E5484D]/50 bg-[#E5484D]/[0.08]' : 'border-[#222933] bg-[#0E1116]'
+          }`}
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-sm font-medium uppercase tracking-wider text-[#98A2B3]">
+              🌡 온도 · 열 차단 (BME280)
+            </p>
+            <span
+              className={`rounded-full px-4 py-1.5 text-base font-semibold ${
+                thermalLock ? 'bg-[#E5484D]/20 text-[#E5484D]' : 'bg-[#2EBD85]/15 text-[#2EBD85]'
+              }`}
+            >
+              {thermalLock ? '⚠ 열 차단 발동' : '정상'}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-[#98A2B3]">배터리 옆</p>
+              <p
+                className={`mt-1 text-4xl font-bold tabular-nums ${
+                  battTemp != null && battTemp >= 50 ? 'text-[#E5484D]' : 'text-white'
+                }`}
+              >
+                {battTemp != null ? `${battTemp.toFixed(1)}°C` : '—'}
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-[#98A2B3]">인버터 옆</p>
+              <p
+                className={`mt-1 text-4xl font-bold tabular-nums ${
+                  invTemp != null && invTemp >= 50 ? 'text-[#E5484D]' : 'text-white'
+                }`}
+              >
+                {invTemp != null ? `${invTemp.toFixed(1)}°C` : '—'}
+              </p>
+            </div>
+          </div>
+          {thermalLock && (
+            <p className="mt-4 text-base font-medium text-[#E5484D]">
+              과열로 ESS 방전을 정지하고 한전으로 고정했습니다.
+              {temps.length > 0 && ` (최고 ${Math.max(...temps).toFixed(1)}°C)`}
+            </p>
+          )}
+          <p className="mt-3 text-xs text-[#98A2B3]">
+            트립 50°C / 해제 43°C · 둘 중 더 뜨거운 값으로 판정 (히스테리시스)
+          </p>
         </div>
       ) : null}
     </div>
