@@ -12,7 +12,14 @@ import {
   YAxis,
 } from 'recharts';
 
-import { fetchHardwareStatus, setHwThreshold, type HardwareStatus } from '../services/hardwareApi';
+import {
+  fetchHardwareStatus,
+  setHwThreshold,
+  getAiThreshold,
+  setAiThresholdMode,
+  type HardwareStatus,
+  type AiThreshold,
+} from '../services/hardwareApi';
 
 const POLL_MS = 1500;
 const STALE_MS = 12_000; // 실기 값이 이만큼 끊기면 '연결 대기'
@@ -54,6 +61,13 @@ export default function HardwarePage() {
   const [thrMsg, setThrMsg] = useState<string | null>(null);
   const timer = useRef<number | null>(null);
 
+  // AI 학습 기반 절체 임계 모드
+  const [aiMode, setAiMode] = useState(false);
+  const [aiComputed, setAiComputed] = useState<AiThreshold | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
+  const lastApplied = useRef<number | null>(null);
+
   const applyThreshold = async () => {
     const v = parseFloat(thrInput);
     if (!Number.isFinite(v) || v <= 0 || v > 1) {
@@ -94,6 +108,50 @@ export default function HardwarePage() {
       if (timer.current) window.clearInterval(timer.current);
     };
   }, []);
+
+  // AI 모드 초기 상태 로드
+  useEffect(() => {
+    getAiThreshold().then((ai) => { setAiMode(ai.enabled); setAiComputed(ai); }).catch(() => undefined);
+  }, []);
+
+  // AI 모드 on: 15초 주기로 산출값을 하드웨어 임계로 자동 적용 (유의미하게 바뀔 때만)
+  useEffect(() => {
+    if (!aiMode) return;
+    let alive = true;
+    const apply = async () => {
+      try {
+        const ai = await getAiThreshold();
+        if (!alive) return;
+        setAiComputed(ai);
+        if (lastApplied.current === null || Math.abs(lastApplied.current - ai.computed_a) >= 0.003) {
+          await setHwThreshold(ai.computed_a);
+          lastApplied.current = ai.computed_a;
+          setAiMsg(`자동 적용: ${ai.computed_a.toFixed(3)}A`);
+        }
+      } catch {
+        setAiMsg('산출/적용 실패 — 로그인/권한 또는 네트워크 확인');
+      }
+    };
+    apply();
+    const id = window.setInterval(apply, 15_000);
+    return () => { alive = false; window.clearInterval(id); };
+  }, [aiMode]);
+
+  const toggleAiMode = async () => {
+    const next = !aiMode;
+    setAiBusy(true);
+    setAiMsg(null);
+    try {
+      await setAiThresholdMode(next);
+      setAiMode(next);
+      lastApplied.current = null; // 다음 주기에 즉시 적용되도록
+      setAiMsg(next ? 'AI 임계 모드 ON — 산출값 자동 적용 시작' : 'AI 임계 모드 OFF — 수동 유지');
+    } catch {
+      setAiMsg('전환 실패 — 관리자 로그인이 필요합니다.');
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   // 브리지가 relay_state를 올리면 하드웨어 연결로 간주(ess-runtime 30초 신선도).
   const hwConnected = status?.relay_state === 'NC' || status?.relay_state === 'NO';
@@ -244,6 +302,49 @@ export default function HardwarePage() {
             {thrMsg && <div className="mt-2 text-xs text-[#98A2B3]">{thrMsg}</div>}
             <p className="mt-2 text-[11px] text-[#5A6472]">
               XIAO로 MQTT config(retained) 전파 · 절체는 CT&gt;임계, 복귀(NO→NC)는 임계가 아니라 INA219(&lt;850mA)로 판정됩니다.
+            </p>
+          </div>
+
+          {/* AI 학습 기반 절체 임계 (on/off) */}
+          <div className={card}>
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-[#E6EBF2]">AI 절체 임계 (경제-물리 산출)</h2>
+              <button
+                type="button"
+                onClick={toggleAiMode}
+                disabled={aiBusy}
+                aria-pressed={aiMode}
+                className={`relative h-7 w-14 shrink-0 rounded-full transition-colors disabled:opacity-50 ${
+                  aiMode ? 'bg-[#2EBD85]' : 'bg-[#222933]'
+                }`}
+              >
+                <span
+                  className={`absolute top-1 left-1 h-5 w-5 rounded-full bg-white transition-transform ${
+                    aiMode ? 'translate-x-7' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+            <p className="mb-3 text-[11px] leading-relaxed text-[#98A2B3]">
+              ON 시 실측부하 · 요금 구간 · SOC를 종합해 절체 임계를 자동 산출하고 하드웨어에 적용합니다
+              (15초 주기). 최종 절체 판단은 하드웨어 로컬 유지.
+            </p>
+
+            {aiComputed && (
+              <div className="rounded-md border border-[#222933] bg-[#12161d] p-3 text-xs">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-[#98A2B3]">산출 절체 임계</span>
+                  <span className="text-lg font-bold text-[#2EBD85]">{aiComputed.computed_a.toFixed(3)} A</span>
+                </div>
+                <div className="mt-2 space-y-0.5 text-[11px] text-[#5A6472]">
+                  <div>기준부하 {aiComputed.base_a.toFixed(3)}A × 요금계수 {aiComputed.rate_factor} ({aiComputed.rate_period})</div>
+                  <div>× SOC계수 {aiComputed.soc_factor} (SOC {aiComputed.soc}%)</div>
+                </div>
+              </div>
+            )}
+            {aiMsg && <div className="mt-2 text-xs text-[#98A2B3]">{aiMsg}</div>}
+            <p className="mt-2 text-[11px] text-[#5A6472]">
+              ※ 오토파일럿(게이트웨이)과 목적이 겹칩니다 — 둘 중 하나만 사용하세요.
             </p>
           </div>
 

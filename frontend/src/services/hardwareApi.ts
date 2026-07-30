@@ -33,3 +33,25 @@ export async function fetchHardwareStatus(): Promise<HardwareStatus> {
 export async function setHwThreshold(high: number): Promise<void> {
   await api.post(apiPaths.hwThreshold(), { threshold_high_a: high });
 }
+
+/** AI 학습 기반 절체 임계 — 경제-물리 산출값 + 모드 상태. */
+export interface AiThreshold {
+  enabled: boolean;
+  grid_current: number;
+  computed_a: number; // 산출된 절체 임계(A)
+  base_a: number; // 산출 기준부하
+  rate_period: string; // 요금 구간(최대부하/중간부하/경부하)
+  rate_factor: number;
+  soc: number;
+  soc_factor: number;
+}
+
+export async function getAiThreshold(): Promise<AiThreshold> {
+  const { data } = await api.get<BackendResponse<AiThreshold>>(apiPaths.aiThreshold());
+  return data.data;
+}
+
+/** AI 절체 임계 모드 on/off (관리자 인증). on이면 프론트가 산출값을 hw-threshold로 자동 적용. */
+export async function setAiThresholdMode(enabled: boolean): Promise<void> {
+  await api.post(apiPaths.aiThreshold(), { enabled });
+}

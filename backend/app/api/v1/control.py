@@ -32,6 +32,9 @@ from app.services.scenario_service import (
     get_force_discharge,
     set_hw_threshold,
     get_hw_threshold,
+    set_ai_threshold_mode,
+    get_ai_threshold_mode,
+    compute_ai_threshold,
 )
 
 
@@ -67,6 +70,11 @@ class EssRuntimeRequest(BaseModel):
 class ForceDischargeRequest(BaseModel):
     # 강제 방전 모드 on/off — 부하 무관 ESS(NO) 유지
     on: bool
+
+
+class AiThresholdModeRequest(BaseModel):
+    # AI 학습 기반 절체 임계 모드 on/off
+    enabled: bool
 
 
 class HwThresholdRequest(BaseModel):
@@ -356,6 +364,52 @@ async def set_hw_threshold_endpoint(
 async def get_hw_threshold_endpoint(building_id: str) -> dict:
     """하드웨어 브리지 폴링용 — 대기 중 하드웨어 임계 설정 요청 (무인증, 조회성 정책 동일)."""
     return success_response({"state": get_hw_threshold(building_id)})
+
+
+@router.post("/{building_id}/ai-threshold")
+async def set_ai_threshold_mode_endpoint(
+    building_id: str,
+    request: AiThresholdModeRequest,
+    user: AdminOrManager,
+) -> dict:
+    """AI 학습 기반 절체 임계 모드 on/off (관리자) — '하드웨어 실측' 탭 토글.
+
+    on이면 프론트가 GET /ai-threshold로 산출값을 받아 hw-threshold로 자동 적용한다.
+    모드 상태만 저장하고 임계 적용은 프론트 주기 루프가 담당(오토파일럿과 목적 중복 —
+    둘 중 하나만 사용 권장).
+    """
+    set_ai_threshold_mode(building_id, request.enabled)
+    return success_response({"building_id": building_id, "enabled": request.enabled})
+
+
+@router.get("/{building_id}/ai-threshold")
+async def get_ai_threshold_endpoint(session: DbSession, building_id: str) -> dict:
+    """AI 절체 임계 산출값 + 모드 상태 (무인증, 조회성).
+
+    경제-물리 산출: 실측부하 × 요금계수(요금 구간) × SOC계수, 안전범위 클램프.
+    합성 XGBoost 예측에 의존하지 않고 요금 구간으로 피크 시간대를 반영한다.
+    """
+    from app.ml.energy_optimizer import EnergyOptimizer
+
+    sensor_repo = SensorRepository(session)
+    grid = await sensor_repo.get_latest_by_building(
+        building_id, "grid_current", "grid_meter"
+    )
+    ess = await sensor_repo.get_latest_by_building(building_id, "ess_soc", "ess")
+    grid_a = grid.value if grid else 0.0
+    soc = ess.value if ess else 50.0
+
+    rate = EnergyOptimizer().get_current_rate()
+    period = rate.get("period", "중간부하")
+
+    computed = compute_ai_threshold(grid_a, period, soc)
+    return success_response(
+        {
+            "enabled": get_ai_threshold_mode(building_id),
+            "grid_current": round(grid_a, 4),
+            **computed,
+        }
+    )
 
 
 @router.get("/{building_id}/auto-mode")

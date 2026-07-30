@@ -92,6 +92,53 @@ def get_force_discharge(building_id: str) -> dict | None:
     return _force_discharge_state.get(building_id)
 
 
+# AI 학습 기반 절체 임계 모드 (in-memory 토글). on이면 프론트가 주기적으로
+# 산출값을 하드웨어 임계로 적용한다. 오토파일럿(하드웨어 서버)과 목적이 겹치므로
+# 둘 중 하나만 쓰는 것을 권장(둘 다 켜면 서로 임계를 덮어씀).
+_ai_threshold_mode: dict[str, bool] = {}
+
+
+def set_ai_threshold_mode(building_id: str, enabled: bool) -> bool:
+    """AI 절체 임계 모드 on/off."""
+    _ai_threshold_mode[building_id] = enabled
+    logger.info("ai_threshold_mode_set", building_id=building_id, enabled=enabled)
+    return enabled
+
+
+def get_ai_threshold_mode(building_id: str) -> bool:
+    return _ai_threshold_mode.get(building_id, False)
+
+
+def compute_ai_threshold(grid_current: float, rate_period: str, soc: float) -> dict:
+    """경제-물리 절체 임계 산출기 (1단계).
+
+    임계 = clamp( 실측부하 × 요금계수 × SOC계수 , 0.05 ~ 0.20 A )
+
+    - 요금계수: 최대부하(저녁 피크 시간대)일수록 낮춰 적극 방전, 경부하는 높여 배터리 보존.
+      요금 구간이 곧 '피크 예상 시간대'를 대변하므로 합성 XGBoost 예측에 의존하지 않는다(정직).
+    - SOC계수: 배터리 여유가 있으면 공격적(낮게), 부족하면 보수적(높게).
+    - clamp: 실측 스케일 안전범위. 하한 0.05(무부하 0.008 위), 상한 0.20.
+    """
+    base = max(float(grid_current), 0.05)
+    rate_factor = {"최대부하": 0.80, "중간부하": 0.90, "경부하": 1.05}.get(rate_period, 0.90)
+    if soc >= 60:
+        soc_factor = 0.95
+    elif soc >= 30:
+        soc_factor = 1.0
+    else:
+        soc_factor = 1.12
+    raw = base * rate_factor * soc_factor
+    target = max(0.05, min(0.20, round(raw, 4)))
+    return {
+        "computed_a": target,
+        "base_a": round(base, 4),
+        "rate_period": rate_period,
+        "rate_factor": rate_factor,
+        "soc": round(float(soc), 1),
+        "soc_factor": soc_factor,
+    }
+
+
 # 하드웨어 절체 임계(A) 설정 요청 (in-memory). 클라우드 '하드웨어 실측' 탭 → 브리지가
 # 폴링해 게이트웨이 config 갱신 + MQTT config(retained)로 XIAO에 전파. 토글과 동일하게
 # 마지막 값을 유지(TTL 없음) — 브리지 재기동해도 원하는 임계를 반영한다.
