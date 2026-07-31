@@ -16,6 +16,7 @@ from app.api.v1 import (
     grid,
     jeju_ops,
     kepco,
+    live,
     market,
     ops,
     reports,
@@ -51,4 +52,5 @@ api_v1_router.include_router(ops.router)
 api_v1_router.include_router(desk.router)
 api_v1_router.include_router(jeju_ops.router)
 api_v1_router.include_router(drive.router)
+api_v1_router.include_router(live.router)
 api_v1_router.include_router(simulation.router, prefix="/simulation", tags=["simulation"])

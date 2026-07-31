@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0B0E13" />
+<title>PeakBridge — 아파트 주차장의 전기차를 하나의 발전소로</title>
+<meta property="og:title" content="PeakBridge" />
+<meta property="og:description" content="아파트 주차장의 전기차를 하나의 발전소로 — 2026 AI 에너지 스마트홈 메이커톤" />
+<meta property="og:image" content="./slides/s1.jpg" />
+<link rel="stylesheet" as="style" crossorigin
+  href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<style>
+  :root{
+    --bg:#0B0E13; --panel:#161B26; --line:#2C3444;
+    --txt:#EAF0F8; --mut:#8C97A9; --grn:#22D39A;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--txt);
+    font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;overflow:hidden}
+
+  /* ── 무대 ── */
+  #stage{position:fixed;inset:0;display:grid;place-items:center;padding:16px 16px 64px}
+  #frame{position:relative;width:100%;max-width:min(100vw - 32px, (100vh - 96px) * 1.7778);
+    aspect-ratio:16/9;box-shadow:0 24px 70px rgba(0,0,0,.55);border-radius:10px;overflow:hidden;background:#000}
+  #frame img{width:100%;height:100%;display:block;object-fit:contain;user-select:none;-webkit-user-drag:none}
+
+  /* ── 슬라이드 위 링크 (5.1 전용) ── */
+  #links{position:absolute;right:2.2%;bottom:5%;display:none;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+  #links.on{display:flex}
+  .lnk{display:inline-flex;align-items:center;gap:6px;padding:9px 14px;border-radius:10px;
+    background:rgba(34,211,154,.14);border:1.5px solid var(--grn);color:var(--grn);
+    font-size:13px;font-weight:700;text-decoration:none;backdrop-filter:blur(6px);white-space:nowrap}
+  .lnk:hover{background:rgba(34,211,154,.26)}
+  .lnk.alt{background:rgba(120,140,170,.14);border-color:#5D6A7C;color:#C6D0DE}
+  .lnk.alt:hover{background:rgba(120,140,170,.26)}
+  .lnk svg{width:13px;height:13px;flex:none}
+
+  /* ── 실시간 카메라 오버레이 ── */
+  #cam{position:absolute;left:2.2%;top:6%;width:38%;display:none;flex-direction:column;
+    background:rgba(11,14,19,.92);border:1.5px solid var(--grn);border-radius:12px;overflow:hidden;
+    box-shadow:0 18px 50px rgba(0,0,0,.6);backdrop-filter:blur(8px)}
+  #cam.on{display:flex}
+  #cam.big{width:70%;left:15%;top:8%}
+  #camHead{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:8px 10px;font-size:12px;color:var(--txt);border-bottom:1px solid var(--line)}
+  #camHead b{font-weight:700}
+  #camMeta{color:var(--mut);font-size:11px;font-variant-numeric:tabular-nums;margin-left:auto;margin-right:6px}
+  #camClose{border:0;background:transparent;color:var(--mut);font-size:14px;cursor:pointer;padding:2px 4px}
+  #camClose:hover{color:var(--grn)}
+  #camImg{width:100%;display:none;background:#000;aspect-ratio:4/3;object-fit:cover}
+  #camImg.on{display:block}
+  #camWait{padding:26px 14px;text-align:center;color:var(--mut);font-size:12px;line-height:1.7}
+  #camWait small{color:#5D6A7C;font-family:ui-monospace,monospace}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5D6A7C;margin-right:6px}
+  .dot.live{background:var(--grn);animation:pulse 1.5s infinite}
+  @keyframes pulse{50%{opacity:.25}}
+
+  /* ── 하단 바 ── */
+  #bar{position:fixed;left:0;right:0;bottom:0;height:52px;display:flex;align-items:center;gap:14px;
+    padding:0 18px;background:linear-gradient(0deg,rgba(11,14,19,.96),rgba(11,14,19,.72));
+    border-top:1px solid var(--line);z-index:5}
+  #bar .brand{font-weight:800;letter-spacing:-.01em}
+  #bar .brand span{color:var(--grn)}
+  #title{color:var(--mut);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1}
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--txt);border-radius:8px;
+    height:32px;min-width:34px;padding:0 10px;font-size:13px;font-family:inherit;cursor:pointer}
+  .btn:hover{border-color:var(--grn);color:var(--grn)}
+  .btn[aria-pressed="true"]{border-color:var(--grn);color:var(--grn)}
+  #count{font-variant-numeric:tabular-nums;font-size:13px;color:var(--mut);min-width:52px;text-align:center}
+  #prog{position:fixed;left:0;bottom:52px;height:2px;background:var(--grn);width:0;transition:width .25s;z-index:6}
+
+  /* ── 발표자 노트 ── */
+  #notes{position:fixed;left:0;right:0;bottom:52px;max-height:42vh;overflow:auto;padding:18px 22px;
+    background:rgba(22,27,38,.97);border-top:1px solid var(--line);display:none;z-index:4;
+    font-size:14.5px;line-height:1.75;color:#D5DEEA}
+  #notes.on{display:block}
+  #notes h4{margin:0 0 8px;font-size:12px;letter-spacing:.08em;color:var(--grn)}
+
+  @media (max-width:640px){
+    #stage{padding:10px 10px 60px}
+    #title{display:none}
+    .lnk{font-size:11.5px;padding:7px 11px}
+  }
+  @media print{ #bar,#notes,#prog{display:none} }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="frame">
+    <img id="slide" alt="슬라이드" src="./slides/s1.jpg" />
+    <!-- 실시간 현장 카메라 오버레이 -->
+    <div id="cam">
+      <div id="camHead">
+        <span><span class="dot" id="camDot"></span><b id="camLabel">현장 카메라</b></span>
+        <span id="camMeta"></span>
+        <button id="camClose" title="닫기 (C)">✕</button>
+      </div>
+      <img id="camImg" alt="현장 카메라" />
+      <div id="camWait">폰에서 송출을 시작하면 여기에 나옵니다<br /><small>/deck/cam.html</small></div>
+    </div>
+
+    <div id="links">
+      <button class="lnk" id="btnCam" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        실시간 카메라
+      </button>
+      <a class="lnk" id="lnkHw" href="#" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+        하드웨어 실증 사이트
+      </a>
+      <a class="lnk alt" id="lnkApp" href="#" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+        관제 대시보드
+      </a>
+      <a class="lnk alt" id="lnkConsole" href="#" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+        VPP OS 콘솔
+      </a>
+    </div>
+  </div>
+</div>
+
+<div id="prog"></div>
+
+<div id="bar">
+  <div class="brand">Peak<span>Bridge</span></div>
+  <div id="title"></div>
+  <button class="btn" id="prev" title="이전 (←)">←</button>
+  <div id="count">1 / 9</div>
+  <button class="btn" id="next" title="다음 (→)">→</button>
+  <button class="btn" id="camBtn" aria-pressed="false" title="현장 카메라 (C)">카메라</button>
+  <button class="btn" id="noteBtn" aria-pressed="false" title="발표자 노트 (N)">노트</button>
+  <button class="btn" id="fsBtn" title="전체화면 (F)">전체화면</button>
+</div>
+
+<div id="notes"><h4>발표자 노트</h4><p id="noteText"></p></div>
+
+<script>
+/* ─────────────────────────────────────────────
+   링크 주소 — 여기만 바꾸면 됩니다
+   ───────────────────────────────────────────── */
+const BASE = 'https://peakbridge-production.up.railway.app';
+const LINKS = {
+  hardware: BASE + '/app/hardware',       // 하드웨어 실측 탭 (로컬 게이트웨이 대시보드의 클라우드 뷰)
+  app:      BASE + '/app/',               // 아파트 관제 대시보드
+  console:  BASE + '/console/',           // VPP OS 콘솔
+};
+const LINK_SLIDE = 6;   // 5.1 실증 구성 슬라이드 (덱에서 6번째)
+const TOTAL = 9;
+
+/* 발표자 노트 · 제목 (파일 직접 열기에서도 동작하도록 내장) */
+const DATA = {"notes": {"1": "안녕하십니까, 2026 AI 에너지 스마트홈 메이커톤에 참가한 유니온 AI의 김영광입니다. 저희는 이런 질문에서 시작했습니다 — 어떻게 하면 우리가 가진 기술로 사회 전체에 가장 크고 실질적인 전력 절감 효용을 만들어낼 수 있을까. 가정 내 절전도 중요하지만, 인프라 단위의 시스템 최적화가 이루어질 때 효용이 훨씬 커진다고 생각했습니다. 그래서 시선을 집 안을 넘어 아파트 주차장으로 옮겼습니다.", "2": "저희가 주목한 아파트 전력 환경의 구조적 과제는 세 가지입니다. 첫째, 전기차 충전이 겹치는 퇴근 시간 아파트 변압기는 107% 과부하에 시달리며 막대한 교체 비용을 요구합니다. 둘째, 기껏 설치된 ESS 자원들이 제어 소프트웨어가 없어 잠들어 있습니다. 셋째, 국내 최대의 전력 잠재력을 가진 아파트가 수요관리 시장에서 완전히 소외되어 있습니다. 저희는 이 얽힌 문제를 무리한 설비 교체 대신 소프트웨어로 연결합니다.", "3": "솔루션이 하는 일은 직관적입니다. 입주민에게 불편하게 전기를 아끼라고 강요하지 않습니다. 요금 폭탄을 만드는 저 피크만 정확히 잘라냅니다. 전기요금은 총사용량이 아니라 15분 단위에서 튀어 오른 최고점 하나로 기본요금이 결정됩니다. 피크가 예상되면 충전 출력을 부드럽게 조절하면서 동시에 ESS를 방전시켜 전력 충격을 흡수합니다. 계량기가 인식하는 피크는 깎여나가고 요금은 떨어집니다.", "4": "저희가 선정한 사용자는 CPO의 현장·운영 담당자입니다. 전력시장에서는 수요에 따라 전기의 값이 다릅니다. 같은 1kWh라도 시간대별로 값이 다릅니다. 새벽에는 싼 발전소만 돌려도 충분하지만, 저녁에는 비싼 발전소까지 동원해야 하기 때문입니다.", "5": "여기가 이 사업의 출발점입니다. 피크 시간대의 비싼 전기를 그대로 쓰는 것이 아니라, ESS에 미리 저장해둔 전기를 씁니다. 새벽에 싼 전기를 배터리에 채워두고 저녁에 그 전기를 씁니다. 소프트웨어 시뮬레이션만으로는 실제로 전력이 옮겨간다는 것을 증명할 수 없기 때문에, 물리 회로를 스케일 다운해 계측·판단·절체·복귀 전 과정을 직접 보여드리겠습니다.", "6": "실증 구성입니다. CT 센서로 한전 인입 전류를 실시간 측정하고, XIAO ESP32S3가 임계 판정과 릴레이 구동, MQTT 통신을 담당합니다. 2채널 릴레이가 한전과 인버터 사이를 절체하고, INA219가 배터리 출력 전류와 쿨롱 카운팅 SOC를 계산합니다. BME280이 온도를 감시해 과열 시 강제로 한전에 복귀시킵니다. 배터리는 LiFePO4 4S 12.8V 12Ah입니다. 하드웨어 실증은 스케줄링 알고리즘 기반으로 동작합니다.", "7": "지금까지 보신 하드웨어 실증은 스케줄링 기반입니다. 그런데 단지가 하나에서 열 개, 백 개로 늘어나면 질문이 바뀝니다. 몇 시에 켤까가 아니라, 내일 얼마나 쓸까 그리고 그 부하를 어떻게 나눌까가 됩니다. 여기서부터가 AI의 영역입니다. 첫째, 얼마나 쓸까 — KPX 실측 10년치 9만 시간으로 검증한 XGBoost 수요예측입니다. R² 0.981, 상대오차 1.57%이고, 직전 값을 그대로 쓰는 베이스라인 대비 오차를 73% 줄였습니다. 이 오차가 그대로 콘솔 예측선의 밴드 폭이 됩니다. 둘째, 언제 얼마나 충전할까 — 강화학습 PPO로 500만 스텝 학습했습니다. 충전기가 스무 대, 쉰 대로 늘어나면 누구의 출력을 얼마나 줄일지가 조건문으로 감당되지 않습니다. 그 배분을 학습한 모델이고, PyTorch 없이 NumPy만으로 추론하는 서빙 계층을 직접 구현해 가벼운 클라우드에서도 실시간으로 돕니다.", "8": "저희가 첫 시장으로 제주를 고른 이유를 데이터로 말씀드립니다. 전력거래소 공공데이터 전수 분석입니다. 2021년부터 2023년까지 플러스DR 272건, 90일치. 낙찰률 100% — 입찰한 1,444.5MWh가 전부 낙찰됐습니다. 경쟁자가 없습니다. 이행률 41.7% — 낙찰받고 실제로 더 쓴 것은 602MWh뿐입니다. 기존 참여자가 공장과 건물이라 더 쓰라고 해도 쓸 데가 없기 때문입니다. 배터리는 시키면 100% 합니다. 저희가 파는 것은 전기가 아니라 이행 확실성입니다.", "9": "수익 구조입니다. 실증 6개월 동안 단지가 내는 돈은 0원입니다. 계측기, 소프트웨어, 운영까지 전부 저희가 부담하고 단지는 데이터와 설치 공간만 제공합니다. 아파트 입장에서 예산을 새로 잡을 필요도, 설비를 바꿀 필요도 없습니다. 6개월 이후에는 플러스DR 인센티브와 기본요금 절감이 발생하고, 그것을 단지와 나눕니다. 그다음은 여러 단지를 묶어 집합입찰합니다. 용량이 클수록 시장에서의 자격과 협상력이 올라갑니다. 도입 장벽이 0이면 확산 속도를 결정하는 것은 자본이 아니라 계약입니다. 팀 유니온 AI였습니다. 감사합니다."}, "titles": {"1": "PeakBridge", "2": "왜 지금인가", "3": "아끼라고 하지 않습니다. 피크만 자릅니다", "4": "같은 1kWh라도, 시간에 따라 값이 다릅니다", "5": "싼 시간에 채우고, 비싼 시간에 씁니다", "6": "계측 · 판단 · 절체를 모두 실물로", "7": "AI가 답하는 두 가지 질문", "8": "경쟁이 없는 시장, 그리고 비어 있는 자리", "9": "CPO의 매출 상한을 올려드립니다"}};
+
+const $ = (id) => document.getElementById(id);
+let idx = 1, notes = DATA.notes || {}, titles = DATA.titles || {};
+
+function render() {
+  $('slide').src = `./slides/s${idx}.jpg`;
+  $('count').textContent = `${idx} / ${TOTAL}`;
+  $('title').textContent = titles[idx] || '';
+  $('noteText').textContent = notes[idx] || '(노트 없음)';
+  $('prog').style.width = (idx / TOTAL * 100) + '%';
+  $('links').classList.toggle('on', idx === LINK_SLIDE);
+  history.replaceState(null, '', '#' + idx);
+  [idx + 1, idx + 2].forEach(n => { if (n <= TOTAL) new Image().src = `./slides/s${n}.jpg`; });
+}
+function go(n) { idx = Math.min(TOTAL, Math.max(1, n)); render(); }
+
+$('lnkHw').href = LINKS.hardware;
+$('lnkApp').href = LINKS.app;
+$('lnkConsole').href = LINKS.console;
+
+$('prev').onclick = () => go(idx - 1);
+$('next').onclick = () => go(idx + 1);
+$('noteBtn').onclick = (e) => {
+  const on = $('notes').classList.toggle('on');
+  e.currentTarget.setAttribute('aria-pressed', String(on));
+};
+$('fsBtn').onclick = () => {
+  document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+};
+
+/* ─────────────────────────────────────────────
+   실시간 현장 카메라 — 폰(/deck/cam.html)이 올린 프레임을 폴링해 표시
+   ───────────────────────────────────────────── */
+const LIVE = location.origin + '/api/v1/live';
+let camOn = false, camTimer = null, lastSeq = -1;
+
+function setCam(on) {
+  camOn = on;
+  $('cam').classList.toggle('on', on);
+  $('camBtn').setAttribute('aria-pressed', String(on));
+  clearInterval(camTimer);
+  if (on) { pollCam(); camTimer = setInterval(pollCam, 400); }
+}
+
+async function pollCam() {
+  try {
+    const r = await fetch(LIVE + '/status', { cache: 'no-store' });
+    const d = (await r.json()).data || {};
+    $('camDot').classList.toggle('live', !!d.online);
+    $('camLabel').textContent = d.label || '현장 카메라';
+    $('camMeta').textContent = d.online ? `${d.fps || 0} fps · ${d.size_kb || 0}KB` : '대기 중';
+    if (d.online && d.seq !== lastSeq) {
+      lastSeq = d.seq;
+      $('camImg').src = LIVE + '/frame.jpg?s=' + d.seq;
+      $('camImg').classList.add('on');
+      $('camWait').style.display = 'none';
+    } else if (!d.online) {
+      $('camImg').classList.remove('on');
+      $('camWait').style.display = 'block';
+    }
+  } catch (e) {
+    $('camMeta').textContent = '연결 없음';
+  }
+}
+
+$('camBtn').onclick = () => setCam(!camOn);
+$('camClose').onclick = () => setCam(false);
+$('btnCam').onclick = () => setCam(!camOn);
+$('camImg').onclick = () => $('cam').classList.toggle('big');
+
+addEventListener('keydown', (e) => {
+  if (e.key.toLowerCase() === 'c') { e.preventDefault(); setCam(!camOn); return; }
+  if (['ArrowRight', 'PageDown', ' '].includes(e.key)) { e.preventDefault(); go(idx + 1); }
+  else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); go(idx - 1); }
+  else if (e.key === 'Home') go(1);
+  else if (e.key === 'End') go(TOTAL);
+  else if (e.key.toLowerCase() === 'n') $('noteBtn').click();
+  else if (e.key.toLowerCase() === 'f') $('fsBtn').click();
+  else if (/^[1-9]$/.test(e.key)) go(+e.key);
+});
+
+/* 클릭·스와이프 이동 (링크 클릭은 제외) */
+$('frame').addEventListener('click', (e) => {
+  if (e.target.closest('a')) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  go(idx + (e.clientX - r.left < r.width * 0.3 ? -1 : 1));
+});
+let x0 = null;
+addEventListener('touchstart', (e) => { x0 = e.touches[0].clientX; }, { passive: true });
+addEventListener('touchend', (e) => {
+  if (x0 === null) return;
+  const dx = e.changedTouches[0].clientX - x0;
+  if (Math.abs(dx) > 45) go(idx + (dx < 0 ? 1 : -1));
+  x0 = null;
+}, { passive: true });
+
+if (location.hash) { const n = parseInt(location.hash.slice(1), 10); if (n >= 1 && n <= TOTAL) idx = n; }
+render();
+</script>
+</body>
+</html>

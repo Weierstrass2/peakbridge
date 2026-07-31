@@ -195,6 +195,20 @@ def create_app() -> FastAPI:
     except Exception as exc:
         logger.warning("console_mount_failed", error=str(exc))
 
+    # 발표 덱 정적 서빙 (/deck) — 슬라이드 웹 뷰어
+    try:
+        from pathlib import Path
+
+        from fastapi.staticfiles import StaticFiles
+
+        deck_dir = Path(__file__).resolve().parents[1] / "static" / "deck"
+        if deck_dir.exists():
+            app.mount(
+                "/deck", StaticFiles(directory=str(deck_dir), html=True), name="deck"
+            )
+    except Exception as exc:
+        logger.warning("deck_mount_failed", error=str(exc))
+
     # 차주 모바일 화면 정적 서빙 (/drive) — QR 접속 대상
     try:
         from pathlib import Path

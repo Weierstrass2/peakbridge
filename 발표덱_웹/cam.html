@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0B0E13" />
+<title>현장 카메라 송출 — PeakBridge</title>
+<link rel="stylesheet" as="style" crossorigin
+  href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+<style>
+  :root{--bg:#0B0E13;--panel:#161B26;--line:#2C3444;--txt:#EAF0F8;--mut:#8C97A9;--grn:#22D39A;--red:#FF6B6B}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{margin:0;background:var(--bg);color:var(--txt);
+    font-family:'Pretendard Variable',Pretendard,-apple-system,system-ui,sans-serif;
+    padding:env(safe-area-inset-top) 14px calc(14px + env(safe-area-inset-bottom))}
+  .wrap{max-width:520px;margin:0 auto}
+  h1{font-size:19px;margin:16px 0 4px}
+  .sub{color:var(--mut);font-size:12.5px;margin:0 0 14px;line-height:1.5}
+  video{width:100%;border-radius:12px;background:#000;display:block;aspect-ratio:4/3;object-fit:cover}
+  .row{display:flex;gap:8px;margin-top:10px}
+  button{flex:1;padding:15px;border-radius:12px;border:0;font-size:15px;font-weight:700;
+    font-family:inherit;cursor:pointer}
+  #go{background:var(--grn);color:#06251b}
+  #stop{background:transparent;border:1px solid var(--line);color:var(--mut)}
+  button:disabled{opacity:.45}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+  .kv{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}
+  .kv+.kv{border-top:1px solid var(--line)}
+  .kv b{font-variant-numeric:tabular-nums}
+  .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#5D6A7C;margin-right:6px}
+  .dot.on{background:var(--grn);animation:p 1.5s infinite}
+  @keyframes p{50%{opacity:.3}}
+  label{display:block;font-size:12px;color:var(--mut);margin:10px 0 6px}
+  select,input[type=text]{width:100%;padding:11px;border-radius:10px;background:#0E121A;
+    border:1px solid var(--line);color:var(--txt);font-size:15px;font-family:inherit}
+  .err{background:rgba(255,107,107,.12);border:1px solid var(--red);color:#ffb3b3;
+    border-radius:10px;padding:11px;font-size:13px;margin-top:10px;display:none}
+  .err.on{display:block}
+  .hint{font-size:11.5px;color:#5D6A7C;margin-top:12px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>현장 카메라 송출</h1>
+  <p class="sub">이 폰의 후면 카메라로 하드웨어 리그를 비추면,<br />발표덱과 관제 화면에서 실시간으로 같이 봅니다.</p>
+
+  <video id="v" playsinline muted autoplay></video>
+
+  <div class="row">
+    <button id="go">송출 시작</button>
+    <button id="stop" disabled>중지</button>
+  </div>
+
+  <div class="err" id="err"></div>
+
+  <div class="card">
+    <div class="kv"><span><span class="dot" id="dot"></span>상태</span><b id="st">대기</b></div>
+    <div class="kv"><span>보낸 프레임</span><b id="sent">0</b></div>
+    <div class="kv"><span>실측 fps</span><b id="fps">0</b></div>
+    <div class="kv"><span>프레임 크기</span><b id="kb">0 KB</b></div>
+  </div>
+
+  <div class="card">
+    <label for="cam">카메라</label>
+    <select id="cam"></select>
+    <label for="fpsSel">전송 속도 (네트워크가 느리면 낮추세요)</label>
+    <select id="fpsSel">
+      <option value="200">5 fps — 기본</option>
+      <option value="333">3 fps</option>
+      <option value="500">2 fps — 절약</option>
+      <option value="125">8 fps — 부드럽게</option>
+    </select>
+    <label for="label">화면에 표시할 이름</label>
+    <input type="text" id="label" value="하드웨어 실증 리그" maxlength="30" />
+  </div>
+
+  <p class="hint">
+    · 화면이 꺼지면 송출이 멈춥니다. 자동 잠금을 꺼두세요.<br />
+    · 카메라 권한은 HTTPS에서만 허용됩니다.<br />
+    · 관람 화면: <b>/deck</b> 6번 슬라이드의 <b>실시간 카메라</b> 버튼
+  </p>
+</div>
+
+<script>
+const API = location.origin + '/api/v1/live';
+const $ = (id) => document.getElementById(id);
+let stream = null, timer = null, sent = 0, sending = false;
+const canvas = document.createElement('canvas');
+
+function showErr(m) { $('err').textContent = m; $('err').classList.add('on'); }
+function clearErr() { $('err').classList.remove('on'); }
+
+async function listCams() {
+  try {
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const cams = devs.filter((d) => d.kind === 'videoinput');
+    $('cam').innerHTML = cams
+      .map((c, i) => `<option value="${c.deviceId}">${c.label || '카메라 ' + (i + 1)}</option>`)
+      .join('');
+    const back = cams.find((c) => /back|rear|environment|후면/i.test(c.label));
+    if (back) $('cam').value = back.deviceId;
+  } catch (e) { /* 권한 전이면 라벨이 비어 있다 — 무시 */ }
+}
+
+async function openCam() {
+  if (stream) stream.getTracks().forEach((t) => t.stop());
+  const id = $('cam').value;
+  const constraints = {
+    video: id ? { deviceId: { exact: id }, width: { ideal: 1280 } }
+              : { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } },
+    audio: false,
+  };
+  stream = await navigator.mediaDevices.getUserMedia(constraints);
+  $('v').srcObject = stream;
+  await listCams();
+}
+
+async function sendFrame() {
+  if (sending || !stream) return;
+  const v = $('v');
+  if (!v.videoWidth) return;
+  sending = true;
+  try {
+    const W = 960;
+    canvas.width = W;
+    canvas.height = Math.round((v.videoHeight / v.videoWidth) * W);
+    canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.6));
+    if (!blob) return;
+    const res = await fetch(API + '/frame-raw', {
+      method: 'POST',
+      headers: { 'Content-Type': 'image/jpeg', 'x-live-label': encodeURIComponent($('label').value) },
+      body: blob,
+    });
+    const j = await res.json();
+    const d = j.data || j;
+    if (d.error) { showErr(d.error); return; }
+    clearErr();
+    sent++;
+    $('sent').textContent = sent;
+    $('fps').textContent = d.fps ?? 0;
+    $('kb').textContent = Math.round(blob.size / 1024) + ' KB';
+  } catch (e) {
+    showErr('전송 실패 — 네트워크를 확인하세요: ' + e.message);
+  } finally {
+    sending = false;
+  }
+}
+
+function setLive(on) {
+  $('dot').classList.toggle('on', on);
+  $('st').textContent = on ? '송출 중' : '대기';
+  $('go').disabled = on;
+  $('stop').disabled = !on;
+}
+
+$('go').onclick = async () => {
+  try {
+    clearErr();
+    await openCam();
+    const ms = +$('fpsSel').value;
+    clearInterval(timer);
+    timer = setInterval(sendFrame, ms);
+    setLive(true);
+  } catch (e) {
+    showErr('카메라를 열 수 없습니다: ' + e.message + ' (HTTPS인지, 권한을 허용했는지 확인하세요)');
+  }
+};
+
+$('stop').onclick = async () => {
+  clearInterval(timer); timer = null;
+  if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+  $('v').srcObject = null;
+  setLive(false);
+  try { await fetch(API + '/stop', { method: 'POST' }); } catch (e) { /* 무시 */ }
+};
+
+$('fpsSel').onchange = () => {
+  if (!timer) return;
+  clearInterval(timer);
+  timer = setInterval(sendFrame, +$('fpsSel').value);
+};
+$('cam').onchange = () => { if (stream) openCam().catch((e) => showErr(e.message)); };
+
+listCams();
+</script>
+</body>
+</html>
