@@ -131,6 +131,7 @@
   <div id="count">1 / 9</div>
   <button class="btn" id="next" title="다음 (→)">→</button>
   <button class="btn" id="camBtn" aria-pressed="false" title="현장 카메라 (C)">카메라</button>
+  <button class="btn" id="presentBtn" title="발표자 뷰 — 새 창 (P)">발표자뷰</button>
   <button class="btn" id="noteBtn" aria-pressed="false" title="발표자 노트 (N)">노트</button>
   <button class="btn" id="fsBtn" title="전체화면 (F)">전체화면</button>
 </div>
@@ -156,17 +157,52 @@ const DATA = {"notes": {"1": "안녕하십니까, 2026 AI 에너지 스마트홈
 const $ = (id) => document.getElementById(id);
 let idx = 1, notes = DATA.notes || {}, titles = DATA.titles || {};
 
+/* 발표자 창에서 편집한 노트를 우선 사용 (localStorage 공유) */
+const NOTE_KEY = 'pb_notes';
+function noteFor(i) {
+  try { const ov = JSON.parse(localStorage.getItem(NOTE_KEY) || '{}'); if (ov[i]) return ov[i]; } catch (e) {}
+  return notes[i] || '(노트 없음)';
+}
+
 function render() {
   $('slide').src = `./slides/s${idx}.jpg`;
   $('count').textContent = `${idx} / ${TOTAL}`;
   $('title').textContent = titles[idx] || '';
-  $('noteText').textContent = notes[idx] || '(노트 없음)';
+  $('noteText').textContent = noteFor(idx);
   $('prog').style.width = (idx / TOTAL * 100) + '%';
   $('links').classList.toggle('on', idx === LINK_SLIDE);
   history.replaceState(null, '', '#' + idx);
+  broadcast();
   [idx + 1, idx + 2].forEach(n => { if (n <= TOTAL) new Image().src = `./slides/s${n}.jpg`; });
 }
 function go(n) { idx = Math.min(TOTAL, Math.max(1, n)); render(); }
+
+/* ── 발표자 창 동기화 (BroadcastChannel + localStorage 이벤트, 이중화) ── */
+const SYNC_KEY = 'pb_cur';
+let bc = null;
+try { bc = new BroadcastChannel('pb-deck'); } catch (e) {}
+let applyingRemote = false;
+
+function broadcast() {
+  if (applyingRemote) return;
+  const msg = { idx, t: Date.now() };
+  try { localStorage.setItem(SYNC_KEY, JSON.stringify(msg)); } catch (e) {}
+  if (bc) { try { bc.postMessage(msg); } catch (e) {} }
+}
+function applyRemote(n) {
+  if (n >= 1 && n <= TOTAL && n !== idx) { applyingRemote = true; idx = n; render(); applyingRemote = false; }
+}
+if (bc) bc.onmessage = (e) => {
+  if (!e.data) return;
+  if (e.data.idx) applyRemote(e.data.idx);
+  else if (e.data.noteIdx) $('noteText').textContent = noteFor(idx);  // 노트 편집 반영
+};
+addEventListener('storage', (e) => {
+  if (e.key === SYNC_KEY && e.newValue) { try { applyRemote(JSON.parse(e.newValue).idx); } catch (_) {} }
+  if (e.key === NOTE_KEY) $('noteText').textContent = noteFor(idx);
+});
+
+function openPresenter() { window.open('./present.html', 'pbPresenter', 'width=1360,height=860'); }
 
 $('lnkHw').href = LINKS.hardware;
 $('lnkApp').href = LINKS.app;
@@ -181,6 +217,7 @@ $('noteBtn').onclick = (e) => {
 $('fsBtn').onclick = () => {
   document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
 };
+$('presentBtn').onclick = openPresenter;
 
 /* ─────────────────────────────────────────────
    실시간 현장 카메라 — 폰(/deck/cam.html)이 올린 프레임을 폴링해 표시
@@ -245,6 +282,7 @@ addEventListener('keydown', (e) => {
   else if (e.key === 'Home') go(1);
   else if (e.key === 'End') go(TOTAL);
   else if (e.key.toLowerCase() === 'n') $('noteBtn').click();
+  else if (e.key.toLowerCase() === 'p') { e.preventDefault(); openPresenter(); }
   else if (e.key.toLowerCase() === 'f') $('fsBtn').click();
   else if (/^[1-9]$/.test(e.key)) go(+e.key);
 });
