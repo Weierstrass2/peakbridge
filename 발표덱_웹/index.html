@@ -186,29 +186,45 @@ $('fsBtn').onclick = () => {
    실시간 현장 카메라 — 폰(/deck/cam.html)이 올린 프레임을 폴링해 표시
    ───────────────────────────────────────────── */
 const LIVE = location.origin + '/api/v1/live';
-let camOn = false, camTimer = null, lastSeq = -1;
+let camOn = false, statusTimer = null, frameStop = true;
 
 function setCam(on) {
   camOn = on;
   $('cam').classList.toggle('on', on);
   $('camBtn').setAttribute('aria-pressed', String(on));
-  clearInterval(camTimer);
-  if (on) { pollCam(); camTimer = setInterval(pollCam, 400); }
+  clearInterval(statusTimer);
+  frameStop = !on;
+  if (on) {
+    pollStatus();
+    statusTimer = setInterval(pollStatus, 1000);  // 메타(라벨·fps·온라인)만 1초마다
+    loopFrame();                                  // 프레임은 별도로 최대 속도 루프
+  }
 }
 
-async function pollCam() {
+/* 프레임 루프 — 이전 프레임이 도착하면 곧바로 다음 요청.
+   네트워크 왕복 시간에 자동 적응하므로 고정 폴링보다 빠르고 요청이 쌓이지 않는다. */
+function loopFrame() {
+  if (frameStop) return;
+  const img = new Image();
+  img.onload = () => {
+    if (frameStop) return;
+    $('camImg').src = img.src;
+    $('camImg').classList.add('on');
+    $('camWait').style.display = 'none';
+    setTimeout(loopFrame, 40);   // 서버 과부하 방지용 최소 텀
+  };
+  img.onerror = () => { if (!frameStop) setTimeout(loopFrame, 300); };  // 204·오류 시 천천히 재시도
+  img.src = LIVE + '/frame.jpg?t=' + Date.now();
+}
+
+async function pollStatus() {
   try {
     const r = await fetch(LIVE + '/status', { cache: 'no-store' });
     const d = (await r.json()).data || {};
     $('camDot').classList.toggle('live', !!d.online);
     $('camLabel').textContent = d.label || '현장 카메라';
     $('camMeta').textContent = d.online ? `${d.fps || 0} fps · ${d.size_kb || 0}KB` : '대기 중';
-    if (d.online && d.seq !== lastSeq) {
-      lastSeq = d.seq;
-      $('camImg').src = LIVE + '/frame.jpg?s=' + d.seq;
-      $('camImg').classList.add('on');
-      $('camWait').style.display = 'none';
-    } else if (!d.online) {
+    if (!d.online) {
       $('camImg').classList.remove('on');
       $('camWait').style.display = 'block';
     }

@@ -65,10 +65,11 @@
     <select id="cam"></select>
     <label for="fpsSel">전송 속도 (네트워크가 느리면 낮추세요)</label>
     <select id="fpsSel">
-      <option value="200">5 fps — 기본</option>
+      <option value="100">10 fps — 가장 빠르게</option>
+      <option value="125" selected>8 fps — 기본</option>
+      <option value="200">5 fps</option>
       <option value="333">3 fps</option>
       <option value="500">2 fps — 절약</option>
-      <option value="125">8 fps — 부드럽게</option>
     </select>
     <label for="label">화면에 표시할 이름</label>
     <input type="text" id="label" value="하드웨어 실증 리그" maxlength="30" />
@@ -121,11 +122,11 @@ async function sendFrame() {
   if (!v.videoWidth) return;
   sending = true;
   try {
-    const W = 960;
+    const W = 800;  // 전송량↓ = 왕복 지연↓ (프로젝터에서도 충분한 해상도)
     canvas.width = W;
     canvas.height = Math.round((v.videoHeight / v.videoWidth) * W);
     canvas.getContext('2d').drawImage(v, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.6));
+    const blob = await new Promise((r) => canvas.toBlob(r, 'image/jpeg', 0.55));
     if (!blob) return;
     const res = await fetch(API + '/frame-raw', {
       method: 'POST',
